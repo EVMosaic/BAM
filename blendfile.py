@@ -61,8 +61,8 @@ def open_blend(filename, access="rb"):
     Known issue: does not support packaged blend files
     """
     handle = open(filename, access)
-    magic = read_string(handle, 7)
-    if magic == "BLENDER":
+    magic = handle.read(7)
+    if magic == b"BLENDER":
         log.debug("normal blendfile detected")
         handle.seek(0, os.SEEK_SET)
         res = BlendFile(handle)
@@ -89,112 +89,6 @@ def open_blend(filename, access="rb"):
         return res
 
 
-######################################################
-#    Write a string to the file.
-######################################################
-def write_string(handle, astring, fieldlen):
-    assert(isinstance(astring, str))
-    stringw = ""
-    if len(astring) >= fieldlen:
-        stringw = astring[0:fieldlen]
-    else:
-        stringw = astring + '\0'
-    handle.write(stringw.encode('utf-8'))
-
-
-def write_bytes(handle, astring, fieldlen):
-    assert(isinstance(astring, (bytes, bytearray)))
-    stringw = b''
-    if len(astring) >= fieldlen:
-        stringw = astring[0:fieldlen]
-    else:
-        stringw = astring + b'\0'
-    print(stringw)
-    print(handle)
-    handle.write(stringw)
-
-
-def _string_struct(length):
-    if length < len(_string_struct.STRING):
-        st = _string_struct.STRING[length]
-    else:
-        st = struct.Struct("%ds" % length)
-    return st
-_string_struct.STRING = [struct.Struct("%ds" % i) for i in range(0, 2048)]
-
-
-def read_string(handle, length):
-    """
-    read_string reads a String of given length from a file handle
-    """
-    st = _string_struct(length)
-    return st.unpack(handle.read(st.size))[0].decode('utf-8')
-
-
-def read_string0(data, offset):
-    """
-    read_string0 reads a zero terminating String from a file handle
-    """
-    add = 0
-
-    # TODO, faster method!
-    while data[offset + add] != 0:
-        add += 1
-
-    st = _string_struct(add)
-
-    result = st.unpack_from(data, offset)[0].decode('utf-8')
-    return result
-
-######################################################
-#    ReadUShort reads an unsigned short from a file handle
-######################################################
-USHORT = [struct.Struct("<H"), struct.Struct(">H")]
-def ReadUShort(handle, fileheader):
-    us = USHORT[fileheader.endian_index]
-    return us.unpack(handle.read(us.size))[0]
-
-
-######################################################
-#    ReadUInt reads an unsigned integer from a file handle
-######################################################
-UINT = [struct.Struct("<I"), struct.Struct(">I")]
-def ReadUInt(handle, fileheader):
-    us = UINT[fileheader.endian_index]
-    return us.unpack(handle.read(us.size))[0]
-
-
-def ReadInt(handle, fileheader):
-    return struct.unpack(fileheader.endian_str + "i", handle.read(4))[0]
-
-
-def ReadFloat(handle, fileheader):
-    return struct.unpack(fileheader.endian_str + "f", handle.read(4))[0]
-
-
-SSHORT = [struct.Struct("<h"), struct.Struct(">h")]
-def ReadShort(handle, fileheader):
-    us = SSHORT[fileheader.endian_index]
-    return us.unpack(handle.read(us.size))[0]
-
-
-ULONG = [struct.Struct("<Q"), struct.Struct(">Q")]
-def ReadULong(handle, fileheader):
-    us = ULONG[fileheader.endian_index]
-    return us.unpack(handle.read(us.size))[0]
-
-
-######################################################
-#    ReadPointer reads an pointerfrom a file handle
-#    the pointersize is given by the header (BlendFileHeader)
-######################################################
-def ReadPointer(handle, header):
-    if header.pointer_size == 4:
-        us = UINT[header.endian_index]
-        return us.unpack(handle.read(us.size))[0]
-    if header.pointer_size == 8:
-        us = ULONG[header.endian_index]
-        return us.unpack(handle.read(us.size))[0]
 
 
 ######################################################
@@ -433,9 +327,9 @@ class DNACatalog:
 
     def __init__(self, header, block, handle):
         log.debug("building DNA catalog")
-        shortstruct = USHORT[header.endian_index]
-        shortstruct2 = struct.Struct(str(USHORT[header.endian_index].format.decode() + 'H'))
-        intstruct = UINT[header.endian_index]
+        shortstruct = DNA_IO.USHORT[header.endian_index]
+        shortstruct2 = struct.Struct(str(DNA_IO.USHORT[header.endian_index].format.decode() + 'H'))
+        intstruct = DNA_IO.UINT[header.endian_index]
         data = handle.read(block.size)
         self.names = []
         self.types = []
@@ -447,7 +341,7 @@ class DNACatalog:
 
         log.debug("building #%d names" % names_len)
         for i in range(names_len):
-            tName = read_string0(data, offset)
+            tName = DNA_IO.read_string0(data, offset)
             offset = offset + len(tName) + 1
             self.names.append(DNAName(tName))
         del names_len
@@ -458,7 +352,7 @@ class DNACatalog:
         offset += 4
         log.debug("building #"+str(types_len)+" types")
         for i in range(types_len):
-            tType = read_string0(data, offset)
+            tType = DNA_IO.read_string0(data, offset)
             self.types.append([tType, 0, None])
             offset += len(tType) + 1
 
@@ -588,15 +482,15 @@ class DNAStructure:
                 if len(rest) == 0:
 
                     if fname.is_pointer:
-                        return ReadPointer(handle, header)
+                        return DNA_IO.read_pointer(handle, header)
                     elif ftype[0] == "int":
-                        return ReadInt(handle, header)
+                        return DNA_IO.read_int(handle, header)
                     elif ftype[0] == "short":
-                        return ReadShort(handle, header)
+                        return DNA_IO.read_short(handle, header)
                     elif ftype[0] == "float":
-                        return ReadFloat(handle, header)
+                        return DNA_IO.read_float(handle, header)
                     elif ftype[0] == "char":
-                        return read_string(handle, fname.array_size)
+                        return DNA_IO.read_string(handle, fname.array_size)
                 else:
                     return ftype[2].field_get(header, handle, rest)
 
@@ -618,15 +512,130 @@ class DNAStructure:
                 if len(rest) == 0:
                     if ftype[0] == "char":
                         if type(value) is str:
-                            return write_string(handle, value, fname.array_size)
+                            return DNA_IO.write_string(handle, value, fname.array_size)
                         else:
-                            return write_bytes(handle, value, fname.array_size)
+                            return DNA_IO.write_bytes(handle, value, fname.array_size)
                 else:
                     return ftype[2].field_set(header, handle, rest, value)
             else:
                 offset += field[2]
 
         return None
+
+class DNA_IO:
+    """
+    Module like class, for read-write utility functions.
+
+    Only stores static methods & constants.
+    """
+
+    __slots__ = ()
+    # ----
+    # Methods for read/write,
+    # these are only here to avoid clogging global-namespace
+    @staticmethod
+    def write_string(handle, astring, fieldlen):
+        assert(isinstance(astring, str))
+        stringw = ""
+        if len(astring) >= fieldlen:
+            stringw = astring[0:fieldlen]
+        else:
+            stringw = astring + '\0'
+        handle.write(stringw.encode('utf-8'))
+
+    @staticmethod
+    def write_bytes(handle, astring, fieldlen):
+        assert(isinstance(astring, (bytes, bytearray)))
+        stringw = b''
+        if len(astring) >= fieldlen:
+            stringw = astring[0:fieldlen]
+        else:
+            stringw = astring + b'\0'
+        print(stringw)
+        print(handle)
+        handle.write(stringw)
+
+    _STRING = [struct.Struct("%ds" % i) for i in range(0, 2048)]
+    @staticmethod
+    def _string_struct(length):
+        if length < len(DNA_IO._STRING):
+            st = DNA_IO._STRING[length]
+        else:
+            st = struct.Struct("%ds" % length)
+        return st
+
+    @staticmethod
+    def read_string(handle, length):
+        """
+        read_string reads a String of given length from a file handle
+        """
+        st = DNA_IO._string_struct(length)
+        return st.unpack(handle.read(st.size))[0].decode('utf-8')
+
+    @staticmethod
+    def read_string0(data, offset):
+        """
+        read_string0 reads a zero terminating String from a file handle
+        """
+        add = 0
+
+        # TODO, faster method!
+        while data[offset + add] != 0:
+            add += 1
+
+        st = DNA_IO._string_struct(add)
+
+        result = st.unpack_from(data, offset)[0].decode('utf-8')
+        return result
+
+    USHORT = struct.Struct("<H"), struct.Struct(">H")
+    @staticmethod
+    def read_ushort(handle, fileheader):
+        st = USHORT[fileheader.endian_index]
+        return st.unpack(handle.read(st.size))[0]
+
+    UINT = struct.Struct("<I"), struct.Struct(">I")
+    @staticmethod
+    def read_uint(handle, fileheader):
+        st = UINT[fileheader.endian_index]
+        return st.unpack(handle.read(st.size))[0]
+
+    SINT = struct.Struct("<i"), struct.Struct(">i")
+    @staticmethod
+    def read_int(handle, fileheader):
+        st = SINT[fileheader.endian_index]
+        return st.unpack(handle.read(st.size))[0]
+
+    @staticmethod
+    def read_float(handle, fileheader):
+        return struct.unpack(fileheader.endian_str + "f", handle.read(4))[0]
+
+
+    SSHORT = struct.Struct("<h"), struct.Struct(">h")
+    @staticmethod
+    def read_short(handle, fileheader):
+        st = SSHORT[fileheader.endian_index]
+        return st.unpack(handle.read(st.size))[0]
+
+
+    ULONG = struct.Struct("<Q"), struct.Struct(">Q")
+    @staticmethod
+    def read_ulong(handle, fileheader):
+        st = ULONG[fileheader.endian_index]
+        return st.unpack(handle.read(st.size))[0]
+
+    @staticmethod
+    def read_pointer(handle, header):
+        """
+        ReadPointer reads an pointerfrom a file handle
+        the pointersize is given by the header (BlendFileHeader)
+        """
+        if header.pointer_size == 4:
+            st = UINT[header.endian_index]
+            return st.unpack(handle.read(st.size))[0]
+        if header.pointer_size == 8:
+            st = ULONG[header.endian_index]
+            return st.unpack(handle.read(st.size))[0]
 
 
 class DNAField:

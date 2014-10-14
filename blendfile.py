@@ -138,8 +138,8 @@ class BlendFile:
         self.code_index = {}
 
         block = BlendFileBlock(handle, self)
-        while block.code != "ENDB":
-            if block.code == "DNA1":
+        while block.code != b'ENDB':
+            if block.code == b'DNA1':
                 self.catalog = DNACatalog(self.header, block, handle)
             else:
                 handle.seek(block.size, os.SEEK_CUR)
@@ -152,6 +152,7 @@ class BlendFile:
         self.blocks.append(block)
 
     def find_blocks_from_code(self, code):
+        assert(type(code) == bytes)
         if len(code) == 2:
             code = code
         if code not in self.code_index:
@@ -214,8 +215,8 @@ class BlendFileBlock:
         if len(data) > 15:
 
             blockheader = afile.block_header_struct.unpack(data)
-            self.code = blockheader[0].decode().split("\0")[0]
-            if self.code != "ENDB":
+            self.code = blockheader[0].partition(b'\0')[0]
+            if self.code != b'ENDB':
                 self.size = blockheader[1]
                 self.addr_old = blockheader[2]
                 self.sdna_index = blockheader[3]
@@ -229,7 +230,8 @@ class BlendFileBlock:
                 self.file_offset = 0
         else:
             blockheader = OLDBLOCK.unpack(data)
-            self.code = blockheader[0].decode().split("\0")[0]
+            self.code = blockheader[0].partition(b'\0')[0]
+            self.code = DNA_IO.read_bytes0(blockheader[0], 0)
             self.size = 0
             self.addr_old = 0
             self.sdna_index = 0
@@ -350,7 +352,7 @@ class DNACatalog:
         offset += 4
         types_len = intstruct.unpack_from(data, offset)[0]
         offset += 4
-        log.debug("building #"+str(types_len)+" types")
+        log.debug("building #%d types" % types_len)
         for i in range(types_len):
             tType = DNA_IO.read_string0(data, offset)
             self.types.append([tType, 0, None])
@@ -522,6 +524,7 @@ class DNAStructure:
 
         return None
 
+
 class DNA_IO:
     """
     Module like class, for read-write utility functions.
@@ -572,21 +575,19 @@ class DNA_IO:
         st = DNA_IO._string_struct(length)
         return st.unpack(handle.read(st.size))[0].decode('utf-8')
 
+
+    @staticmethod
+    def read_bytes0(data, offset):
+        """
+        Reads a zero terminating String from a file handle
+        """
+        add = data.find(b'\0', offset) - offset
+        st = DNA_IO._string_struct(add)
+        return st.unpack_from(data, offset)[0]
+
     @staticmethod
     def read_string0(data, offset):
-        """
-        read_string0 reads a zero terminating String from a file handle
-        """
-        add = 0
-
-        # TODO, faster method!
-        while data[offset + add] != 0:
-            add += 1
-
-        st = DNA_IO._string_struct(add)
-
-        result = st.unpack_from(data, offset)[0].decode('utf-8')
-        return result
+        return DNA_IO.read_bytes0(data, offset).decode('utf-8')
 
     USHORT = struct.Struct("<H"), struct.Struct(">H")
     @staticmethod

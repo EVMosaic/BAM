@@ -696,13 +696,3 @@ class DNAField:
         else:
             return self.dna_type.size * self.name.array_size
 
-
-# determine the relative production location of a blender path.basename
-def blendPath2AbsolutePath(productionFile, blenderPath):
-    productionFileDir = os.path.dirname(productionFile)
-    if blenderPath.startswith("//"):
-        relpath = blenderPath[2:]
-        abspath = os.path.join(productionFileDir, relpath)
-        return abspath
-
-    return blenderPath

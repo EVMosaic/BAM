@@ -231,25 +231,45 @@ class BlendFileBlock:
         else:
             blockheader = OLDBLOCK.unpack(data)
             self.code = blockheader[0].partition(b'\0')[0]
-            self.code = DNA_IO.read_bytes0(blockheader[0], 0)
+            self.code = DNA_IO.read_data0(blockheader[0], 0)
             self.size = 0
             self.addr_old = 0
             self.sdna_index = 0
             self.count = 0
             self.file_offset = 0
 
-    def get(self, path):
+    def get(self, path,
+            use_nil=True, use_str=True):
         dna_index = self.sdna_index
         dna_struct = self.file.catalog.structs[dna_index]
         self.file.handle.seek(self.file_offset, os.SEEK_SET)
-        return dna_struct.field_get(self.file.header, self.file.handle, path)
+        return dna_struct.field_get(self.file.header, self.file.handle, path,
+                                    use_nil=use_nil, use_str=use_str)
 
     def set(self, path, value):
-        dna_index = self.sdna_index
-        dna_struct = self.file.catalog.structs[dna_index]
+        dna_struct = self.file.catalog.structs[self.sdna_index]
         self.file.handle.seek(self.file_offset, os.SEEK_SET)
         self.file.is_modified = True
         return dna_struct.field_set(self.file.header, self.file.handle, path, value)
+
+    # dict like access
+    def __getitem__(self, item):
+        return self.get(item, use_str=False)
+
+    def __setitem__(self, item, value):
+        self.set(self, item, value)
+
+    def keys(self):
+        dna_struct = self.file.catalog.structs[self.sdna_index]
+        return (s[1].name_short for s in dna_struct.fields)
+
+    def values(self):
+        dna_struct = self.file.catalog.structs[self.sdna_index]
+        return (self[k] for k in self.keys())
+
+    def items(self):
+        dna_struct = self.file.catalog.structs[self.sdna_index]
+        return ((k, self[k]) for k in self.keys())
 
 
 ######################################################
@@ -343,7 +363,7 @@ class DNACatalog:
 
         log.debug("building #%d names" % names_len)
         for i in range(names_len):
-            tName = DNA_IO.read_bytes0(data, offset)
+            tName = DNA_IO.read_data0(data, offset)
             offset = offset + len(tName) + 1
             self.names.append(DNAName(tName))
         del names_len
@@ -354,7 +374,8 @@ class DNACatalog:
         offset += 4
         log.debug("building #%d types" % types_len)
         for i in range(types_len):
-            tType = DNA_IO.read_bytes0(data, offset)
+            tType = DNA_IO.read_data0(data, offset)
+            # None will be replaced by the DNAStructure, below
             self.types.append([tType, 0, None])
             offset += len(tType) + 1
 
@@ -378,7 +399,8 @@ class DNACatalog:
             struct_type_index = d[0]
             offset += 4
             dna_type = self.types[struct_type_index]
-            structure = DNAStructure(dna_type)
+            structure = DNAStructure()
+            dna_type[2] = structure
             self.structs.append(structure)
 
             fields_len = d[1]
@@ -464,12 +486,11 @@ class DNAStructure:
         "fields",
         )
 
-    def __init__(self, aType):
-        self.dna_type = aType
-        aType[2] = self
+    def __init__(self):
         self.fields = []
 
-    def field_get(self, header, handle, path):
+    def field_get(self, header, handle, path,
+                  use_nil=True, use_str=True):
         assert(type(path) == bytes)
         splitted = path.partition(b'.')
         name = splitted[0]
@@ -491,9 +512,20 @@ class DNAStructure:
                     elif ftype[0] == b'float':
                         return DNA_IO.read_float(handle, header)
                     elif ftype[0] == b'char':
-                        return DNA_IO.read_string(handle, fname.array_size)
+                        if use_str:
+                            if use_nil:
+                                return DNA_IO.read_string0(handle, fname.array_size)
+                            else:
+                                return DNA_IO.read_string(handle, fname.array_size)
+                        else:
+                            if use_nil:
+                                return DNA_IO.read_bytes0(handle, fname.array_size)
+                            else:
+                                return DNA_IO.read_bytes(handle, fname.array_size)
+
                 else:
-                    return ftype[2].field_get(header, handle, rest)
+                    return ftype[2].field_get(header, handle, rest,
+                                              use_nil=use_nil, use_str=use_str)
 
             else:
                 offset += field[2]
@@ -568,16 +600,27 @@ class DNA_IO:
         return st
 
     @staticmethod
-    def read_string(handle, length):
-        """
-        read_string reads a String of given length from a file handle
-        """
+    def read_bytes(handle, length):
         st = DNA_IO._string_struct(length)
-        return st.unpack(handle.read(st.size))[0].decode('utf-8')
-
+        data = st.unpack(handle.read(st.size))[0]
+        return data
 
     @staticmethod
-    def read_bytes0(data, offset):
+    def read_bytes0(handle, length):
+        st = DNA_IO._string_struct(length)
+        data = st.unpack(handle.read(st.size))[0]
+        return DNA_IO.read_data0(data, 0)
+
+    @staticmethod
+    def read_string(handle, length):
+        return DNA_IO.read_bytes(handle, length).decode('utf-8')
+
+    @staticmethod
+    def read_string0(handle, length):
+        return DNA_IO.read_bytes0(handle, length).decode('utf-8')
+
+    @staticmethod
+    def read_data0(data, offset):
         """
         Reads a zero terminating String from a file handle
         """
@@ -585,26 +628,22 @@ class DNA_IO:
         st = DNA_IO._string_struct(add)
         return st.unpack_from(data, offset)[0]
 
-    @staticmethod
-    def read_string0(data, offset):
-        return DNA_IO.read_bytes0(data, offset).decode('utf-8')
-
     USHORT = struct.Struct("<H"), struct.Struct(">H")
     @staticmethod
     def read_ushort(handle, fileheader):
-        st = USHORT[fileheader.endian_index]
+        st = DNA_IO.USHORT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
     UINT = struct.Struct("<I"), struct.Struct(">I")
     @staticmethod
     def read_uint(handle, fileheader):
-        st = UINT[fileheader.endian_index]
+        st = DNA_IO.UINT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
     SINT = struct.Struct("<i"), struct.Struct(">i")
     @staticmethod
     def read_int(handle, fileheader):
-        st = SINT[fileheader.endian_index]
+        st = DNA_IO.SINT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
     @staticmethod
@@ -615,27 +654,27 @@ class DNA_IO:
     SSHORT = struct.Struct("<h"), struct.Struct(">h")
     @staticmethod
     def read_short(handle, fileheader):
-        st = SSHORT[fileheader.endian_index]
+        st = DNA_IO.SSHORT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
 
     ULONG = struct.Struct("<Q"), struct.Struct(">Q")
     @staticmethod
     def read_ulong(handle, fileheader):
-        st = ULONG[fileheader.endian_index]
+        st = DNA_IO.ULONG[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
     @staticmethod
     def read_pointer(handle, header):
         """
-        ReadPointer reads an pointerfrom a file handle
-        the pointersize is given by the header (BlendFileHeader)
+        reads an pointer from a file handle
+        the pointer size is given by the header (BlendFileHeader)
         """
         if header.pointer_size == 4:
-            st = UINT[header.endian_index]
+            st = DNA_IO.UINT[header.endian_index]
             return st.unpack(handle.read(st.size))[0]
         if header.pointer_size == 8:
-            st = ULONG[header.endian_index]
+            st = DNA_IO.ULONG[header.endian_index]
             return st.unpack(handle.read(st.size))[0]
 
 

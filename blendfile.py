@@ -89,8 +89,6 @@ def open_blend(filename, access="rb"):
         return res
 
 
-
-
 ######################################################
 #    Align alligns the filehandle on 4 bytes
 ######################################################
@@ -153,8 +151,6 @@ class BlendFile:
 
     def find_blocks_from_code(self, code):
         assert(type(code) == bytes)
-        if len(code) == 2:
-            code = code
         if code not in self.code_index:
             return []
         return self.code_index[code]

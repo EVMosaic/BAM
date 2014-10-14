@@ -18,7 +18,7 @@
 #
 # (c) 2009, At Mind B.V. - Jeroen Bakker
 
-# 06-10-2009: 
+# 06-10-2009:
 #  jbakker - adding support for python 3.0
 # 26-10-2009:
 #  jbakker - adding caching of the SDNA records.
@@ -73,10 +73,10 @@ def openBlendFile(filename, access="rb"):
         log.debug("decompressing started")
         fs = gzip.open(filename, "rb")
         handle = tempfile.TemporaryFile()
-        data = fs.read(FILE_BUFFER_SIZE) 
-        while data: 
-            handle.write(data) 
-            data = fs.read(FILE_BUFFER_SIZE) 
+        data = fs.read(FILE_BUFFER_SIZE)
+        while data:
+            handle.write(data)
+            data = fs.read(FILE_BUFFER_SIZE)
         log.debug("decompressing finished")
         fs.close()
         log.debug("resetting decompressed file")
@@ -95,15 +95,15 @@ def closeBlendFile(afile):
         handle.seek(os.SEEK_SET, 0)
         log.debug("compressing started")
         fs = gzip.open(afile.originalfilename, "wb")
-        data = handle.read(FILE_BUFFER_SIZE) 
-        while data: 
-            fs.write(data) 
-            data = handle.read(FILE_BUFFER_SIZE) 
+        data = handle.read(FILE_BUFFER_SIZE)
+        while data:
+            fs.write(data)
+            data = handle.read(FILE_BUFFER_SIZE)
         fs.close()
         log.debug("compressing finished")
-        
+
     handle.close()
-    
+
 ######################################################
 #    Write a string to the file.
 ######################################################
@@ -121,7 +121,7 @@ def WriteString(handle, astring, fieldlen):
 STRING=[]
 for i in range(0, 2048):
     STRING.append(struct.Struct(str(i)+"s"))
-                  
+
 def ReadString(handle, length):
     st = STRING[length]
     return st.unpack(handle.read(st.size))[0].decode("iso-8859-1")
@@ -188,7 +188,7 @@ def ReadPointer(handle, header):
     if header.PointerSize == 8:
         us = ULONG[header.LittleEndiannessIndex]
         return us.unpack(handle.read(us.size))[0]
-    
+
 ######################################################
 #    Allign alligns the filehandle on 4 bytes
 ######################################################
@@ -209,7 +209,7 @@ def Allign(offset):
 #   - Catalog (DNACatalog)
 ######################################################
 class BlendFile:
-    
+
     def __init__(self, handle):
         log.debug("initializing reading blend-file")
         self.handle=handle
@@ -217,7 +217,7 @@ class BlendFile:
         self.BlockHeaderStruct = self.Header.CreateBlockHeaderStruct()
         self.Blocks = []
         self.CodeIndex = {}
-        
+
         aBlock = BlendFileBlock(handle, self)
         while aBlock.Code != "ENDB":
             if aBlock.Code == "DNA1":
@@ -225,36 +225,36 @@ class BlendFile:
             else:
                 handle.read(aBlock.Size)
 #                handle.seek(aBlock.Size, os.SEEK_CUR) does not work with py3.0!
-                
+
             self.Blocks.append(aBlock)
-            
+
             if aBlock.Code not in self.CodeIndex:
                 self.CodeIndex[aBlock.Code] = []
             self.CodeIndex[aBlock.Code].append(aBlock)
-                
+
             aBlock = BlendFileBlock(handle, self)
         self.Modified=False
         self.Blocks.append(aBlock)
-        
+
     def FindBlendFileBlocksWithCode(self, code):
         if len(code) == 2:
             code = code
         if code not in self.CodeIndex:
             return []
         return self.CodeIndex[code]
-    
+
     def FindBlendFileBlockWithOffset(self, offset):
         for block in self.Blocks:
             if block.OldAddress == offset:
                 return block;
         return None;
-    
+
     def close(self):
         if not self.Modified:
             self.handle.close()
         else:
             closeBlendFile(self)
-        
+
 ######################################################
 #    BlendFileBlock
 #   File=BlendFile
@@ -345,10 +345,10 @@ class BlendFileHeader:
 
         tVersion = values[3].decode()
         self.Version = int(tVersion)
-        
+
     def CreateBlockHeaderStruct(self):
         return BLOCKHEADERSTRUCT[self.StructPre+str(self.PointerSize)]
-        
+
 ######################################################
 #    DNACatalog is a catalog of all information in the DNA1 file-block
 #
@@ -368,11 +368,11 @@ class DNACatalog:
         self.Names=[]
         self.Types=[]
         self.Structs=[]
-        
+
         offset = 8;
         numberOfNames = intstruct.unpack_from(data, offset)[0]
         offset += 4
-        
+
         log.debug("building #"+str(numberOfNames)+" names")
         for i in range(numberOfNames):
             tName = ReadString0(data, offset)
@@ -399,7 +399,7 @@ class DNACatalog:
 
         offset = Allign(offset)
         offset += 4
-        
+
         numberOfStructures = intstruct.unpack_from(data, offset)[0]
         offset += 4
         log.debug("building #"+str(numberOfStructures)+" structures")
@@ -438,13 +438,13 @@ class DNAName:
         self.IsPointer = self.DetermineIsPointer()
         self.IsMethodPointer = self.DetermineIsMethodPointer()
         self.ArraySize = self.DetermineArraySize()
-        
+
     def AsReference(self, parent):
         if parent == None:
             Result = ""
         else:
             Result = parent+"."
-            
+
         Result = Result + self.ShortName
         return Result
 
@@ -458,7 +458,7 @@ class DNAName:
             Result = Result[0:Index]
         self._SN = Result
         return Result
-        
+
     def DetermineIsPointer(self):
         return self.Name.find("*")>-1
 
@@ -475,7 +475,7 @@ class DNAName:
             Result*=int(Temp[Index+1:Index2])
             Temp = Temp[Index2+1:]
             Index = Temp.find("[")
-        
+
         return Result
 
 ######################################################
@@ -490,7 +490,7 @@ class DNAStructure:
         self.Type = aType
         aType[2] = self
         self.Fields=[]
-        
+
     def GetField(self, header, handle, path):
         splitted = path.partition(".")
         name = splitted[0]
@@ -502,7 +502,7 @@ class DNAStructure:
                 handle.seek(offset, os.SEEK_CUR)
                 ftype = field[0]
                 if len(rest) == 0:
-                    
+
                     if fname.IsPointer:
                         return ReadPointer(handle, header)
                     elif ftype[0]=="int":
@@ -515,12 +515,12 @@ class DNAStructure:
                         return ReadString(handle, fname.ArraySize)
                 else:
                     return ftype[2].GetField(header, handle, rest)
-        
+
             else:
                 offset += field[2]
 
         return None
-                            
+
     def SetField(self, header, handle, path, value):
         splitted = path.partition(".")
         name = splitted[0]
@@ -540,9 +540,9 @@ class DNAStructure:
                 offset += field[2]
 
         return None
-                
-            
-        
+
+
+
 ######################################################
 #    DNAField is a coupled DNAType and DNAName
 #    Type=DNAType
@@ -553,7 +553,7 @@ class DNAField:
     def __init__(self, aType, aName):
         self.Type = aType
         self.Name = aName
-        
+
     def Size(self, header):
         if self.Name.IsPointer or self.Name.IsMethodPointer:
             return header.PointerSize*self.Name.ArraySize
@@ -567,8 +567,8 @@ def blendPath2AbsolutePath(productionFile, blenderPath):
         relpath=blenderPath[2:]
         abspath = os.path.join(productionFileDir, relpath)
         return abspath
-        
-    
+
+
     return blenderPath
 
 

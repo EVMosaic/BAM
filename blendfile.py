@@ -55,13 +55,13 @@ FILE_BUFFER_SIZE = 1024 * 1024
 # open a filename
 # determine if the file is compressed
 # and returns a handle
-def openBlendFile(filename, access="rb"):
+def open_blend(filename, access="rb"):
     """Opens a blend file for reading or writing pending on the access
     supports 2 kind of blend files. Uncompressed and compressed.
     Known issue: does not support packaged blend files
     """
     handle = open(filename, access)
-    magic = ReadString(handle, 7)
+    magic = read_string(handle, 7)
     if magic == "BLENDER":
         log.debug("normal blendfile detected")
         handle.seek(0, os.SEEK_SET)
@@ -89,29 +89,10 @@ def openBlendFile(filename, access="rb"):
         return res
 
 
-def closeBlendFile(afile):
-    """close the blend file
-    writes the blend file to disk if changes has happened"""
-    handle = afile.handle
-    if afile.is_compressed:
-        log.debug("close compressed blend file")
-        handle.seek(os.SEEK_SET, 0)
-        log.debug("compressing started")
-        fs = gzip.open(afile.filepath_orig, "wb")
-        data = handle.read(FILE_BUFFER_SIZE)
-        while data:
-            fs.write(data)
-            data = handle.read(FILE_BUFFER_SIZE)
-        fs.close()
-        log.debug("compressing finished")
-
-    handle.close()
-
-
 ######################################################
 #    Write a string to the file.
 ######################################################
-def WriteString(handle, astring, fieldlen):
+def write_string(handle, astring, fieldlen):
     assert(isinstance(astring, str))
     stringw = ""
     if len(astring) >= fieldlen:
@@ -121,7 +102,7 @@ def WriteString(handle, astring, fieldlen):
     handle.write(stringw.encode('utf-8'))
 
 
-def WriteBytes(handle, astring, fieldlen):
+def write_bytes(handle, astring, fieldlen):
     assert(isinstance(astring, (bytes, bytearray)))
     stringw = b''
     if len(astring) >= fieldlen:
@@ -133,37 +114,37 @@ def WriteBytes(handle, astring, fieldlen):
     handle.write(stringw)
 
 
-######################################################
-#    ReadString reads a String of given length from a file handle
-######################################################
-STRING = []
-for i in range(0, 2048):
-    STRING.append(struct.Struct(str(i) + "s"))
+def _string_struct(length):
+    if length < len(_string_struct.STRING):
+        st = _string_struct.STRING[length]
+    else:
+        st = struct.Struct("%ds" % length)
+    return st
+_string_struct.STRING = [struct.Struct("%ds" % i) for i in range(0, 2048)]
 
 
-def ReadString(handle, length):
-    st = STRING[length]
-    return st.unpack(handle.read(st.size))[0].decode("iso-8859-1")
-
-######################################################
-#    ReadString0 reads a zero terminating String from a file handle
-######################################################
-ZEROTESTER = 0
-if sys.version_info < (3, 0):
-    ZEROTESTER = "\0"
+def read_string(handle, length):
+    """
+    read_string reads a String of given length from a file handle
+    """
+    st = _string_struct(length)
+    return st.unpack(handle.read(st.size))[0].decode('utf-8')
 
 
-def ReadString0(data, offset):
+def read_string0(data, offset):
+    """
+    read_string0 reads a zero terminating String from a file handle
+    """
     add = 0
 
-    while data[offset+add] != ZEROTESTER:
+    # TODO, faster method!
+    while data[offset + add] != 0:
         add += 1
-    if add < len(STRING):
-        st = STRING[add]
-        S = st.unpack_from(data, offset)[0].decode("iso-8859-1")
-    else:
-        S = struct.Struct(str(add) + "s").unpack_from(data, offset)[0].decode("iso-8859-1")
-    return S
+
+    st = _string_struct(add)
+
+    result = st.unpack_from(data, offset)[0].decode('utf-8')
+    return result
 
 ######################################################
 #    ReadUShort reads an unsigned short from a file handle
@@ -290,10 +271,27 @@ class BlendFile:
         return None
 
     def close(self):
+        """
+        Close the blend file
+        writes the blend file to disk if changes has happened
+        """
         if not self.is_modified:
             self.handle.close()
         else:
-            closeBlendFile(self)
+            handle = self.handle
+            if self.is_compressed:
+                log.debug("close compressed blend file")
+                handle.seek(os.SEEK_SET, 0)
+                log.debug("compressing started")
+                fs = gzip.open(self.filepath_orig, "wb")
+                data = handle.read(FILE_BUFFER_SIZE)
+                while data:
+                    fs.write(data)
+                    data = handle.read(FILE_BUFFER_SIZE)
+                fs.close()
+                log.debug("compressing finished")
+
+            handle.close()
 
 
 class BlendFileBlock:
@@ -449,7 +447,7 @@ class DNACatalog:
 
         log.debug("building #%d names" % names_len)
         for i in range(names_len):
-            tName = ReadString0(data, offset)
+            tName = read_string0(data, offset)
             offset = offset + len(tName) + 1
             self.names.append(DNAName(tName))
         del names_len
@@ -460,7 +458,7 @@ class DNACatalog:
         offset += 4
         log.debug("building #"+str(types_len)+" types")
         for i in range(types_len):
-            tType = ReadString0(data, offset)
+            tType = read_string0(data, offset)
             self.types.append([tType, 0, None])
             offset += len(tType) + 1
 
@@ -598,7 +596,7 @@ class DNAStructure:
                     elif ftype[0] == "float":
                         return ReadFloat(handle, header)
                     elif ftype[0] == "char":
-                        return ReadString(handle, fname.array_size)
+                        return read_string(handle, fname.array_size)
                 else:
                     return ftype[2].field_get(header, handle, rest)
 
@@ -620,9 +618,9 @@ class DNAStructure:
                 if len(rest) == 0:
                     if ftype[0] == "char":
                         if type(value) is str:
-                            return WriteString(handle, value, fname.array_size)
+                            return write_string(handle, value, fname.array_size)
                         else:
-                            return WriteBytes(handle, value, fname.array_size)
+                            return write_bytes(handle, value, fname.array_size)
                 else:
                     return ftype[2].field_set(header, handle, rest, value)
             else:

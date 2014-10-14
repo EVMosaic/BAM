@@ -66,8 +66,8 @@ def openBlendFile(filename, access="rb"):
         log.debug("normal blendfile detected")
         handle.seek(0, os.SEEK_SET)
         res = BlendFile(handle)
-        res.compressed = False
-        res.originalfilename = filename
+        res.is_compressed = False
+        res.filepath_orig = filename
         return res
     else:
         log.debug("gzip blendfile detected?")
@@ -84,8 +84,8 @@ def openBlendFile(filename, access="rb"):
         log.debug("resetting decompressed file")
         handle.seek(os.SEEK_SET, 0)
         res = BlendFile(handle)
-        res.compressed = True
-        res.originalfilename = filename
+        res.is_compressed = True
+        res.filepath_orig = filename
         return res
 
 
@@ -93,11 +93,11 @@ def closeBlendFile(afile):
     """close the blend file
     writes the blend file to disk if changes has happened"""
     handle = afile.handle
-    if afile.compressed:
+    if afile.is_compressed:
         log.debug("close compressed blend file")
         handle.seek(os.SEEK_SET, 0)
         log.debug("compressing started")
-        fs = gzip.open(afile.originalfilename, "wb")
+        fs = gzip.open(afile.filepath_orig, "wb")
         data = handle.read(FILE_BUFFER_SIZE)
         while data:
             fs.write(data)
@@ -156,7 +156,7 @@ def ReadString0(data, offset):
 ######################################################
 USHORT = [struct.Struct("<H"), struct.Struct(">H")]
 def ReadUShort(handle, fileheader):
-    us = USHORT[fileheader.LittleEndiannessIndex]
+    us = USHORT[fileheader.endian_index]
     return us.unpack(handle.read(us.size))[0]
 
 
@@ -165,27 +165,27 @@ def ReadUShort(handle, fileheader):
 ######################################################
 UINT = [struct.Struct("<I"), struct.Struct(">I")]
 def ReadUInt(handle, fileheader):
-    us = UINT[fileheader.LittleEndiannessIndex]
+    us = UINT[fileheader.endian_index]
     return us.unpack(handle.read(us.size))[0]
 
 
 def ReadInt(handle, fileheader):
-    return struct.unpack(fileheader.StructPre+"i", handle.read(4))[0]
+    return struct.unpack(fileheader.endian_str + "i", handle.read(4))[0]
 
 
 def ReadFloat(handle, fileheader):
-    return struct.unpack(fileheader.StructPre+"f", handle.read(4))[0]
+    return struct.unpack(fileheader.endian_str + "f", handle.read(4))[0]
 
 
 SSHORT = [struct.Struct("<h"), struct.Struct(">h")]
 def ReadShort(handle, fileheader):
-    us = SSHORT[fileheader.LittleEndiannessIndex]
+    us = SSHORT[fileheader.endian_index]
     return us.unpack(handle.read(us.size))[0]
 
 
 ULONG = [struct.Struct("<Q"), struct.Struct(">Q")]
 def ReadULong(handle, fileheader):
-    us = ULONG[fileheader.LittleEndiannessIndex]
+    us = ULONG[fileheader.endian_index]
     return us.unpack(handle.read(us.size))[0]
 
 
@@ -194,143 +194,161 @@ def ReadULong(handle, fileheader):
 #    the pointersize is given by the header (BlendFileHeader)
 ######################################################
 def ReadPointer(handle, header):
-    if header.PointerSize == 4:
-        us = UINT[header.LittleEndiannessIndex]
+    if header.pointer_size == 4:
+        us = UINT[header.endian_index]
         return us.unpack(handle.read(us.size))[0]
-    if header.PointerSize == 8:
-        us = ULONG[header.LittleEndiannessIndex]
+    if header.pointer_size == 8:
+        us = ULONG[header.endian_index]
         return us.unpack(handle.read(us.size))[0]
 
 
 ######################################################
-#    Allign alligns the filehandle on 4 bytes
+#    Align alligns the filehandle on 4 bytes
 ######################################################
-def Allign(offset):
-    trim = offset % 4
-    if trim != 0:
-        offset = offset + (4 - trim)
-    return offset
+def align(offset, by):
+    n = by - 1
+    return (offset + n) & ~n
+
 
 ######################################################
 # module classes
 ######################################################
 
 
-######################################################
-#    BlendFile
-#   - Header (BlendFileHeader)
-#   - Blocks (FileBlockHeader)
-#   - Catalog (DNACatalog)
-######################################################
 class BlendFile:
+    """
+    Blend file.
+    """
+    __slots__ = (
+        # file (result of open())
+        "handle",
+        # str (original name of the file path)
+        "filepath_orig",
+        # BlendFileHeader
+        "header",
+        # struct.Struct
+        "block_header_struct",
+        # FileBlockHeader
+        "blocks",
+        # DNACatalog
+        "catalog",
+        # int
+        "code_index",
+        # bool (did we make a change)
+        "is_modified",
+        # bool (is file gzipped)
+        "is_compressed",
+        )
 
     def __init__(self, handle):
         log.debug("initializing reading blend-file")
         self.handle = handle
-        self.Header = BlendFileHeader(handle)
-        self.BlockHeaderStruct = self.Header.CreateBlockHeaderStruct()
-        self.Blocks = []
-        self.CodeIndex = {}
+        self.header = BlendFileHeader(handle)
+        self.block_header_struct = self.header.create_block_header_struct()
+        self.blocks = []
+        self.code_index = {}
 
-        aBlock = BlendFileBlock(handle, self)
-        while aBlock.Code != "ENDB":
-            if aBlock.Code == "DNA1":
-                self.Catalog = DNACatalog(self.Header, aBlock, handle)
+        block = BlendFileBlock(handle, self)
+        while block.code != "ENDB":
+            if block.code == "DNA1":
+                self.catalog = DNACatalog(self.header, block, handle)
             else:
-                handle.read(aBlock.Size)
-#                handle.seek(aBlock.Size, os.SEEK_CUR) does not work with py3.0!
+                handle.seek(block.size, os.SEEK_CUR)
 
-            self.Blocks.append(aBlock)
+            self.blocks.append(block)
+            self.code_index.setdefault(block.code, []).append(block)
 
-            if aBlock.Code not in self.CodeIndex:
-                self.CodeIndex[aBlock.Code] = []
-            self.CodeIndex[aBlock.Code].append(aBlock)
+            block = BlendFileBlock(handle, self)
+        self.is_modified = False
+        self.blocks.append(block)
 
-            aBlock = BlendFileBlock(handle, self)
-        self.Modified = False
-        self.Blocks.append(aBlock)
-
-    def FindBlendFileBlocksWithCode(self, code):
+    def find_blocks_from_code(self, code):
         if len(code) == 2:
             code = code
-        if code not in self.CodeIndex:
+        if code not in self.code_index:
             return []
-        return self.CodeIndex[code]
+        return self.code_index[code]
 
-    def FindBlendFileBlockWithOffset(self, offset):
-        for block in self.Blocks:
-            if block.OldAddress == offset:
+    def find_block_from_offset(self, offset):
+        for block in self.blocks:
+            if block.addr_old == offset:
                 return block
         return None
 
     def close(self):
-        if not self.Modified:
+        if not self.is_modified:
             self.handle.close()
         else:
             closeBlendFile(self)
 
 
-######################################################
-#    BlendFileBlock
-#   File=BlendFile
-#   Header=FileBlockHeader
-######################################################
 class BlendFileBlock:
+    """
+    Instance of a struct.
+    """
+    __slots__ = (
+        # file handle
+        "file",
+        "code",
+        "size",
+        "addr_old",
+        "sdna_index",
+        "count",
+        "file_offset",
+        )
     def __init__(self, handle, afile):
-        self.File = afile
-        header = afile.Header
+        self.file = afile
+        header = afile.header
 
-        bytes = handle.read(afile.BlockHeaderStruct.size)
+        data = handle.read(afile.block_header_struct.size)
         # header size can be 8, 20, or 24 bytes long
         # 8: old blend files ENDB block (exception)
         # 20: normal headers 32 bit platform
         # 24: normal headers 64 bit platform
-        if len(bytes) > 15:
+        if len(data) > 15:
 
-            blockheader = afile.BlockHeaderStruct.unpack(bytes)
-            self.Code = blockheader[0].decode().split("\0")[0]
-            if self.Code != "ENDB":
-                self.Size = blockheader[1]
-                self.OldAddress = blockheader[2]
-                self.SDNAIndex = blockheader[3]
-                self.Count = blockheader[4]
-                self.FileOffset = handle.tell()
+            blockheader = afile.block_header_struct.unpack(data)
+            self.code = blockheader[0].decode().split("\0")[0]
+            if self.code != "ENDB":
+                self.size = blockheader[1]
+                self.addr_old = blockheader[2]
+                self.sdna_index = blockheader[3]
+                self.count = blockheader[4]
+                self.file_offset = handle.tell()
             else:
-                self.Size = 0
-                self.OldAddress = 0
-                self.SDNAIndex = 0
-                self.Count = 0
-                self.FileOffset = 0
+                self.size = 0
+                self.addr_old = 0
+                self.sdna_index = 0
+                self.count = 0
+                self.file_offset = 0
         else:
-            blockheader = OLDBLOCK.unpack(bytes)
-            self.Code = blockheader[0].decode().split("\0")[0]
-            self.Size = 0
-            self.OldAddress = 0
-            self.SDNAIndex = 0
-            self.Count = 0
-            self.FileOffset = 0
+            blockheader = OLDBLOCK.unpack(data)
+            self.code = blockheader[0].decode().split("\0")[0]
+            self.size = 0
+            self.addr_old = 0
+            self.sdna_index = 0
+            self.count = 0
+            self.file_offset = 0
 
-    def Get(self, path):
-        dnaIndex = self.SDNAIndex
-        dnaStruct = self.File.Catalog.Structs[dnaIndex]
-        self.File.handle.seek(self.FileOffset, os.SEEK_SET)
-        return dnaStruct.GetField(self.File.Header, self.File.handle, path)
+    def get(self, path):
+        dna_index = self.sdna_index
+        dna_struct = self.file.catalog.structs[dna_index]
+        self.file.handle.seek(self.file_offset, os.SEEK_SET)
+        return dna_struct.field_get(self.file.header, self.file.handle, path)
 
-    def Set(self, path, value):
-        dnaIndex = self.SDNAIndex
-        dnaStruct = self.File.Catalog.Structs[dnaIndex]
-        self.File.handle.seek(self.FileOffset, os.SEEK_SET)
-        self.File.Modified = True
-        return dnaStruct.SetField(self.File.Header, self.File.handle, path, value)
+    def set(self, path, value):
+        dna_index = self.sdna_index
+        dna_struct = self.file.catalog.structs[dna_index]
+        self.file.handle.seek(self.file_offset, os.SEEK_SET)
+        self.file.is_modified = True
+        return dna_struct.field_set(self.file.header, self.file.handle, path, value)
 
 
 ######################################################
-#    BlendFileHeader allocates the first 12 bytes of a blend file
-#    it contains information about the hardware architecture
-#    Magic = str
-#    PointerSize = int
-#    LittleEndianness = bool
-#    Version = int
+#    magic = str
+#    pointer_size = int
+#    is_little_endian = bool
+#    version = int
 ######################################################
 BLOCKHEADERSTRUCT = {}
 BLOCKHEADERSTRUCT["<4"] = struct.Struct("<4sIIII")
@@ -342,189 +360,222 @@ OLDBLOCK = struct.Struct("4sI")
 
 
 class BlendFileHeader:
+    """
+    BlendFileHeader allocates the first 12 bytes of a blend file
+    it contains information about the hardware architecture
+    """
+    __slots__ = (
+        # str
+        "magic",
+        # int 4/8
+        "pointer_size",
+        # bool
+        "is_little_endian",
+        # int
+        "version",
+        # str, used to pass to 'struct'
+        "endian_str",
+        # int, used to index common types
+        "endian_index",
+        )
     def __init__(self, handle):
         log.debug("reading blend-file-header")
         values = FILEHEADER.unpack(handle.read(FILEHEADER.size))
-        self.Magic = values[0]
-        tPointerSize = values[1].decode()
-        if tPointerSize == "-":
-            self.PointerSize = 8
-        elif tPointerSize == "_":
-            self.PointerSize = 4
-        tEndianness = values[2].decode()
-        if tEndianness == "v":
-            self.LittleEndianness = True
-            self.StructPre = "<"
-            self.LittleEndiannessIndex = 0
-        elif tEndianness == "V":
-            self.LittleEndianness = False
-            self.LittleEndiannessIndex = 1
-            self.StructPre = ">"
+        self.magic = values[0]
+        pointer_size_id = values[1].decode()
+        if pointer_size_id == "-":
+            self.pointer_size = 8
+        elif pointer_size_id == "_":
+            self.pointer_size = 4
+        else:
+            assert(0)
+        endian_id = values[2].decode()
+        if endian_id == "v":
+            self.is_little_endian = True
+            self.endian_str = "<"
+            self.endian_index = 0
+        elif endian_id == "V":
+            self.is_little_endian = False
+            self.endian_index = 1
+            self.endian_str = ">"
+        else:
+            assert(0)
 
         tVersion = values[3].decode()
-        self.Version = int(tVersion)
+        self.version = int(tVersion)
 
-    def CreateBlockHeaderStruct(self):
-        return BLOCKHEADERSTRUCT[self.StructPre+str(self.PointerSize)]
+    def create_block_header_struct(self):
+        return BLOCKHEADERSTRUCT[self.endian_str + str(self.pointer_size)]
 
 
-######################################################
-#    DNACatalog is a catalog of all information in the DNA1 file-block
-#
-#    Header=None
-#    Names=None
-#    Types=None
-#    Structs=None
-######################################################
 class DNACatalog:
+    """
+    DNACatalog is a catalog of all information in the DNA1 file-block
+    """
+    __slots__ = (
+        "header",
+        "names",
+        "types",
+        "structs",
+        )
 
     def __init__(self, header, block, handle):
         log.debug("building DNA catalog")
-        shortstruct = USHORT[header.LittleEndiannessIndex]
-        shortstruct2 = struct.Struct(str(USHORT[header.LittleEndiannessIndex].format.decode() + 'H'))
-        intstruct = UINT[header.LittleEndiannessIndex]
-        data = handle.read(block.Size)
-        self.Names = []
-        self.Types = []
-        self.Structs = []
+        shortstruct = USHORT[header.endian_index]
+        shortstruct2 = struct.Struct(str(USHORT[header.endian_index].format.decode() + 'H'))
+        intstruct = UINT[header.endian_index]
+        data = handle.read(block.size)
+        self.names = []
+        self.types = []
+        self.structs = []
 
         offset = 8
-        numberOfNames = intstruct.unpack_from(data, offset)[0]
+        names_len = intstruct.unpack_from(data, offset)[0]
         offset += 4
 
-        log.debug("building #"+str(numberOfNames)+" names")
-        for i in range(numberOfNames):
+        log.debug("building #%d names" % names_len)
+        for i in range(names_len):
             tName = ReadString0(data, offset)
             offset = offset + len(tName) + 1
-            self.Names.append(DNAName(tName))
+            self.names.append(DNAName(tName))
+        del names_len
 
-        offset = Allign(offset)
+        offset = align(offset, 4)
         offset += 4
-        numberOfTypes = intstruct.unpack_from(data, offset)[0]
+        types_len = intstruct.unpack_from(data, offset)[0]
         offset += 4
-        log.debug("building #"+str(numberOfTypes)+" types")
-        for i in range(numberOfTypes):
+        log.debug("building #"+str(types_len)+" types")
+        for i in range(types_len):
             tType = ReadString0(data, offset)
-            self.Types.append([tType, 0, None])
-            offset += len(tType)+1
+            self.types.append([tType, 0, None])
+            offset += len(tType) + 1
 
-        offset = Allign(offset)
+        offset = align(offset, 4)
         offset += 4
-        log.debug("building #"+str(numberOfTypes)+" type-lengths")
-        for i in range(numberOfTypes):
+        log.debug("building #%d type-lengths" % types_len)
+        for i in range(types_len):
             tLen = shortstruct.unpack_from(data, offset)[0]
             offset = offset + 2
-            self.Types[i][1] = tLen
+            self.types[i][1] = tLen
+        del types_len
 
-        offset = Allign(offset)
+        offset = align(offset, 4)
         offset += 4
 
-        numberOfStructures = intstruct.unpack_from(data, offset)[0]
+        structs_len = intstruct.unpack_from(data, offset)[0]
         offset += 4
-        log.debug("building #"+str(numberOfStructures)+" structures")
-        for structureIndex in range(numberOfStructures):
+        log.debug("building #%d structures" % structs_len)
+        for struct_index in range(structs_len):
             d = shortstruct2.unpack_from(data, offset)
-            tType = d[0]
+            struct_type_index = d[0]
             offset += 4
-            Type = self.Types[tType]
-            structure = DNAStructure(Type)
-            self.Structs.append(structure)
+            dna_type = self.types[struct_type_index]
+            structure = DNAStructure(dna_type)
+            self.structs.append(structure)
 
-            numberOfFields = d[1]
+            fields_len = d[1]
 
-            for fieldIndex in range(numberOfFields):
+            for field_index in range(fields_len):
                 d2 = shortstruct2.unpack_from(data, offset)
-                fTypeIndex = d2[0]
-                fNameIndex = d2[1]
+                field_type_index = d2[0]
+                field_name_index = d2[1]
                 offset += 4
-                fType = self.Types[fTypeIndex]
-                fName = self.Names[fNameIndex]
-                if fName.IsPointer or fName.IsMethodPointer:
-                    fsize = header.PointerSize*fName.ArraySize
+                fType = self.types[field_type_index]
+                fName = self.names[field_name_index]
+                if fName.is_pointer or fName.is_method_pointer:
+                    fsize = header.pointer_size * fName.array_size
                 else:
-                    fsize = fType[1]*fName.ArraySize
-                structure.Fields.append([fType, fName, fsize])
+                    fsize = fType[1] * fName.array_size
+                structure.fields.append([fType, fName, fsize])
 
 
-######################################################
-#    DNAName is a C-type name stored in the DNA
-#   Name=str
-######################################################
 class DNAName:
+    """
+    DNAName is a C-type name stored in the DNA
+    """
+    __slots__ = (
+        "name",
+        "name_short",
+        "is_pointer",
+        "is_method_pointer",
+        "array_size",
+        "_SN",  # TODO, investigate why this is needed!
+        )
 
     def __init__(self, aName):
-        self.Name = aName
-        self.ShortName = self.DetermineShortName()
-        self.IsPointer = self.DetermineIsPointer()
-        self.IsMethodPointer = self.DetermineIsMethodPointer()
-        self.ArraySize = self.DetermineArraySize()
+        self.name = aName
+        self.name_short = self.calc_name_short()
+        self.is_pointer = self.calc_is_pointer()
+        self.is_method_pointer = self.calc_is_method_pointer()
+        self.array_size = self.calc_array_size()
 
-    def AsReference(self, parent):
+    def as_reference(self, parent):
         if parent is None:
-            Result = ""
+            result = ""
         else:
-            Result = parent+"."
+            result = parent + "."
 
-        Result = Result + self.ShortName
-        return Result
+        result = result + self.name_short
+        return result
 
-    def DetermineShortName(self):
-        Result = self.Name
-        Result = Result.replace("*", "")
-        Result = Result.replace("(", "")
-        Result = Result.replace(")", "")
-        Index = Result.find("[")
-        if Index != -1:
-            Result = Result[0:Index]
-        self._SN = Result
-        return Result
+    def calc_name_short(self):
+        result = self.name
+        result = result.replace("*", "")
+        result = result.replace("(", "")
+        result = result.replace(")", "")
+        index = result.find("[")
+        if index != -1:
+            result = result[:index]
+        self._SN = result
+        return result
 
-    def DetermineIsPointer(self):
-        return self.Name.find("*") > -1
+    def calc_is_pointer(self):
+        return self.name.find("*") > -1
 
-    def DetermineIsMethodPointer(self):
-        return self.Name.find("(*") > -1
+    def calc_is_method_pointer(self):
+        return self.name.find("(*") > -1
 
-    def DetermineArraySize(self):
-        Result = 1
-        Temp = self.Name
-        Index = Temp.find("[")
+    def calc_array_size(self):
+        result = 1
+        temp = self.name
+        index = temp.find("[")
 
-        while Index != -1:
-            Index2 = Temp.find("]")
-            Result *= int(Temp[Index + 1:Index2])
-            Temp = Temp[Index2 + 1:]
-            Index = Temp.find("[")
+        while index != -1:
+            index_2 = temp.find("]")
+            result *= int(temp[index + 1:index_2])
+            temp = temp[index_2 + 1:]
+            index = temp.find("[")
 
-        return Result
+        return result
 
 
-######################################################
-#    DNAType is a C-type structure stored in the DNA
-#
-#    Type=DNAType
-#    Fields=[DNAField]
-######################################################
 class DNAStructure:
+    """
+    DNAType is a C-type structure stored in the DNA
+    """
+    __slots__ = (
+        "dna_type",
+        "fields",
+        )
 
     def __init__(self, aType):
-        self.Type = aType
+        self.dna_type = aType
         aType[2] = self
-        self.Fields = []
+        self.fields = []
 
-    def GetField(self, header, handle, path):
+    def field_get(self, header, handle, path):
         splitted = path.partition(".")
         name = splitted[0]
         rest = splitted[2]
         offset = 0
-        for field in self.Fields:
+        for field in self.fields:
             fname = field[1]
-            if fname.ShortName == name:
+            if fname.name_short == name:
                 handle.seek(offset, os.SEEK_CUR)
                 ftype = field[0]
                 if len(rest) == 0:
 
-                    if fname.IsPointer:
+                    if fname.is_pointer:
                         return ReadPointer(handle, header)
                     elif ftype[0] == "int":
                         return ReadInt(handle, header)
@@ -533,52 +584,53 @@ class DNAStructure:
                     elif ftype[0] == "float":
                         return ReadFloat(handle, header)
                     elif ftype[0] == "char":
-                        return ReadString(handle, fname.ArraySize)
+                        return ReadString(handle, fname.array_size)
                 else:
-                    return ftype[2].GetField(header, handle, rest)
+                    return ftype[2].field_get(header, handle, rest)
 
             else:
                 offset += field[2]
 
         return None
 
-    def SetField(self, header, handle, path, value):
+    def field_set(self, header, handle, path, value):
         splitted = path.partition(".")
         name = splitted[0]
         rest = splitted[2]
         offset = 0
-        for field in self.Fields:
+        for field in self.fields:
             fname = field[1]
-            if fname.ShortName == name:
+            if fname.name_short == name:
                 handle.seek(offset, os.SEEK_CUR)
                 ftype = field[0]
                 if len(rest) == 0:
                     if ftype[0] == "char":
-                        return WriteString(handle, value, fname.ArraySize)
+                        return WriteString(handle, value, fname.array_size)
                 else:
-                    return ftype[2].SetField(header, handle, rest, value)
+                    return ftype[2].field_set(header, handle, rest, value)
             else:
                 offset += field[2]
 
         return None
 
 
-######################################################
-#    DNAField is a coupled DNAType and DNAName
-#    Type=DNAType
-#    Name=DNAName
-######################################################
 class DNAField:
+    """
+    DNAField is a coupled DNAType and DNAName
+    """
+    __slots__ = (
+        "name",
+        "dna_type",
+        )
+    def __init__(self, dna_type, name):
+        self.dna_type = dna_type
+        self.name = name
 
-    def __init__(self, aType, aName):
-        self.Type = aType
-        self.Name = aName
-
-    def Size(self, header):
-        if self.Name.IsPointer or self.Name.IsMethodPointer:
-            return header.PointerSize*self.Name.ArraySize
+    def size(self, header):
+        if self.name.is_pointer or self.name.is_method_pointer:
+            return header.pointer_size * self.name.array_size
         else:
-            return self.Type.Size*self.Name.ArraySize
+            return self.dna_type.size * self.name.array_size
 
 
 # determine the relative production location of a blender path.basename

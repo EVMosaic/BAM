@@ -309,8 +309,8 @@ class BlendFileHeader:
         else:
             assert(0)
 
-        tVersion = values[3].decode()
-        self.version = int(tVersion)
+        version_id = values[3].decode()
+        self.version = int(version_id)
 
     def create_block_header_struct(self):
         return BLOCKHEADERSTRUCT[self.endian_str + str(self.pointer_size)]
@@ -343,7 +343,7 @@ class DNACatalog:
 
         log.debug("building #%d names" % names_len)
         for i in range(names_len):
-            tName = DNA_IO.read_string0(data, offset)
+            tName = DNA_IO.read_bytes0(data, offset)
             offset = offset + len(tName) + 1
             self.names.append(DNAName(tName))
         del names_len
@@ -354,7 +354,7 @@ class DNACatalog:
         offset += 4
         log.debug("building #%d types" % types_len)
         for i in range(types_len):
-            tType = DNA_IO.read_string0(data, offset)
+            tType = DNA_IO.read_bytes0(data, offset)
             self.types.append([tType, 0, None])
             offset += len(tType) + 1
 
@@ -407,7 +407,6 @@ class DNAName:
         "is_pointer",
         "is_method_pointer",
         "array_size",
-        "_SN",  # TODO, investigate why this is needed!
         )
 
     def __init__(self, aName):
@@ -419,40 +418,39 @@ class DNAName:
 
     def as_reference(self, parent):
         if parent is None:
-            result = ""
+            result = b''
         else:
-            result = parent + "."
+            result = parent + b'.'
 
         result = result + self.name_short
         return result
 
     def calc_name_short(self):
         result = self.name
-        result = result.replace("*", "")
-        result = result.replace("(", "")
-        result = result.replace(")", "")
-        index = result.find("[")
+        result = result.replace(b'*', b'')
+        result = result.replace(b'(', b'')
+        result = result.replace(b')', b'')
+        index = result.find(b'[')
         if index != -1:
             result = result[:index]
-        self._SN = result
         return result
 
     def calc_is_pointer(self):
-        return self.name.find("*") > -1
+        return (b'*' in self.name)
 
     def calc_is_method_pointer(self):
-        return self.name.find("(*") > -1
+        return (b'(*' in self.name)
 
     def calc_array_size(self):
         result = 1
         temp = self.name
-        index = temp.find("[")
+        index = temp.find(b'[')
 
         while index != -1:
-            index_2 = temp.find("]")
+            index_2 = temp.find(b']')
             result *= int(temp[index + 1:index_2])
             temp = temp[index_2 + 1:]
-            index = temp.find("[")
+            index = temp.find(b'[')
 
         return result
 
@@ -472,7 +470,8 @@ class DNAStructure:
         self.fields = []
 
     def field_get(self, header, handle, path):
-        splitted = path.partition(".")
+        assert(type(path) == bytes)
+        splitted = path.partition(b'.')
         name = splitted[0]
         rest = splitted[2]
         offset = 0
@@ -485,13 +484,13 @@ class DNAStructure:
 
                     if fname.is_pointer:
                         return DNA_IO.read_pointer(handle, header)
-                    elif ftype[0] == "int":
+                    elif ftype[0] == b'int':
                         return DNA_IO.read_int(handle, header)
-                    elif ftype[0] == "short":
+                    elif ftype[0] == b'short':
                         return DNA_IO.read_short(handle, header)
-                    elif ftype[0] == "float":
+                    elif ftype[0] == b'float':
                         return DNA_IO.read_float(handle, header)
-                    elif ftype[0] == "char":
+                    elif ftype[0] == b'char':
                         return DNA_IO.read_string(handle, fname.array_size)
                 else:
                     return ftype[2].field_get(header, handle, rest)
@@ -502,7 +501,8 @@ class DNAStructure:
         return None
 
     def field_set(self, header, handle, path, value):
-        splitted = path.partition(".")
+        assert(type(path) == bytes)
+        splitted = path.partition(b'.')
         name = splitted[0]
         rest = splitted[2]
         offset = 0
@@ -512,7 +512,7 @@ class DNAStructure:
                 handle.seek(offset, os.SEEK_CUR)
                 ftype = field[0]
                 if len(rest) == 0:
-                    if ftype[0] == "char":
+                    if ftype[0] == b'char':
                         if type(value) is str:
                             return DNA_IO.write_string(handle, value, fname.array_size)
                         else:

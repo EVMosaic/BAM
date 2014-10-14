@@ -45,7 +45,9 @@ import tempfile
 import sys
 
 log = logging.getLogger("blendfile")
-FILE_BUFFER_SIZE=1024*1024
+FILE_BUFFER_SIZE = 1024 * 1024
+
+
 ######################################################
 # module global routines
 ######################################################
@@ -64,8 +66,8 @@ def openBlendFile(filename, access="rb"):
         log.debug("normal blendfile detected")
         handle.seek(0, os.SEEK_SET)
         res = BlendFile(handle)
-        res.compressed=False
-        res.originalfilename=filename
+        res.compressed = False
+        res.originalfilename = filename
         return res
     else:
         log.debug("gzip blendfile detected?")
@@ -82,9 +84,10 @@ def openBlendFile(filename, access="rb"):
         log.debug("resetting decompressed file")
         handle.seek(os.SEEK_SET, 0)
         res = BlendFile(handle)
-        res.compressed=True
-        res.originalfilename=filename
+        res.compressed = True
+        res.originalfilename = filename
         return res
+
 
 def closeBlendFile(afile):
     """close the blend file
@@ -104,23 +107,25 @@ def closeBlendFile(afile):
 
     handle.close()
 
+
 ######################################################
 #    Write a string to the file.
 ######################################################
 def WriteString(handle, astring, fieldlen):
-    stringw=""
+    stringw = ""
     if len(astring) >= fieldlen:
-        stringw=astring[0:fieldlen]
+        stringw = astring[0:fieldlen]
     else:
-        stringw=astring+'\0'
+        stringw = astring + '\0'
     handle.write(stringw.encode())
 
 ######################################################
 #    ReadString reads a String of given length from a file handle
 ######################################################
-STRING=[]
+STRING = []
 for i in range(0, 2048):
-    STRING.append(struct.Struct(str(i)+"s"))
+    STRING.append(struct.Struct(str(i) + "s"))
+
 
 def ReadString(handle, length):
     st = STRING[length]
@@ -131,47 +136,54 @@ def ReadString(handle, length):
 ######################################################
 ZEROTESTER = 0
 if sys.version_info < (3, 0):
-    ZEROTESTER="\0"
+    ZEROTESTER = "\0"
+
 
 def ReadString0(data, offset):
     add = 0
 
-    while data[offset+add]!=ZEROTESTER:
-        add+=1
+    while data[offset+add] != ZEROTESTER:
+        add += 1
     if add < len(STRING):
         st = STRING[add]
-        S=st.unpack_from(data, offset)[0].decode("iso-8859-1")
+        S = st.unpack_from(data, offset)[0].decode("iso-8859-1")
     else:
-        S=struct.Struct(str(add)+"s").unpack_from(data, offset)[0].decode("iso-8859-1")
+        S = struct.Struct(str(add) + "s").unpack_from(data, offset)[0].decode("iso-8859-1")
     return S
 
 ######################################################
 #    ReadUShort reads an unsigned short from a file handle
 ######################################################
-USHORT=[struct.Struct("<H"), struct.Struct(">H")]
+USHORT = [struct.Struct("<H"), struct.Struct(">H")]
 def ReadUShort(handle, fileheader):
     us = USHORT[fileheader.LittleEndiannessIndex]
     return us.unpack(handle.read(us.size))[0]
 
+
 ######################################################
 #    ReadUInt reads an unsigned integer from a file handle
 ######################################################
-UINT=[struct.Struct("<I"), struct.Struct(">I")]
+UINT = [struct.Struct("<I"), struct.Struct(">I")]
 def ReadUInt(handle, fileheader):
     us = UINT[fileheader.LittleEndiannessIndex]
     return us.unpack(handle.read(us.size))[0]
 
+
 def ReadInt(handle, fileheader):
     return struct.unpack(fileheader.StructPre+"i", handle.read(4))[0]
+
+
 def ReadFloat(handle, fileheader):
     return struct.unpack(fileheader.StructPre+"f", handle.read(4))[0]
 
-SSHORT=[struct.Struct("<h"), struct.Struct(">h")]
+
+SSHORT = [struct.Struct("<h"), struct.Struct(">h")]
 def ReadShort(handle, fileheader):
     us = SSHORT[fileheader.LittleEndiannessIndex]
     return us.unpack(handle.read(us.size))[0]
 
-ULONG=[struct.Struct("<Q"), struct.Struct(">Q")]
+
+ULONG = [struct.Struct("<Q"), struct.Struct(">Q")]
 def ReadULong(handle, fileheader):
     us = ULONG[fileheader.LittleEndiannessIndex]
     return us.unpack(handle.read(us.size))[0]
@@ -189,18 +201,20 @@ def ReadPointer(handle, header):
         us = ULONG[header.LittleEndiannessIndex]
         return us.unpack(handle.read(us.size))[0]
 
+
 ######################################################
 #    Allign alligns the filehandle on 4 bytes
 ######################################################
 def Allign(offset):
     trim = offset % 4
     if trim != 0:
-        offset = offset + (4-trim)
+        offset = offset + (4 - trim)
     return offset
 
 ######################################################
 # module classes
 ######################################################
+
 
 ######################################################
 #    BlendFile
@@ -212,7 +226,7 @@ class BlendFile:
 
     def __init__(self, handle):
         log.debug("initializing reading blend-file")
-        self.handle=handle
+        self.handle = handle
         self.Header = BlendFileHeader(handle)
         self.BlockHeaderStruct = self.Header.CreateBlockHeaderStruct()
         self.Blocks = []
@@ -233,7 +247,7 @@ class BlendFile:
             self.CodeIndex[aBlock.Code].append(aBlock)
 
             aBlock = BlendFileBlock(handle, self)
-        self.Modified=False
+        self.Modified = False
         self.Blocks.append(aBlock)
 
     def FindBlendFileBlocksWithCode(self, code):
@@ -246,14 +260,15 @@ class BlendFile:
     def FindBlendFileBlockWithOffset(self, offset):
         for block in self.Blocks:
             if block.OldAddress == offset:
-                return block;
-        return None;
+                return block
+        return None
 
     def close(self):
         if not self.Modified:
             self.handle.close()
         else:
             closeBlendFile(self)
+
 
 ######################################################
 #    BlendFileBlock
@@ -266,15 +281,15 @@ class BlendFileBlock:
         header = afile.Header
 
         bytes = handle.read(afile.BlockHeaderStruct.size)
-        #header size can be 8, 20, or 24 bytes long
-        #8: old blend files ENDB block (exception)
-        #20: normal headers 32 bit platform
-        #24: normal headers 64 bit platform
-        if len(bytes)>15:
+        # header size can be 8, 20, or 24 bytes long
+        # 8: old blend files ENDB block (exception)
+        # 20: normal headers 32 bit platform
+        # 24: normal headers 64 bit platform
+        if len(bytes) > 15:
 
             blockheader = afile.BlockHeaderStruct.unpack(bytes)
             self.Code = blockheader[0].decode().split("\0")[0]
-            if self.Code!="ENDB":
+            if self.Code != "ENDB":
                 self.Size = blockheader[1]
                 self.OldAddress = blockheader[2]
                 self.SDNAIndex = blockheader[3]
@@ -305,8 +320,9 @@ class BlendFileBlock:
         dnaIndex = self.SDNAIndex
         dnaStruct = self.File.Catalog.Structs[dnaIndex]
         self.File.handle.seek(self.FileOffset, os.SEEK_SET)
-        self.File.Modified=True
+        self.File.Modified = True
         return dnaStruct.SetField(self.File.Header, self.File.handle, path, value)
+
 
 ######################################################
 #    BlendFileHeader allocates the first 12 bytes of a blend file
@@ -316,38 +332,41 @@ class BlendFileBlock:
 #    LittleEndianness = bool
 #    Version = int
 ######################################################
-BLOCKHEADERSTRUCT={}
+BLOCKHEADERSTRUCT = {}
 BLOCKHEADERSTRUCT["<4"] = struct.Struct("<4sIIII")
 BLOCKHEADERSTRUCT[">4"] = struct.Struct(">4sIIII")
 BLOCKHEADERSTRUCT["<8"] = struct.Struct("<4sIQII")
 BLOCKHEADERSTRUCT[">8"] = struct.Struct(">4sIQII")
 FILEHEADER = struct.Struct("7s1s1s3s")
-OLDBLOCK=struct.Struct("4sI")
+OLDBLOCK = struct.Struct("4sI")
+
+
 class BlendFileHeader:
     def __init__(self, handle):
         log.debug("reading blend-file-header")
         values = FILEHEADER.unpack(handle.read(FILEHEADER.size))
         self.Magic = values[0]
         tPointerSize = values[1].decode()
-        if tPointerSize=="-":
-            self.PointerSize=8
-        elif tPointerSize=="_":
-            self.PointerSize=4
+        if tPointerSize == "-":
+            self.PointerSize = 8
+        elif tPointerSize == "_":
+            self.PointerSize = 4
         tEndianness = values[2].decode()
-        if tEndianness=="v":
-            self.LittleEndianness=True
-            self.StructPre="<"
-            self.LittleEndiannessIndex=0
-        elif tEndianness=="V":
-            self.LittleEndianness=False
-            self.LittleEndiannessIndex=1
-            self.StructPre=">"
+        if tEndianness == "v":
+            self.LittleEndianness = True
+            self.StructPre = "<"
+            self.LittleEndiannessIndex = 0
+        elif tEndianness == "V":
+            self.LittleEndianness = False
+            self.LittleEndiannessIndex = 1
+            self.StructPre = ">"
 
         tVersion = values[3].decode()
         self.Version = int(tVersion)
 
     def CreateBlockHeaderStruct(self):
         return BLOCKHEADERSTRUCT[self.StructPre+str(self.PointerSize)]
+
 
 ######################################################
 #    DNACatalog is a catalog of all information in the DNA1 file-block
@@ -362,14 +381,14 @@ class DNACatalog:
     def __init__(self, header, block, handle):
         log.debug("building DNA catalog")
         shortstruct = USHORT[header.LittleEndiannessIndex]
-        shortstruct2 = struct.Struct(str(USHORT[header.LittleEndiannessIndex].format.decode()+'H'))
+        shortstruct2 = struct.Struct(str(USHORT[header.LittleEndiannessIndex].format.decode() + 'H'))
         intstruct = UINT[header.LittleEndiannessIndex]
         data = handle.read(block.Size)
-        self.Names=[]
-        self.Types=[]
-        self.Structs=[]
+        self.Names = []
+        self.Types = []
+        self.Structs = []
 
-        offset = 8;
+        offset = 8
         numberOfNames = intstruct.unpack_from(data, offset)[0]
         offset += 4
 
@@ -426,6 +445,7 @@ class DNACatalog:
                     fsize = fType[1]*fName.ArraySize
                 structure.Fields.append([fType, fName, fsize])
 
+
 ######################################################
 #    DNAName is a C-type name stored in the DNA
 #   Name=str
@@ -440,7 +460,7 @@ class DNAName:
         self.ArraySize = self.DetermineArraySize()
 
     def AsReference(self, parent):
-        if parent == None:
+        if parent is None:
             Result = ""
         else:
             Result = parent+"."
@@ -449,7 +469,7 @@ class DNAName:
         return Result
 
     def DetermineShortName(self):
-        Result = self.Name;
+        Result = self.Name
         Result = Result.replace("*", "")
         Result = Result.replace("(", "")
         Result = Result.replace(")", "")
@@ -460,10 +480,10 @@ class DNAName:
         return Result
 
     def DetermineIsPointer(self):
-        return self.Name.find("*")>-1
+        return self.Name.find("*") > -1
 
     def DetermineIsMethodPointer(self):
-        return self.Name.find("(*")>-1
+        return self.Name.find("(*") > -1
 
     def DetermineArraySize(self):
         Result = 1
@@ -472,11 +492,12 @@ class DNAName:
 
         while Index != -1:
             Index2 = Temp.find("]")
-            Result*=int(Temp[Index+1:Index2])
-            Temp = Temp[Index2+1:]
+            Result *= int(Temp[Index + 1:Index2])
+            Temp = Temp[Index2 + 1:]
             Index = Temp.find("[")
 
         return Result
+
 
 ######################################################
 #    DNAType is a C-type structure stored in the DNA
@@ -489,13 +510,13 @@ class DNAStructure:
     def __init__(self, aType):
         self.Type = aType
         aType[2] = self
-        self.Fields=[]
+        self.Fields = []
 
     def GetField(self, header, handle, path):
         splitted = path.partition(".")
         name = splitted[0]
         rest = splitted[2]
-        offset = 0;
+        offset = 0
         for field in self.Fields:
             fname = field[1]
             if fname.ShortName == name:
@@ -505,13 +526,13 @@ class DNAStructure:
 
                     if fname.IsPointer:
                         return ReadPointer(handle, header)
-                    elif ftype[0]=="int":
+                    elif ftype[0] == "int":
                         return ReadInt(handle, header)
-                    elif ftype[0]=="short":
+                    elif ftype[0] == "short":
                         return ReadShort(handle, header)
-                    elif ftype[0]=="float":
+                    elif ftype[0] == "float":
                         return ReadFloat(handle, header)
-                    elif ftype[0]=="char":
+                    elif ftype[0] == "char":
                         return ReadString(handle, fname.ArraySize)
                 else:
                     return ftype[2].GetField(header, handle, rest)
@@ -525,14 +546,14 @@ class DNAStructure:
         splitted = path.partition(".")
         name = splitted[0]
         rest = splitted[2]
-        offset = 0;
+        offset = 0
         for field in self.Fields:
             fname = field[1]
             if fname.ShortName == name:
                 handle.seek(offset, os.SEEK_CUR)
                 ftype = field[0]
-                if len(rest)==0:
-                    if ftype[0]=="char":
+                if len(rest) == 0:
+                    if ftype[0] == "char":
                         return WriteString(handle, value, fname.ArraySize)
                 else:
                     return ftype[2].SetField(header, handle, rest, value)
@@ -540,7 +561,6 @@ class DNAStructure:
                 offset += field[2]
 
         return None
-
 
 
 ######################################################
@@ -560,15 +580,13 @@ class DNAField:
         else:
             return self.Type.Size*self.Name.ArraySize
 
-#determine the relative production location of a blender path.basename
+
+# determine the relative production location of a blender path.basename
 def blendPath2AbsolutePath(productionFile, blenderPath):
-    productionFileDir=os.path.dirname(productionFile)
+    productionFileDir = os.path.dirname(productionFile)
     if blenderPath.startswith("//"):
-        relpath=blenderPath[2:]
+        relpath = blenderPath[2:]
         abspath = os.path.join(productionFileDir, relpath)
         return abspath
 
-
     return blenderPath
-
-

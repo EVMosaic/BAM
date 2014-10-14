@@ -290,26 +290,26 @@ class BlendFileHeader:
         log.debug("reading blend-file-header")
         values = FILEHEADER.unpack(handle.read(FILEHEADER.size))
         self.magic = values[0]
-        pointer_size_id = values[1].decode()
-        if pointer_size_id == "-":
+        pointer_size_id = values[1]
+        if pointer_size_id == b'-':
             self.pointer_size = 8
-        elif pointer_size_id == "_":
+        elif pointer_size_id == b'_':
             self.pointer_size = 4
         else:
             assert(0)
-        endian_id = values[2].decode()
-        if endian_id == "v":
+        endian_id = values[2]
+        if endian_id == b'v':
             self.is_little_endian = True
             self.endian_str = "<"
             self.endian_index = 0
-        elif endian_id == "V":
+        elif endian_id == b'V':
             self.is_little_endian = False
             self.endian_index = 1
             self.endian_str = ">"
         else:
             assert(0)
 
-        version_id = values[3].decode()
+        version_id = values[3]
         self.version = int(version_id)
 
     def create_block_header_struct(self):

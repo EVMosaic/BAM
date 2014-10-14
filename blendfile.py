@@ -65,10 +65,10 @@ def open_blend(filename, access="rb"):
     if magic == b"BLENDER":
         log.debug("normal blendfile detected")
         handle.seek(0, os.SEEK_SET)
-        res = BlendFile(handle)
-        res.is_compressed = False
-        res.filepath_orig = filename
-        return res
+        bfile = BlendFile(handle)
+        bfile.is_compressed = False
+        bfile.filepath_orig = filename
+        return bfile
     else:
         log.debug("gzip blendfile detected?")
         handle.close()
@@ -83,9 +83,9 @@ def open_blend(filename, access="rb"):
         fs.close()
         log.debug("resetting decompressed file")
         handle.seek(os.SEEK_SET, 0)
-        res = BlendFile(handle)
-        res.is_compressed = True
-        res.filepath_orig = filename
+        bfile = BlendFile(handle)
+        bfile.is_compressed = True
+        bfile.filepath_orig = filename
         return res
 
 
@@ -194,7 +194,7 @@ class BlendFileBlock:
     Instance of a struct.
     """
     __slots__ = (
-        # file handle
+        # BlendFile
         "file",
         "code",
         "size",
@@ -203,18 +203,18 @@ class BlendFileBlock:
         "count",
         "file_offset",
         )
-    def __init__(self, handle, afile):
-        self.file = afile
-        header = afile.header
+    def __init__(self, handle, bfile):
+        self.file = bfile
+        header = bfile.header
 
-        data = handle.read(afile.block_header_struct.size)
+        data = handle.read(bfile.block_header_struct.size)
         # header size can be 8, 20, or 24 bytes long
         # 8: old blend files ENDB block (exception)
         # 20: normal headers 32 bit platform
         # 24: normal headers 64 bit platform
         if len(data) > 15:
 
-            blockheader = afile.block_header_struct.unpack(data)
+            blockheader = bfile.block_header_struct.unpack(data)
             self.code = blockheader[0].partition(b'\0')[0]
             if self.code != b'ENDB':
                 self.size = blockheader[1]

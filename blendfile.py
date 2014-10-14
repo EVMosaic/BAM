@@ -203,6 +203,7 @@ class BlendFileBlock:
         "count",
         "file_offset",
         )
+
     def __init__(self, handle, bfile):
         self.file = bfile
         header = bfile.header
@@ -240,8 +241,7 @@ class BlendFileBlock:
 
     def get(self, path,
             use_nil=True, use_str=True):
-        dna_index = self.sdna_index
-        dna_struct = self.file.catalog.structs[dna_index]
+        dna_struct = self.file.catalog.structs[self.sdna_index]
         self.file.handle.seek(self.file_offset, os.SEEK_SET)
         return dna_struct.field_get(self.file.header, self.file.handle, path,
                                     use_nil=use_nil, use_str=use_str)
@@ -251,6 +251,9 @@ class BlendFileBlock:
         self.file.handle.seek(self.file_offset, os.SEEK_SET)
         self.file.is_modified = True
         return dna_struct.field_set(self.file.header, self.file.handle, path, value)
+
+    # ----------------------
+    # Python convenience API
 
     # dict like access
     def __getitem__(self, item):
@@ -344,6 +347,7 @@ class DNACatalog:
         "header",
         "names",
         "types",
+        # DNAStruct[]
         "structs",
         )
 
@@ -375,7 +379,7 @@ class DNACatalog:
         log.debug("building #%d types" % types_len)
         for i in range(types_len):
             tType = DNA_IO.read_data0(data, offset)
-            # None will be replaced by the DNAStructure, below
+            # None will be replaced by the DNAStruct, below
             self.types.append([tType, 0, None])
             offset += len(tType) + 1
 
@@ -399,9 +403,9 @@ class DNACatalog:
             struct_type_index = d[0]
             offset += 4
             dna_type = self.types[struct_type_index]
-            structure = DNAStructure()
-            dna_type[2] = structure
-            self.structs.append(structure)
+            dna_struct = DNAStruct()
+            dna_type[2] = dna_struct
+            self.structs.append(dna_struct)
 
             fields_len = d[1]
 
@@ -416,7 +420,7 @@ class DNACatalog:
                     fsize = header.pointer_size * fName.array_size
                 else:
                     fsize = fType[1] * fName.array_size
-                structure.fields.append([fType, fName, fsize])
+                dna_struct.fields.append([fType, fName, fsize])
 
 
 class DNAName:
@@ -477,7 +481,7 @@ class DNAName:
         return result
 
 
-class DNAStructure:
+class DNAStruct:
     """
     DNAType is a C-type structure stored in the DNA
     """

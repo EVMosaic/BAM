@@ -112,12 +112,26 @@ def closeBlendFile(afile):
 #    Write a string to the file.
 ######################################################
 def WriteString(handle, astring, fieldlen):
+    assert(isinstance(astring, str))
     stringw = ""
     if len(astring) >= fieldlen:
         stringw = astring[0:fieldlen]
     else:
         stringw = astring + '\0'
-    handle.write(stringw.encode())
+    handle.write(stringw.encode('utf-8'))
+
+
+def WriteBytes(handle, astring, fieldlen):
+    assert(isinstance(astring, (bytes, bytearray)))
+    stringw = b''
+    if len(astring) >= fieldlen:
+        stringw = astring[0:fieldlen]
+    else:
+        stringw = astring + b'\0'
+    print(stringw)
+    print(handle)
+    handle.write(stringw)
+
 
 ######################################################
 #    ReadString reads a String of given length from a file handle
@@ -605,7 +619,10 @@ class DNAStructure:
                 ftype = field[0]
                 if len(rest) == 0:
                     if ftype[0] == "char":
-                        return WriteString(handle, value, fname.array_size)
+                        if type(value) is str:
+                            return WriteString(handle, value, fname.array_size)
+                        else:
+                            return WriteBytes(handle, value, fname.array_size)
                 else:
                     return ftype[2].field_set(header, handle, rest, value)
             else:

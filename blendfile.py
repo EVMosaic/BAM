@@ -260,7 +260,7 @@ class BlendFileBlock:
         return self.get(item, use_str=False)
 
     def __setitem__(self, item, value):
-        self.set(self, item, value)
+        self.set(item, value)
 
     def keys(self):
         dna_struct = self.file.catalog.structs[self.sdna_index]

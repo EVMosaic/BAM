@@ -193,6 +193,8 @@ class BlendFileBlock:
         )
 
     def __init__(self, handle, bfile):
+        OLDBLOCK = struct.Struct(b'4sI')
+
         self.file = bfile
 
         data = handle.read(bfile.block_header_struct.size)
@@ -268,13 +270,6 @@ class BlendFileBlock:
 # pointer_size = int
 # is_little_endian = bool
 # version = int
-BLOCKHEADERSTRUCT = {}
-BLOCKHEADERSTRUCT["<4"] = struct.Struct(b'<4sIIII')
-BLOCKHEADERSTRUCT[">4"] = struct.Struct(b'>4sIIII')
-BLOCKHEADERSTRUCT["<8"] = struct.Struct(b'<4sIQII')
-BLOCKHEADERSTRUCT[">8"] = struct.Struct(b'>4sIQII')
-FILEHEADER = struct.Struct(b'7s1s1s3s')
-OLDBLOCK = struct.Struct(b'4sI')
 
 
 class BlendFileHeader:
@@ -298,6 +293,8 @@ class BlendFileHeader:
         )
 
     def __init__(self, handle):
+        FILEHEADER = struct.Struct(b'7s1s1s3s')
+
         log.debug("reading blend-file-header")
         values = FILEHEADER.unpack(handle.read(FILEHEADER.size))
         self.magic = values[0]
@@ -311,12 +308,12 @@ class BlendFileHeader:
         endian_id = values[2]
         if endian_id == b'v':
             self.is_little_endian = True
-            self.endian_str = "<"
+            self.endian_str = b'<'
             self.endian_index = 0
         elif endian_id == b'V':
             self.is_little_endian = False
             self.endian_index = 1
-            self.endian_str = ">"
+            self.endian_str = b'>'
         else:
             assert(0)
 
@@ -324,7 +321,12 @@ class BlendFileHeader:
         self.version = int(version_id)
 
     def create_block_header_struct(self):
-        return BLOCKHEADERSTRUCT[self.endian_str + str(self.pointer_size)]
+        return struct.Struct(b''.join((
+                self.endian_str,
+                b'4sI',
+                b'I' if self.pointer_size == 4 else b'Q',
+                b'II',
+                )))
 
 
 class DNACatalog:
@@ -342,7 +344,7 @@ class DNACatalog:
     def __init__(self, header, block, handle):
         log.debug("building DNA catalog")
         shortstruct = DNA_IO.USHORT[header.endian_index]
-        shortstruct2 = struct.Struct(DNA_IO.USHORT[header.endian_index].format + b'H')
+        shortstruct2 = struct.Struct(header.endian_str + b'HH')
         intstruct = DNA_IO.UINT[header.endian_index]
         data = handle.read(block.size)
         self.names = []
@@ -645,7 +647,7 @@ class DNA_IO:
 
     @staticmethod
     def read_float(handle, fileheader):
-        return struct.unpack(fileheader.endian_str + "f", handle.read(4))[0]
+        return struct.unpack(fileheader.endian_str + b'f', handle.read(4))[0]
 
     SSHORT = struct.Struct(b'<h'), struct.Struct(b'>h')
 

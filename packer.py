@@ -175,20 +175,31 @@ class utils:
 
 
 def pack(blendfile_src, blendfile_dst):
+
+    # Internal details:
+    # - we copy to a temp path before operating on the blend file
+    #   so we can modify in-place.
+    # - temp files are only created once, (if we never touched them before),
+    #   this way, for linked libraries - a single blend file may be used
+    #   multiple times, each access will apply new edits ontop of the old ones.
+    # - TODO, detect cyclic references.
+
+
     import os
     import shutil
 
-    path_temp_ls = []
-    path_copy_ls = []
+    path_temp_files = set()
+    path_copy_files = set()
 
     def temp_remap_cb(filepath):
         """
         Create temp files in the destination path.
         """
         filepath_tmp = os.path.join(base_dir_dst, os.path.basename(filepath)) + b'@'
-        print(filepath, filepath_tmp)
-        shutil.copy(filepath, filepath_tmp)
-        path_temp_ls.append(filepath_tmp)
+        # only overwrite once (allows us to )
+        if filepath_tmp not in path_temp_files:
+            shutil.copy(filepath, filepath_tmp)
+            path_temp_files.add(filepath_tmp)
         return filepath_tmp
 
     base_dir_src = os.path.dirname(blendfile_src)
@@ -210,16 +221,18 @@ def pack(blendfile_src, blendfile_dst):
         fp.filepath = b"//" + path_base
 
         # add to copylist
-        path_copy_ls.append((path_src, path_dst))
+        path_copy_files.add((path_src, path_dst))
 
-    for i, fn in enumerate(path_temp_ls):
-        if i == 0:
-            shutil.move(fn, blendfile_dst)
-        else:
-            # strip '@'
-            shutil.move(fn, fn[:-1])
+    # handle the 
+    blendfile_dst_tmp = temp_remap_cb(blendfile_src)
+    shutil.move(blendfile_dst_tmp, blendfile_dst)
+    path_temp_files.remove(blendfile_dst_tmp)
 
-    for src, dst in path_copy_ls:
+    for fn in path_temp_files:
+        # strip '@'
+        shutil.move(fn, fn[:-1])
+
+    for src, dst in path_copy_files:
         if not os.path.exists(src):
             print("  Source missing! %r" % src)
         else:

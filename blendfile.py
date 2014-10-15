@@ -34,23 +34,19 @@
 #  jbakker - python 3 compatibility added
 
 
-######################################################
-# Importing modules
-######################################################
 import os
 import struct
 import logging
 import gzip
 import tempfile
-import sys
 
 log = logging.getLogger("blendfile")
 FILE_BUFFER_SIZE = 1024 * 1024
 
 
-######################################################
+# -----------------------------------------------------------------------------
 # module global routines
-######################################################
+#
 # read routines
 # open a filename
 # determine if the file is compressed
@@ -86,20 +82,16 @@ def open_blend(filename, access="rb"):
         bfile = BlendFile(handle)
         bfile.is_compressed = True
         bfile.filepath_orig = filename
-        return res
+        return bfile
 
 
-######################################################
-#    Align alligns the filehandle on 4 bytes
-######################################################
 def align(offset, by):
     n = by - 1
     return (offset + n) & ~n
 
 
-######################################################
+# -----------------------------------------------------------------------------
 # module classes
-######################################################
 
 
 class BlendFile:
@@ -202,7 +194,6 @@ class BlendFileBlock:
 
     def __init__(self, handle, bfile):
         self.file = bfile
-        header = bfile.header
 
         data = handle.read(bfile.block_header_struct.size)
         # header size can be 8, 20, or 24 bytes long
@@ -246,7 +237,8 @@ class BlendFileBlock:
         dna_struct = self.file.catalog.structs[self.sdna_index]
         self.file.handle.seek(self.file_offset, os.SEEK_SET)
         self.file.is_modified = True
-        return dna_struct.field_set(self.file.header, self.file.handle, path, value)
+        return dna_struct.field_set(
+                self.file.header, self.file.handle, path, value)
 
     # ----------------------
     # Python convenience API
@@ -263,20 +255,19 @@ class BlendFileBlock:
         return (s[1].name_short for s in dna_struct.fields)
 
     def values(self):
-        dna_struct = self.file.catalog.structs[self.sdna_index]
         return (self[k] for k in self.keys())
 
     def items(self):
-        dna_struct = self.file.catalog.structs[self.sdna_index]
         return ((k, self[k]) for k in self.keys())
 
 
-######################################################
-#    magic = str
-#    pointer_size = int
-#    is_little_endian = bool
-#    version = int
-######################################################
+# -----------------------------------------------------------------------------
+# Read Magic
+#
+# magic = str
+# pointer_size = int
+# is_little_endian = bool
+# version = int
 BLOCKHEADERSTRUCT = {}
 BLOCKHEADERSTRUCT["<4"] = struct.Struct("<4sIIII")
 BLOCKHEADERSTRUCT[">4"] = struct.Struct(">4sIIII")
@@ -305,6 +296,7 @@ class BlendFileHeader:
         # int, used to index common types
         "endian_index",
         )
+
     def __init__(self, handle):
         log.debug("reading blend-file-header")
         values = FILEHEADER.unpack(handle.read(FILEHEADER.size))
@@ -565,9 +557,10 @@ class DNA_IO:
     """
 
     __slots__ = ()
-    # ----
+
     # Methods for read/write,
     # these are only here to avoid clogging global-namespace
+
     @staticmethod
     def write_string(handle, astring, fieldlen):
         assert(isinstance(astring, str))
@@ -591,6 +584,7 @@ class DNA_IO:
         handle.write(stringw)
 
     _STRING = [struct.Struct("%ds" % i) for i in range(0, 2048)]
+
     @staticmethod
     def _string_struct(length):
         if length < len(DNA_IO._STRING):
@@ -629,18 +623,21 @@ class DNA_IO:
         return st.unpack_from(data, offset)[0]
 
     USHORT = struct.Struct("<H"), struct.Struct(">H")
+
     @staticmethod
     def read_ushort(handle, fileheader):
         st = DNA_IO.USHORT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
     UINT = struct.Struct("<I"), struct.Struct(">I")
+
     @staticmethod
     def read_uint(handle, fileheader):
         st = DNA_IO.UINT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
     SINT = struct.Struct("<i"), struct.Struct(">i")
+
     @staticmethod
     def read_int(handle, fileheader):
         st = DNA_IO.SINT[fileheader.endian_index]
@@ -650,15 +647,15 @@ class DNA_IO:
     def read_float(handle, fileheader):
         return struct.unpack(fileheader.endian_str + "f", handle.read(4))[0]
 
-
     SSHORT = struct.Struct("<h"), struct.Struct(">h")
+
     @staticmethod
     def read_short(handle, fileheader):
         st = DNA_IO.SSHORT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
-
     ULONG = struct.Struct("<Q"), struct.Struct(">Q")
+
     @staticmethod
     def read_ulong(handle, fileheader):
         st = DNA_IO.ULONG[fileheader.endian_index]
@@ -686,6 +683,7 @@ class DNAField:
         "name",
         "dna_type",
         )
+
     def __init__(self, dna_type, name):
         self.dna_type = dna_type
         self.name = name
@@ -695,4 +693,3 @@ class DNAField:
             return header.pointer_size * self.name.array_size
         else:
             return self.dna_type.size * self.name.array_size
-

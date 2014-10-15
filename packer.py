@@ -68,8 +68,8 @@ class FilePath:
             lib_id = block[b"lib"]
             lib = blend.find_block_from_offset(lib_id)
             # print(block.fields)
-            print(block)
-            print(lib)
+            # print(block)
+            # print(lib)
             # import IPython; IPython.embed()
 
         blend.close()

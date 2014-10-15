@@ -581,8 +581,7 @@ class DNA_IO:
             stringw = astring[0:fieldlen]
         else:
             stringw = astring + b'\0'
-        print(stringw)
-        print(handle)
+
         handle.write(stringw)
 
     _STRING = [struct.Struct("%ds" % i) for i in range(0, 2048)]

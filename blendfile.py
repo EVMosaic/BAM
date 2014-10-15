@@ -17,22 +17,7 @@
 # ***** END GPL LICENCE BLOCK *****
 #
 # (c) 2009, At Mind B.V. - Jeroen Bakker
-
-# 06-10-2009:
-#  jbakker - adding support for python 3.0
-# 26-10-2009:
-#  jbakker - adding caching of the SDNA records.
-#  jbakker - adding caching for file block lookup
-#  jbakker - increased performance for readstring
-# 27-10-2009:
-#  jbakker - remove FileBlockHeader class (reducing memory print,
-#            increasing performance)
-# 28-10-2009:
-#  jbakker - reduce far-calls by joining setfield with encode and
-#            getfield with decode
-# 02-11-2009:
-#  jbakker - python 3 compatibility added
-
+# (c) 2014, Blender Foundation - Campbell Barton
 
 import os
 import struct

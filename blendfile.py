@@ -269,12 +269,12 @@ class BlendFileBlock:
 # is_little_endian = bool
 # version = int
 BLOCKHEADERSTRUCT = {}
-BLOCKHEADERSTRUCT["<4"] = struct.Struct("<4sIIII")
-BLOCKHEADERSTRUCT[">4"] = struct.Struct(">4sIIII")
-BLOCKHEADERSTRUCT["<8"] = struct.Struct("<4sIQII")
-BLOCKHEADERSTRUCT[">8"] = struct.Struct(">4sIQII")
-FILEHEADER = struct.Struct("7s1s1s3s")
-OLDBLOCK = struct.Struct("4sI")
+BLOCKHEADERSTRUCT["<4"] = struct.Struct(b'<4sIIII')
+BLOCKHEADERSTRUCT[">4"] = struct.Struct(b'>4sIIII')
+BLOCKHEADERSTRUCT["<8"] = struct.Struct(b'<4sIQII')
+BLOCKHEADERSTRUCT[">8"] = struct.Struct(b'>4sIQII')
+FILEHEADER = struct.Struct(b'7s1s1s3s')
+OLDBLOCK = struct.Struct(b'4sI')
 
 
 class BlendFileHeader:
@@ -342,7 +342,7 @@ class DNACatalog:
     def __init__(self, header, block, handle):
         log.debug("building DNA catalog")
         shortstruct = DNA_IO.USHORT[header.endian_index]
-        shortstruct2 = struct.Struct(str(DNA_IO.USHORT[header.endian_index].format.decode() + 'H'))
+        shortstruct2 = struct.Struct(DNA_IO.USHORT[header.endian_index].format + b'H')
         intstruct = DNA_IO.UINT[header.endian_index]
         data = handle.read(block.size)
         self.names = []
@@ -622,21 +622,21 @@ class DNA_IO:
         st = DNA_IO._string_struct(add)
         return st.unpack_from(data, offset)[0]
 
-    USHORT = struct.Struct("<H"), struct.Struct(">H")
+    USHORT = struct.Struct(b'<H'), struct.Struct(b'>H')
 
     @staticmethod
     def read_ushort(handle, fileheader):
         st = DNA_IO.USHORT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
-    UINT = struct.Struct("<I"), struct.Struct(">I")
+    UINT = struct.Struct(b'<I'), struct.Struct(b'>I')
 
     @staticmethod
     def read_uint(handle, fileheader):
         st = DNA_IO.UINT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
-    SINT = struct.Struct("<i"), struct.Struct(">i")
+    SINT = struct.Struct(b'<i'), struct.Struct(b'>i')
 
     @staticmethod
     def read_int(handle, fileheader):
@@ -647,14 +647,14 @@ class DNA_IO:
     def read_float(handle, fileheader):
         return struct.unpack(fileheader.endian_str + "f", handle.read(4))[0]
 
-    SSHORT = struct.Struct("<h"), struct.Struct(">h")
+    SSHORT = struct.Struct(b'<h'), struct.Struct(b'>h')
 
     @staticmethod
     def read_short(handle, fileheader):
         st = DNA_IO.SSHORT[fileheader.endian_index]
         return st.unpack(handle.read(st.size))[0]
 
-    ULONG = struct.Struct("<Q"), struct.Struct(">Q")
+    ULONG = struct.Struct(b'<Q'), struct.Struct(b'>Q')
 
     @staticmethod
     def read_ulong(handle, fileheader):

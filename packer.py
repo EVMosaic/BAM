@@ -67,6 +67,10 @@ class FilePath:
             # root when we're loading libs indirectly
             rootdir=None,
             level=0,
+            # dict of id's used so we don't follow these links again
+            # prevents cyclic references too!
+            # {lib_path: set([block id's ...])}
+            lib_visit=None,
             ):
 
         import os
@@ -131,7 +135,7 @@ class FilePath:
 
                 # get all data needed to read the blend files here (it will be freed!)
                 # lib is an address at the moment, we only use as a way to group
-                lib_all.setdefault(lib_path, []).append(block[b'name'])
+                lib_all.setdefault(lib_path, set()).add(block[b'name'])
 
         # do this after, incase we mangle names above
         for block in iter_blocks_id(b'LI'):
@@ -144,8 +148,16 @@ class FilePath:
         if recursive:
             # now we've closed the file, loop on other files
             for lib_path, lib_block_codes in lib_all.items():
-                # import IPython; IPython.embed()
                 lib_path_abs = utils.abspath(lib_path, basedir)
+
+                # if we visited this before,
+                # check we don't follow the same links more than once
+                lib_block_codes_existing = lib_visit.setdefault(lib_path_abs, set())
+                lib_block_codes -= lib_block_codes_existing
+                # don't touch them again
+                lib_block_codes_existing.update(lib_block_codes)
+
+                # import IPython; IPython.embed()
                 if VERBOSE:
                     print((indent_str + "  "), "Library: ", filepath, " -> ", lib_path_abs, sep="")
                     print((indent_str + "  "), lib_block_codes)
@@ -154,7 +166,7 @@ class FilePath:
                         readonly=readonly,
                         temp_remap_cb=temp_remap_cb,
                         recursive=True,
-                        block_codes=set(lib_block_codes),
+                        block_codes=lib_block_codes,
                         rootdir=rootdir,
                         level=level + 1,
                         )
@@ -182,7 +194,9 @@ def pack(blendfile_src, blendfile_dst):
     # - temp files are only created once, (if we never touched them before),
     #   this way, for linked libraries - a single blend file may be used
     #   multiple times, each access will apply new edits ontop of the old ones.
-    # - TODO, detect cyclic references.
+    # - we track which libs we have touched (using 'lib_visit' arg),
+    #   this means that the same libs wont be touched many times to modify the same data
+    #   also prevents cyclic loops from crashing.
 
 
     import os
@@ -205,11 +219,14 @@ def pack(blendfile_src, blendfile_dst):
     base_dir_src = os.path.dirname(blendfile_src)
     base_dir_dst = os.path.dirname(blendfile_dst)
 
+    lib_visit = {}
+
     for fp, rootdir in FilePath.visit_from_blend(
             blendfile_src,
             readonly=False,
             temp_remap_cb=temp_remap_cb,
-            recursive=True):
+            recursive=True,
+            lib_visit=lib_visit):
 
         # assume the path might be relative
         path_rel = fp.filepath
@@ -222,6 +239,8 @@ def pack(blendfile_src, blendfile_dst):
 
         # add to copylist
         path_copy_files.add((path_src, path_dst))
+
+    del lib_visit
 
     # handle the 
     blendfile_dst_tmp = temp_remap_cb(blendfile_src)

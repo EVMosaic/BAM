@@ -504,29 +504,28 @@ class DNAStruct:
             if dna_name.name_short == name:
                 return field
 
-    def field_from_path(self, path):
+    def field_from_path(self, handle, path):
         assert(type(path) == bytes)
         name, _, name_tail = path.partition(b'.')
-
         field = self.field_from_name(name)
 
         if field is not None:
+            handle.seek(field.dna_offset, os.SEEK_CUR)
             if name_tail == b'':
                 return field
             else:
-                return field.dna_type[2].field_from_path(name_tail)
+                return field.dna_type[2].field_from_path(handle, name_tail)
 
     def field_get(self, header, handle, path,
                   use_nil=True, use_str=True):
         assert(type(path) == bytes)
 
-        field = self.field_from_path(path)
+        field = self.field_from_path(handle, path)
         if field is None:
-            raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
+            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_short for f in self.fields]))
 
         dna_type = field.dna_type
         dna_name = field.dna_name
-        handle.seek(field.dna_offset, os.SEEK_CUR)
 
         if dna_name.is_pointer:
             return DNA_IO.read_pointer(handle, header)
@@ -551,13 +550,12 @@ class DNAStruct:
     def field_set(self, header, handle, path, value):
         assert(type(path) == bytes)
 
-        field = self.field_from_path(path)
+        field = self.field_from_path(handle, path)
         if field is None:
-            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_short for s in self.fields]))
+            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_short for f in self.fields]))
 
         dna_type = field.dna_type
         dna_name = field.dna_name
-        handle.seek(field.dna_offset, os.SEEK_CUR)
 
         if dna_type[0] == b'char':
             if type(value) is str:

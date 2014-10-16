@@ -86,21 +86,39 @@ class FilePath:
             rootdir = basedir
 
         if recursive and (level > 0) and (block_codes is not None):
+            # prevent from expanding the
+            # same datablock more then once
             expand_codes = set()
-            def block_expand(block):
-                # TODO, expand ID's
-                return block
+
+            def expand_codes_add_test(block):
+                len_prev = len(expand_codes)
+                expand_codes.add(block[b'id.name'])
+                return (len_prev != len(expand_codes))
+
+            def block_expand(block, code):
+                if expand_codes_add_test(block):
+                    yield block
+
+                    fn = ExpandID.expand_funcs.get(code)
+                    if fn is not None:
+                        for sub_block in fn(block):
+                            if sub_block is not None:
+                                yield from block_expand(sub_block, sub_block.code)
+                else:
+                    yield block
         else:
             expand_codes = None
-            def block_expand(block):
-                return block
+            def block_expand(block, code):
+                yield block
 
         if block_codes is None:
-            iter_blocks_id = lambda code: blend.find_blocks_from_code(code)
+            def iter_blocks_id(code):
+                return blend.find_blocks_from_code(code)
         else:
-            iter_blocks_id = lambda code: (block_expand(block)
-                                           for block in blend.find_blocks_from_code(code)
-                                           if block[b'id.name'] in block_codes)
+            def iter_blocks_id(code):
+                for block in blend.find_blocks_from_code(code):
+                    if block[b'id.name'] in block_codes:
+                        yield from block_expand(block, code)
 
         if expand_codes is None:
             iter_blocks_lib = lambda: blend.find_blocks_from_code(b'ID')
@@ -119,8 +137,12 @@ class FilePath:
         blend = blendfile.open_blend(filepath_tmp, "rb" if readonly else "r+b")
 
         for block in iter_blocks_id(b'IM'):
-            print(block[b'name'], basedir)
             yield FilePath(block, b'name', basedir), rootdir
+
+        # follow links (loop over non-filepath ID's)
+        if recursive:
+            for block in iter_blocks_id(b'GR'):
+                pass
 
         if recursive:
             # look into libraries
@@ -170,6 +192,53 @@ class FilePath:
                         rootdir=rootdir,
                         level=level + 1,
                         )
+
+
+class bf_utils:
+    @staticmethod
+    def iter_ListBase(block):
+        while block:
+            yield block
+            block = block.file.find_block_from_offset(block[b'next'])
+
+
+# -----------------------------------------------------------------------------
+# ID Expand
+
+class ExpandID:
+    # fake module
+    __slots__ = ()
+
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
+
+    def expand_OB(block):
+        yield block.get_pointer(b'data')
+    def expand_ME(block):
+        return
+        yield none
+    def expand_MA(block):
+        return
+        yield none
+    def expand_TE(block):
+        return
+        yield none
+    def expand_GR(block):
+        sdna_index_GroupObject = block.file.sdna_index_from_id[b'GroupObject']
+        for gobj in bf_utils.iter_ListBase(block.get_pointer(b'gobject.first')):
+            yield gobj.get_pointer(b'ob', sdna_index_refine=sdna_index_GroupObject)
+
+    expand_funcs = {
+        b'OB': expand_OB,
+        b'ME': expand_ME,
+        b'MA': expand_MA,
+        b'TE': expand_TE,
+        b'GR': expand_GR,
+        }
+
+
+# -----------------------------------------------------------------------------
+# Packing Utility
 
 
 class utils:
@@ -242,7 +311,7 @@ def pack(blendfile_src, blendfile_dst):
 
     del lib_visit
 
-    # handle the 
+    # handle the
     blendfile_dst_tmp = temp_remap_cb(blendfile_src)
     shutil.move(blendfile_dst_tmp, blendfile_dst)
     path_temp_files.remove(blendfile_dst_tmp)

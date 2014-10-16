@@ -99,6 +99,8 @@ class BlendFile:
         # dict {b'StructName': sdna_index}
         # (where the index is an index into 'structs')
         "sdna_index_from_id",
+        # dict {addr_old: block}
+        "block_from_offset",
         # int
         "code_index",
         # bool (did we make a change)
@@ -131,6 +133,9 @@ class BlendFile:
         self.is_modified = False
         self.blocks.append(block)
 
+        # cache (could lazy init, incase we never use?)
+        self.block_from_offset = {block.addr_old: block for block in self.blocks}
+
 
     def find_blocks_from_code(self, code):
         assert(type(code) == bytes)
@@ -139,10 +144,10 @@ class BlendFile:
         return self.code_index[code]
 
     def find_block_from_offset(self, offset):
-        for block in self.blocks:
-            if block.addr_old == offset:
-                return block
-        return None
+        # same as looking looping over all blocks,
+        # then checking ``block.addr_old == offset``
+        assert(type(offset) is int)
+        return self.block_from_offset.get(offset)
 
     def close(self):
         """
@@ -594,7 +599,6 @@ class DNAStruct:
         dna_type = field.dna_type
         dna_name = field.dna_name
 
-        print(dna_type.dna_type_id)
         if dna_name.is_pointer:
             return DNA_IO.read_pointer(handle, header)
         elif dna_type.dna_type_id == b'int':

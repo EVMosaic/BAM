@@ -227,6 +227,22 @@ class BlendFileBlock:
         return dna_struct.field_set(
                 self.file.header, self.file.handle, path, value)
 
+    # ---------------
+    # Utility get/set
+    #
+    #   avoid inline pointer casting
+    def get_pointer(self, path):
+        result = self.get(path)
+        assert(self.file.catalog.structs[self.sdna_index].field_from_path(self.file.handle, path).dna_name.is_pointer)
+        if result != 0:
+            # possible (but unlikely)
+            # that this fails and returns None
+            # maybe we want to raise some exception in this case
+            return self.file.find_block_from_offset(result)
+        else:
+            return None
+
+
     # ----------------------
     # Python convenience API
 

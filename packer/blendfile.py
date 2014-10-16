@@ -177,6 +177,15 @@ class BlendFileBlock:
         "file_offset",
         )
 
+    def __str__(self):
+        return ("<%s.%s (%s), size=%d at %s>" %
+                (self.__class__.__name__,
+                 self.file.catalog.structs_type[self.sdna_index][0].decode(),
+                 self.code.decode(),
+                 self.size,
+                 hex(self.addr_old),
+                 ))
+
     def __init__(self, handle, bfile):
         OLDBLOCK = struct.Struct(b'4sI')
 
@@ -212,6 +221,20 @@ class BlendFileBlock:
             self.sdna_index = 0
             self.count = 0
             self.file_offset = 0
+
+    def refine_type(self, dna_type_id):
+        assert(type(dna_type_id) is bytes)
+        sdna_index_curr = self.sdna_index
+        sdna_index_next = self.file.catalog.sdna_index_from_id(dna_type_id)
+
+        # never refine to a smaller type
+        if (self.file.catalog.structs_type[sdna_index_curr] >
+            self.file.catalog.structs_type[sdna_index_next]):
+
+            raise RuntimeError("cant refine to smaller type (%s -> %s)" %
+                               (dna_type_id, sdna_index_curr))
+
+        self.sdna_index = sdna_index_next
 
     def get(self, path,
             use_nil=True, use_str=True):
@@ -341,6 +364,8 @@ class DNACatalog:
         "types",
         # DNAStruct[]
         "structs",
+        # (same as 'types', aligned to 'structs')
+        "structs_type",
         )
 
     def __init__(self, header, block, handle):
@@ -352,6 +377,7 @@ class DNACatalog:
         self.names = []
         self.types = []
         self.structs = []
+        self.structs_type = []
 
         offset = 8
         names_len = intstruct.unpack_from(data, offset)[0]
@@ -370,10 +396,10 @@ class DNACatalog:
         offset += 4
         log.debug("building #%d types" % types_len)
         for i in range(types_len):
-            dna_type = DNA_IO.read_data0(data, offset)
+            dna_type_id = DNA_IO.read_data0(data, offset)
             # None will be replaced by the DNAStruct, below
-            self.types.append([dna_type, 0, None])
-            offset += len(dna_type) + 1
+            self.types.append([dna_type_id, 0, None])
+            offset += len(dna_type_id) + 1
 
         offset = align(offset, 4)
         offset += 4
@@ -398,6 +424,7 @@ class DNACatalog:
             dna_struct = DNAStruct()
             dna_type[2] = dna_struct
             self.structs.append(dna_struct)
+            self.structs_type.append(dna_type)
 
             fields_len = d[1]
             dna_offset = 0
@@ -416,6 +443,15 @@ class DNACatalog:
 
                 dna_struct.fields.append(DNAField(dna_type, dna_name, dna_size, dna_offset))
                 dna_offset += dna_size
+
+    def sdna_index_from_id(self, dna_type_id):
+        # TODO, use dict?
+        for i, id_name in enumerate(self.structs_type):
+            print(id_name)
+            if dna_type_id == id_name[0]:
+                return i
+        raise KeyError("%r not found" % dna_type_id)
+
 
 class DNAName:
     """
@@ -504,9 +540,6 @@ class DNAStruct:
     DNAStruct is a C-type structure stored in the DNA
     """
     __slots__ = (
-        "dna_type",
-        # tuple:
-        #   (type, name, size)
         "fields",
         )
 

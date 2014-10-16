@@ -92,7 +92,7 @@ class BlendFile:
         "header",
         # struct.Struct
         "block_header_struct",
-        # FileBlockHeader
+        # BlendFileBlock
         "blocks",
         # DNACatalog
         "catalog",
@@ -509,7 +509,7 @@ class DNAStruct:
             else:
                 offset += field[2]
 
-        return None
+        raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
 
     def field_set(self, header, handle, path, value):
         assert(type(path) == bytes)
@@ -533,7 +533,7 @@ class DNAStruct:
             else:
                 offset += field[2]
 
-        return None
+        raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
 
 
 class DNA_IO:

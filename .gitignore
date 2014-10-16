@@ -1,2 +1,4 @@
 *.pyc
 webservice/venv/
+docs/venv/
+docs/build/

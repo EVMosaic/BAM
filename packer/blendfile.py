@@ -180,7 +180,7 @@ class BlendFileBlock:
     def __str__(self):
         return ("<%s.%s (%s), size=%d at %s>" %
                 (self.__class__.__name__,
-                 self.file.catalog.structs_type[self.sdna_index][0].decode(),
+                 self.file.catalog.structs[self.sdna_index].dna_type_id.decode(),
                  self.code.decode(),
                  self.size,
                  hex(self.addr_old),
@@ -228,8 +228,8 @@ class BlendFileBlock:
         sdna_index_next = self.file.catalog.sdna_index_from_id(dna_type_id)
 
         # never refine to a smaller type
-        if (self.file.catalog.structs_type[sdna_index_curr] >
-            self.file.catalog.structs_type[sdna_index_next]):
+        if (self.file.catalog.structs[sdna_index_curr].size >
+            self.file.catalog.structs[sdna_index_next].size):
 
             raise RuntimeError("cant refine to smaller type (%s -> %s)" %
                                (dna_type_id, sdna_index_curr))
@@ -361,11 +361,10 @@ class DNACatalog:
         #
         "names",
         #
+        # DNAStruct[]
         "types",
         # DNAStruct[]
         "structs",
-        # (same as 'types', aligned to 'structs')
-        "structs_type",
         )
 
     def __init__(self, header, block, handle):
@@ -377,7 +376,6 @@ class DNACatalog:
         self.names = []
         self.types = []
         self.structs = []
-        self.structs_type = []
 
         offset = 8
         names_len = intstruct.unpack_from(data, offset)[0]
@@ -398,7 +396,7 @@ class DNACatalog:
         for i in range(types_len):
             dna_type_id = DNA_IO.read_data0(data, offset)
             # None will be replaced by the DNAStruct, below
-            self.types.append([dna_type_id, 0, None])
+            self.types.append(DNAStruct(dna_type_id))
             offset += len(dna_type_id) + 1
 
         offset = align(offset, 4)
@@ -407,7 +405,7 @@ class DNACatalog:
         for i in range(types_len):
             tLen = shortstruct.unpack_from(data, offset)[0]
             offset = offset + 2
-            self.types[i][1] = tLen
+            self.types[i].size = tLen
         del types_len
 
         offset = align(offset, 4)
@@ -420,11 +418,8 @@ class DNACatalog:
             d = shortstruct2.unpack_from(data, offset)
             struct_type_index = d[0]
             offset += 4
-            dna_type = self.types[struct_type_index]
-            dna_struct = DNAStruct()
-            dna_type[2] = dna_struct
+            dna_struct = self.types[struct_type_index]
             self.structs.append(dna_struct)
-            self.structs_type.append(dna_type)
 
             fields_len = d[1]
             dna_offset = 0
@@ -439,16 +434,15 @@ class DNACatalog:
                 if dna_name.is_pointer or dna_name.is_method_pointer:
                     dna_size = header.pointer_size * dna_name.array_size
                 else:
-                    dna_size = dna_type[1] * dna_name.array_size
+                    dna_size = dna_type.size * dna_name.array_size
 
                 dna_struct.fields.append(DNAField(dna_type, dna_name, dna_size, dna_offset))
                 dna_offset += dna_size
 
     def sdna_index_from_id(self, dna_type_id):
         # TODO, use dict?
-        for i, id_name in enumerate(self.structs_type):
-            print(id_name)
-            if dna_type_id == id_name[0]:
+        for i, dna_type in enumerate(self.structs):
+            if dna_type_id == dna_type.dna_type_id:
                 return i
         raise KeyError("%r not found" % dna_type_id)
 
@@ -540,10 +534,13 @@ class DNAStruct:
     DNAStruct is a C-type structure stored in the DNA
     """
     __slots__ = (
+        "dna_type_id",
+        "size",
         "fields",
         )
 
-    def __init__(self):
+    def __init__(self, dna_type_id):
+        self.dna_type_id = dna_type_id
         self.fields = []
 
     def field_from_name(self, name):
@@ -563,7 +560,7 @@ class DNAStruct:
             if name_tail == b'':
                 return field
             else:
-                return field.dna_type[2].field_from_path(handle, name_tail)
+                return field.dna_type.field_from_path(handle, name_tail)
 
     def field_get(self, header, handle, path,
                   use_nil=True, use_str=True):
@@ -576,15 +573,16 @@ class DNAStruct:
         dna_type = field.dna_type
         dna_name = field.dna_name
 
+        print(dna_type.dna_type_id)
         if dna_name.is_pointer:
             return DNA_IO.read_pointer(handle, header)
-        elif dna_type[0] == b'int':
+        elif dna_type.dna_type_id == b'int':
             return DNA_IO.read_int(handle, header)
-        elif dna_type[0] == b'short':
+        elif dna_type.dna_type_id == b'short':
             return DNA_IO.read_short(handle, header)
-        elif dna_type[0] == b'float':
+        elif dna_type.dna_type_id == b'float':
             return DNA_IO.read_float(handle, header)
-        elif dna_type[0] == b'char':
+        elif dna_type.dna_type_id == b'char':
             if use_str:
                 if use_nil:
                     return DNA_IO.read_string0(handle, dna_name.array_size)
@@ -606,7 +604,7 @@ class DNAStruct:
         dna_type = field.dna_type
         dna_name = field.dna_name
 
-        if dna_type[0] == b'char':
+        if dna_type.dna_type_id == b'char':
             if type(value) is str:
                 return DNA_IO.write_string(handle, value, dna_name.array_size)
             else:

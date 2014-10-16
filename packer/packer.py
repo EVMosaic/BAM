@@ -50,7 +50,6 @@ class FilePath:
 
     # ------------------------------------------------------------------------
     # Main function to visit paths
-
     @staticmethod
     def visit_from_blend(
             filepath,
@@ -142,7 +141,7 @@ class FilePath:
         # follow links (loop over non-filepath ID's)
         if recursive:
             for block in iter_blocks_id(b'GR'):
-                pass
+                yield from FilePath.from_block(block, basedir, rootdir)
 
         if recursive:
             # look into libraries
@@ -161,7 +160,7 @@ class FilePath:
 
         # do this after, incase we mangle names above
         for block in iter_blocks_id(b'LI'):
-            yield FilePath(block, b'name', basedir), rootdir
+            yield from FilePath.from_block(block, basedir, rootdir)
 
         blend.close()
 
@@ -193,6 +192,31 @@ class FilePath:
                         level=level + 1,
                         )
 
+    # ------------------------------------------------------------------------
+    # Direct filepaths from Blocks
+    #
+    # (no expanding or following references)
+
+    @staticmethod
+    def from_block(block, basedir, rootdir):
+        print(block)
+        assert(block.code != b'DATA')
+        fn = FilePath._from_block_dict.get(block.code)
+        if fn is not None:
+            yield from fn(block, basedir, rootdir)
+
+    def _from_block_IM(block, basedir, rootdir):
+        yield FilePath(block, b'name', basedir), rootdir
+
+    def _from_block_LI(block, basedir, rootdir):
+        yield FilePath(block, b'name', basedir), rootdir
+
+    _from_block_dict = {
+        b'IM': _from_block_IM,
+        b'LI': _from_block_LI,
+        }
+
+
 
 class bf_utils:
     @staticmethod
@@ -218,6 +242,7 @@ class ExpandID:
         return
         yield none
     def expand_MA(block):
+        print(block)
         return
         yield none
     def expand_TE(block):

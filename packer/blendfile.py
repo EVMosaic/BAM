@@ -319,8 +319,8 @@ class DNACatalog:
     DNACatalog is a catalog of all information in the DNA1 file-block
     """
     __slots__ = (
-        "header",
         "names",
+        #
         "types",
         # DNAStruct[]
         "structs",
@@ -458,15 +458,27 @@ class DNAName:
 
 class DNAStruct:
     """
-    DNAType is a C-type structure stored in the DNA
+    DNAStruct is a C-type structure stored in the DNA
     """
     __slots__ = (
         "dna_type",
+        # tuple:
+        #   (type, name, size)
         "fields",
         )
 
     def __init__(self):
         self.fields = []
+
+    def field_from_name(self, name):
+        # TODO, use dict lookup?
+        offset = 0
+        for field in self.fields:
+            fname = field[1]
+            if fname.name_short == name:
+                return field, offset
+            offset += field[2]
+        return None, None
 
     def field_get(self, header, handle, path,
                   use_nil=True, use_str=True):
@@ -474,66 +486,60 @@ class DNAStruct:
         splitted = path.partition(b'.')
         name = splitted[0]
         rest = splitted[2]
-        offset = 0
-        for field in self.fields:
-            fname = field[1]
-            if fname.name_short == name:
-                handle.seek(offset, os.SEEK_CUR)
-                ftype = field[0]
-                if len(rest) == 0:
 
-                    if fname.is_pointer:
-                        return DNA_IO.read_pointer(handle, header)
-                    elif ftype[0] == b'int':
-                        return DNA_IO.read_int(handle, header)
-                    elif ftype[0] == b'short':
-                        return DNA_IO.read_short(handle, header)
-                    elif ftype[0] == b'float':
-                        return DNA_IO.read_float(handle, header)
-                    elif ftype[0] == b'char':
-                        if use_str:
-                            if use_nil:
-                                return DNA_IO.read_string0(handle, fname.array_size)
-                            else:
-                                return DNA_IO.read_string(handle, fname.array_size)
-                        else:
-                            if use_nil:
-                                return DNA_IO.read_bytes0(handle, fname.array_size)
-                            else:
-                                return DNA_IO.read_bytes(handle, fname.array_size)
+        field, offset = self.field_from_name(name)
+        if field is None:
+            raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
 
+        fname = field[1]
+        handle.seek(offset, os.SEEK_CUR)
+        ftype = field[0]
+
+        if rest == b'':
+            if fname.is_pointer:
+                return DNA_IO.read_pointer(handle, header)
+            elif ftype[0] == b'int':
+                return DNA_IO.read_int(handle, header)
+            elif ftype[0] == b'short':
+                return DNA_IO.read_short(handle, header)
+            elif ftype[0] == b'float':
+                return DNA_IO.read_float(handle, header)
+            elif ftype[0] == b'char':
+                if use_str:
+                    if use_nil:
+                        return DNA_IO.read_string0(handle, fname.array_size)
+                    else:
+                        return DNA_IO.read_string(handle, fname.array_size)
                 else:
-                    return ftype[2].field_get(header, handle, rest,
-                                              use_nil=use_nil, use_str=use_str)
-
-            else:
-                offset += field[2]
-
-        raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
+                    if use_nil:
+                        return DNA_IO.read_bytes0(handle, fname.array_size)
+                    else:
+                        return DNA_IO.read_bytes(handle, fname.array_size)
+        else:
+            return ftype[2].field_get(header, handle, rest,
+                                      use_nil=use_nil, use_str=use_str)
 
     def field_set(self, header, handle, path, value):
         assert(type(path) == bytes)
         splitted = path.partition(b'.')
         name = splitted[0]
         rest = splitted[2]
-        offset = 0
-        for field in self.fields:
-            fname = field[1]
-            if fname.name_short == name:
-                handle.seek(offset, os.SEEK_CUR)
-                ftype = field[0]
-                if len(rest) == 0:
-                    if ftype[0] == b'char':
-                        if type(value) is str:
-                            return DNA_IO.write_string(handle, value, fname.array_size)
-                        else:
-                            return DNA_IO.write_bytes(handle, value, fname.array_size)
-                else:
-                    return ftype[2].field_set(header, handle, rest, value)
-            else:
-                offset += field[2]
 
-        raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
+        field, offset = self.field_from_name(name)
+        if field is None:
+            raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
+
+        fname = field[1]
+        handle.seek(offset, os.SEEK_CUR)
+        ftype = field[0]
+        if len(rest) == 0:
+            if ftype[0] == b'char':
+                if type(value) is str:
+                    return DNA_IO.write_string(handle, value, fname.array_size)
+                else:
+                    return DNA_IO.write_bytes(handle, value, fname.array_size)
+        else:
+            return ftype[2].field_set(header, handle, rest, value)
 
 
 class DNA_IO:
@@ -663,7 +669,7 @@ class DNA_IO:
 
 class DNAField:
     """
-    DNAField is a coupled DNAType and DNAName
+    DNAField is a coupled DNAStruct and DNAName
     """
     __slots__ = (
         "name",

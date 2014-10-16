@@ -239,7 +239,7 @@ class BlendFileBlock:
 
     def keys(self):
         dna_struct = self.file.catalog.structs[self.sdna_index]
-        return (s[1].name_short for s in dna_struct.fields)
+        return (f.dna_name.name_short for f in dna_struct.fields)
 
     def values(self):
         return (self[k] for k in self.keys())
@@ -319,6 +319,7 @@ class DNACatalog:
     DNACatalog is a catalog of all information in the DNA1 file-block
     """
     __slots__ = (
+        #
         "names",
         #
         "types",
@@ -353,10 +354,10 @@ class DNACatalog:
         offset += 4
         log.debug("building #%d types" % types_len)
         for i in range(types_len):
-            tType = DNA_IO.read_data0(data, offset)
+            dna_type = DNA_IO.read_data0(data, offset)
             # None will be replaced by the DNAStruct, below
-            self.types.append([tType, 0, None])
-            offset += len(tType) + 1
+            self.types.append([dna_type, 0, None])
+            offset += len(dna_type) + 1
 
         offset = align(offset, 4)
         offset += 4
@@ -383,20 +384,22 @@ class DNACatalog:
             self.structs.append(dna_struct)
 
             fields_len = d[1]
+            dna_offset = 0
 
             for field_index in range(fields_len):
                 d2 = shortstruct2.unpack_from(data, offset)
                 field_type_index = d2[0]
                 field_name_index = d2[1]
                 offset += 4
-                fType = self.types[field_type_index]
-                fName = self.names[field_name_index]
-                if fName.is_pointer or fName.is_method_pointer:
-                    fsize = header.pointer_size * fName.array_size
+                dna_type = self.types[field_type_index]
+                dna_name = self.names[field_name_index]
+                if dna_name.is_pointer or dna_name.is_method_pointer:
+                    dna_size = header.pointer_size * dna_name.array_size
                 else:
-                    fsize = fType[1] * fName.array_size
-                dna_struct.fields.append([fType, fName, fsize])
+                    dna_size = dna_type[1] * dna_name.array_size
 
+                dna_struct.fields.append(DNAField(dna_type, dna_name, dna_size, dna_offset))
+                dna_offset += dna_size
 
 class DNAName:
     """
@@ -410,8 +413,8 @@ class DNAName:
         "array_size",
         )
 
-    def __init__(self, aName):
-        self.name = aName
+    def __init__(self, name):
+        self.name = name
         self.name_short = self.calc_name_short()
         self.is_pointer = self.calc_is_pointer()
         self.is_method_pointer = self.calc_is_method_pointer()
@@ -456,6 +459,30 @@ class DNAName:
         return result
 
 
+class DNAField:
+    """
+    DNAField is a coupled DNAStruct and DNAName
+    and cache offset for reuse
+    """
+    __slots__ = (
+        # DNAName
+        "dna_name",
+        # tuple of 3 items
+        # [bytes (struct name), int (struct size), DNAStruct]
+        "dna_type",
+        # size on-disk
+        "dna_size",
+        # cached info (avoid looping over fields each time)
+        "dna_offset",
+        )
+
+    def __init__(self, dna_type, dna_name, dna_size, dna_offset):
+        self.dna_type = dna_type
+        self.dna_name = dna_name
+        self.dna_size = dna_size
+        self.dna_offset = dna_offset
+
+
 class DNAStruct:
     """
     DNAStruct is a C-type structure stored in the DNA
@@ -472,13 +499,10 @@ class DNAStruct:
 
     def field_from_name(self, name):
         # TODO, use dict lookup?
-        offset = 0
         for field in self.fields:
-            fname = field[1]
-            if fname.name_short == name:
-                return field, offset
-            offset += field[2]
-        return None, None
+            dna_name = field.dna_name
+            if dna_name.name_short == name:
+                return field
 
     def field_get(self, header, handle, path,
                   use_nil=True, use_str=True):
@@ -487,36 +511,36 @@ class DNAStruct:
         name = splitted[0]
         rest = splitted[2]
 
-        field, offset = self.field_from_name(name)
+        field = self.field_from_name(name)
         if field is None:
             raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
 
-        fname = field[1]
-        handle.seek(offset, os.SEEK_CUR)
-        ftype = field[0]
+        dna_type = field.dna_type
+        dna_name = field.dna_name
+        handle.seek(field.dna_offset, os.SEEK_CUR)
 
         if rest == b'':
-            if fname.is_pointer:
+            if dna_name.is_pointer:
                 return DNA_IO.read_pointer(handle, header)
-            elif ftype[0] == b'int':
+            elif dna_type[0] == b'int':
                 return DNA_IO.read_int(handle, header)
-            elif ftype[0] == b'short':
+            elif dna_type[0] == b'short':
                 return DNA_IO.read_short(handle, header)
-            elif ftype[0] == b'float':
+            elif dna_type[0] == b'float':
                 return DNA_IO.read_float(handle, header)
-            elif ftype[0] == b'char':
+            elif dna_type[0] == b'char':
                 if use_str:
                     if use_nil:
-                        return DNA_IO.read_string0(handle, fname.array_size)
+                        return DNA_IO.read_string0(handle, dna_name.array_size)
                     else:
-                        return DNA_IO.read_string(handle, fname.array_size)
+                        return DNA_IO.read_string(handle, dna_name.array_size)
                 else:
                     if use_nil:
-                        return DNA_IO.read_bytes0(handle, fname.array_size)
+                        return DNA_IO.read_bytes0(handle, dna_name.array_size)
                     else:
-                        return DNA_IO.read_bytes(handle, fname.array_size)
+                        return DNA_IO.read_bytes(handle, dna_name.array_size)
         else:
-            return ftype[2].field_get(header, handle, rest,
+            return dna_type[2].field_get(header, handle, rest,
                                       use_nil=use_nil, use_str=use_str)
 
     def field_set(self, header, handle, path, value):
@@ -525,21 +549,22 @@ class DNAStruct:
         name = splitted[0]
         rest = splitted[2]
 
-        field, offset = self.field_from_name(name)
+        field = self.field_from_name(name)
         if field is None:
-            raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
+            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_short for s in self.fields]))
 
-        fname = field[1]
-        handle.seek(offset, os.SEEK_CUR)
-        ftype = field[0]
-        if len(rest) == 0:
-            if ftype[0] == b'char':
+        dna_type = field.dna_type
+        dna_name = field.dna_name
+        handle.seek(field.dna_offset, os.SEEK_CUR)
+
+        if rest == b'':
+            if dna_type[0] == b'char':
                 if type(value) is str:
-                    return DNA_IO.write_string(handle, value, fname.array_size)
+                    return DNA_IO.write_string(handle, value, dna_name.array_size)
                 else:
-                    return DNA_IO.write_bytes(handle, value, fname.array_size)
+                    return DNA_IO.write_bytes(handle, value, dna_name.array_size)
         else:
-            return ftype[2].field_set(header, handle, rest, value)
+            return dna_type[2].field_set(header, handle, rest, value)
 
 
 class DNA_IO:
@@ -667,21 +692,3 @@ class DNA_IO:
             return st.unpack(handle.read(st.size))[0]
 
 
-class DNAField:
-    """
-    DNAField is a coupled DNAStruct and DNAName
-    """
-    __slots__ = (
-        "name",
-        "dna_type",
-        )
-
-    def __init__(self, dna_type, name):
-        self.dna_type = dna_type
-        self.name = name
-
-    def size(self, header):
-        if self.name.is_pointer or self.name.is_method_pointer:
-            return header.pointer_size * self.name.array_size
-        else:
-            return self.dna_type.size * self.name.array_size

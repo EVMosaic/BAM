@@ -311,19 +311,23 @@ class BlendFileBlock:
             self.count = 0
             self.file_offset = 0
 
-    def refine_type(self, dna_type_id):
-        assert(type(dna_type_id) is bytes)
+    def refine_type_from_index(self, sdna_index_next):
+        assert(type(sdna_index_next) is int)
         sdna_index_curr = self.sdna_index
-        sdna_index_next = self.file.sdna_index_from_id[dna_type_id]
 
         # never refine to a smaller type
         if (self.file.structs[sdna_index_curr].size >
             self.file.structs[sdna_index_next].size):
 
             raise RuntimeError("cant refine to smaller type (%s -> %s)" %
-                               (dna_type_id, sdna_index_curr))
+                               (self.file.structs[sdna_index_curr].dna_type_id.decode('ascii'),
+                                self.file.structs[sdna_index_next].dna_type_id.decode('ascii')))
 
         self.sdna_index = sdna_index_next
+
+    def refine_type(self, dna_type_id):
+        assert(type(dna_type_id) is bytes)
+        self.refine_type_from_index(self.file.sdna_index_from_id[dna_type_id])
 
     def get(self, path,
             use_nil=True, use_str=True):

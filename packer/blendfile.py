@@ -167,6 +167,15 @@ class BlendFile:
 
             handle.close()
 
+    def ensure_subtype_smaller(self, sdna_index_curr, sdna_index_next):
+        # never refine to a smaller type
+        if (self.structs[sdna_index_curr].size >
+            self.structs[sdna_index_next].size):
+
+            raise RuntimeError("cant refine to smaller type (%s -> %s)" %
+                               (self.file.structs[sdna_index_curr].dna_type_id.decode('ascii'),
+                                self.file.structs[sdna_index_next].dna_type_id.decode('ascii')))
+
     @staticmethod
     def decode_structs(header, block, handle):
         """
@@ -311,18 +320,11 @@ class BlendFileBlock:
             self.count = 0
             self.file_offset = 0
 
+
     def refine_type_from_index(self, sdna_index_next):
         assert(type(sdna_index_next) is int)
         sdna_index_curr = self.sdna_index
-
-        # never refine to a smaller type
-        if (self.file.structs[sdna_index_curr].size >
-            self.file.structs[sdna_index_next].size):
-
-            raise RuntimeError("cant refine to smaller type (%s -> %s)" %
-                               (self.file.structs[sdna_index_curr].dna_type_id.decode('ascii'),
-                                self.file.structs[sdna_index_next].dna_type_id.decode('ascii')))
-
+        self.file.ensure_subtype_smaller(sdna_index_curr, sdna_index_next)
         self.sdna_index = sdna_index_next
 
     def refine_type(self, dna_type_id):
@@ -330,14 +332,31 @@ class BlendFileBlock:
         self.refine_type_from_index(self.file.sdna_index_from_id[dna_type_id])
 
     def get(self, path,
-            use_nil=True, use_str=True):
-        dna_struct = self.file.structs[self.sdna_index]
-        self.file.handle.seek(self.file_offset, os.SEEK_SET)
-        return dna_struct.field_get(self.file.header, self.file.handle, path,
-                                    use_nil=use_nil, use_str=use_str)
+            sdna_index_refine=None,
+            use_nil=True, use_str=True,
+            ):
 
-    def set(self, path, value):
-        dna_struct = self.file.structs[self.sdna_index]
+        if sdna_index_refine is None:
+            sdna_index_refine = self.sdna_index
+        else:
+            self.file.ensure_subtype_smaller(self.sdna_index, sdna_index_refine)
+
+        dna_struct = self.file.structs[sdna_index_refine]
+        self.file.handle.seek(self.file_offset, os.SEEK_SET)
+        return dna_struct.field_get(
+                self.file.header, self.file.handle, path,
+                use_nil=use_nil, use_str=use_str)
+
+    def set(self, path, value,
+            sdna_index_refine=None,
+            ):
+
+        if sdna_index_refine is None:
+            sdna_index_refine = self.sdna_index
+        else:
+            self.file.ensure_subtype_smaller(self.sdna_index, sdna_index_refine)
+
+        dna_struct = self.file.structs[sdna_index_refine]
         self.file.handle.seek(self.file_offset, os.SEEK_SET)
         self.file.is_modified = True
         return dna_struct.field_set(
@@ -347,9 +366,11 @@ class BlendFileBlock:
     # Utility get/set
     #
     #   avoid inline pointer casting
-    def get_pointer(self, path):
-        result = self.get(path)
-        assert(self.file.structs[self.sdna_index].field_from_path(self.file.handle, path).dna_name.is_pointer)
+    def get_pointer(self, path, sdna_index_refine=None):
+        if sdna_index_refine is None:
+            sdna_index_refine = self.sdna_index
+        result = self.get(path, sdna_index_refine=sdna_index_refine)
+        assert(self.file.structs[sdna_index_refine].field_from_path(self.file.handle, path).dna_name.is_pointer)
         if result != 0:
             # possible (but unlikely)
             # that this fails and returns None

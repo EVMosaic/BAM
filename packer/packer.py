@@ -135,12 +135,22 @@ class FilePath:
         import blendfile
         blend = blendfile.open_blend(filepath_tmp, "rb" if readonly else "r+b")
 
-        for block in iter_blocks_id(b'IM'):
-            yield FilePath(block, b'name', basedir), rootdir
+        for code in blend.code_index.keys():
+            # handle library blocks as special case
+            if ((len(code) != 2) or
+                (code in {
+                    # libraries handled below
+                    b'LI',
+                    b'ID',
+                    # unneeded
+                    b'WM',
+                    b'SN',  # bScreen
+                    })):
 
-        # follow links (loop over non-filepath ID's)
-        if recursive:
-            for block in iter_blocks_id(b'GR'):
+                continue
+
+            print("  Scanning", code)
+            for block in iter_blocks_id(code):
                 yield from FilePath.from_block(block, basedir, rootdir)
 
         if recursive:
@@ -199,7 +209,7 @@ class FilePath:
 
     @staticmethod
     def from_block(block, basedir, rootdir):
-        print(block)
+        # print(block)
         assert(block.code != b'DATA')
         fn = FilePath._from_block_dict.get(block.code)
         if fn is not None:
@@ -225,6 +235,19 @@ class bf_utils:
             yield block
             block = block.file.find_block_from_offset(block[b'next'])
 
+    def iter_array(block, length=-1):
+        assert(block.code == b'DATA')
+        import blendfile
+        import os
+        handle = block.file.handle
+        header = block.file.header
+
+        for i in range(length):
+            block.file.handle.seek(block.file_offset + (header.pointer_size * i), os.SEEK_SET)
+            offset = blendfile.DNA_IO.read_pointer(handle, header)
+            sub_block = block.file.find_block_from_offset(offset)
+            yield sub_block
+
 
 # -----------------------------------------------------------------------------
 # ID Expand
@@ -239,6 +262,15 @@ class ExpandID:
     def expand_OB(block):
         yield block.get_pointer(b'data')
     def expand_ME(block):
+        # TODO, generalize into an ID array
+        array_len = block.get(b'totcol')
+        if array_len != 0:
+            mat = block.get_pointer(b'mat')
+            # print(mat)
+            print("MATERIALS", array_len)
+            for item in bf_utils.iter_array(mat, array_len):
+                print(item)
+
         return
         yield none
     def expand_MA(block):

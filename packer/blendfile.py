@@ -281,11 +281,12 @@ class BlendFileBlock:
         )
 
     def __str__(self):
-        return ("<%s.%s (%s), size=%d at %s>" %
+        return ("<%s.%s (%s), size=%d, fields=[%s] at %s>" %
                 (self.__class__.__name__,
-                 self.file.structs[self.sdna_index].dna_type_id.decode(),
+                 self.file.structs[self.sdna_index].dna_type_id.decode('ascii'),
                  self.code.decode(),
                  self.size,
+                 b", ".join(f.dna_name.name_short for f in self.file.structs[self.sdna_index].fields).decode('ascii'),
                  hex(self.addr_old),
                  ))
 

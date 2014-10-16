@@ -96,6 +96,9 @@ class BlendFile:
         "blocks",
         # [DNAStruct, ...]
         "structs",
+        # dict {b'StructName': sdna_index}
+        # (where the index is an index into 'structs')
+        "sdna_index_from_id",
         # int
         "code_index",
         # bool (did we make a change)
@@ -115,7 +118,9 @@ class BlendFile:
         block = BlendFileBlock(handle, self)
         while block.code != b'ENDB':
             if block.code == b'DNA1':
-                self.structs = BlendFile.decode_structs(self.header, block, handle)
+                (self.structs,
+                 self.sdna_index_from_id,
+                 ) = BlendFile.decode_structs(self.header, block, handle)
             else:
                 handle.seek(block.size, os.SEEK_CUR)
 
@@ -162,13 +167,6 @@ class BlendFile:
 
             handle.close()
 
-    def sdna_index_from_id(self, dna_type_id):
-        # TODO, use dict?
-        for i, dna_type in enumerate(self.structs):
-            if dna_type_id == dna_type.dna_type_id:
-                return i
-        raise KeyError("%r not found" % dna_type_id)
-
     @staticmethod
     def decode_structs(header, block, handle):
         """
@@ -184,6 +182,7 @@ class BlendFile:
         names = []
 
         structs = []
+        sdna_index_from_id = {}
 
         offset = 8
         names_len = intstruct.unpack_from(data, offset)[0]
@@ -222,12 +221,14 @@ class BlendFile:
         structs_len = intstruct.unpack_from(data, offset)[0]
         offset += 4
         log.debug("building #%d structures" % structs_len)
-        for struct_index in range(structs_len):
+        for sdna_index in range(structs_len):
             d = shortstruct2.unpack_from(data, offset)
             struct_type_index = d[0]
             offset += 4
             dna_struct = types[struct_type_index]
+            sdna_index_from_id[dna_struct.dna_type_id] = sdna_index
             structs.append(dna_struct)
+
 
             fields_len = d[1]
             dna_offset = 0
@@ -246,7 +247,8 @@ class BlendFile:
 
                 dna_struct.fields.append(DNAField(dna_type, dna_name, dna_size, dna_offset))
                 dna_offset += dna_size
-        return structs
+
+        return structs, sdna_index_from_id
 
 
 class BlendFileBlock:
@@ -312,7 +314,7 @@ class BlendFileBlock:
     def refine_type(self, dna_type_id):
         assert(type(dna_type_id) is bytes)
         sdna_index_curr = self.sdna_index
-        sdna_index_next = self.file.sdna_index_from_id(dna_type_id)
+        sdna_index_next = self.file.sdna_index_from_id[dna_type_id]
 
         # never refine to a smaller type
         if (self.file.structs[sdna_index_curr].size >

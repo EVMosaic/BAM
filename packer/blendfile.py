@@ -504,14 +504,23 @@ class DNAStruct:
             if dna_name.name_short == name:
                 return field
 
+    def field_from_path(self, path):
+        assert(type(path) == bytes)
+        name, _, name_tail = path.partition(b'.')
+
+        field = self.field_from_name(name)
+
+        if field is not None:
+            if name_tail == b'':
+                return field
+            else:
+                return field.dna_type[2].field_from_path(name_tail)
+
     def field_get(self, header, handle, path,
                   use_nil=True, use_str=True):
         assert(type(path) == bytes)
-        splitted = path.partition(b'.')
-        name = splitted[0]
-        rest = splitted[2]
 
-        field = self.field_from_name(name)
+        field = self.field_from_path(path)
         if field is None:
             raise KeyError("%r not found in %r" % (path, [s[1].name_short for s in self.fields]))
 
@@ -519,37 +528,30 @@ class DNAStruct:
         dna_name = field.dna_name
         handle.seek(field.dna_offset, os.SEEK_CUR)
 
-        if rest == b'':
-            if dna_name.is_pointer:
-                return DNA_IO.read_pointer(handle, header)
-            elif dna_type[0] == b'int':
-                return DNA_IO.read_int(handle, header)
-            elif dna_type[0] == b'short':
-                return DNA_IO.read_short(handle, header)
-            elif dna_type[0] == b'float':
-                return DNA_IO.read_float(handle, header)
-            elif dna_type[0] == b'char':
-                if use_str:
-                    if use_nil:
-                        return DNA_IO.read_string0(handle, dna_name.array_size)
-                    else:
-                        return DNA_IO.read_string(handle, dna_name.array_size)
+        if dna_name.is_pointer:
+            return DNA_IO.read_pointer(handle, header)
+        elif dna_type[0] == b'int':
+            return DNA_IO.read_int(handle, header)
+        elif dna_type[0] == b'short':
+            return DNA_IO.read_short(handle, header)
+        elif dna_type[0] == b'float':
+            return DNA_IO.read_float(handle, header)
+        elif dna_type[0] == b'char':
+            if use_str:
+                if use_nil:
+                    return DNA_IO.read_string0(handle, dna_name.array_size)
                 else:
-                    if use_nil:
-                        return DNA_IO.read_bytes0(handle, dna_name.array_size)
-                    else:
-                        return DNA_IO.read_bytes(handle, dna_name.array_size)
-        else:
-            return dna_type[2].field_get(header, handle, rest,
-                                      use_nil=use_nil, use_str=use_str)
+                    return DNA_IO.read_string(handle, dna_name.array_size)
+            else:
+                if use_nil:
+                    return DNA_IO.read_bytes0(handle, dna_name.array_size)
+                else:
+                    return DNA_IO.read_bytes(handle, dna_name.array_size)
 
     def field_set(self, header, handle, path, value):
         assert(type(path) == bytes)
-        splitted = path.partition(b'.')
-        name = splitted[0]
-        rest = splitted[2]
 
-        field = self.field_from_name(name)
+        field = self.field_from_path(path)
         if field is None:
             raise KeyError("%r not found in %r" % (path, [f.dna_name.name_short for s in self.fields]))
 
@@ -557,14 +559,13 @@ class DNAStruct:
         dna_name = field.dna_name
         handle.seek(field.dna_offset, os.SEEK_CUR)
 
-        if rest == b'':
-            if dna_type[0] == b'char':
-                if type(value) is str:
-                    return DNA_IO.write_string(handle, value, dna_name.array_size)
-                else:
-                    return DNA_IO.write_bytes(handle, value, dna_name.array_size)
+        if dna_type[0] == b'char':
+            if type(value) is str:
+                return DNA_IO.write_string(handle, value, dna_name.array_size)
+            else:
+                return DNA_IO.write_bytes(handle, value, dna_name.array_size)
         else:
-            return dna_type[2].field_set(header, handle, rest, value)
+            raise NotImplementedError("Setting %r is not yet supported" % dna_type[0])
 
 
 class DNA_IO:

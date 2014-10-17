@@ -286,7 +286,7 @@ class BlendFileBlock:
                  self.file.structs[self.sdna_index].dna_type_id.decode('ascii'),
                  self.code.decode(),
                  self.size,
-                 b", ".join(f.dna_name.name_short for f in self.file.structs[self.sdna_index].fields).decode('ascii'),
+                 b", ".join(f.dna_name.name_only for f in self.file.structs[self.sdna_index].fields).decode('ascii'),
                  hex(self.addr_old),
                  ))
 
@@ -398,7 +398,7 @@ class BlendFileBlock:
 
     def keys(self):
         dna_struct = self.file.structs[self.sdna_index]
-        return (f.dna_name.name_short for f in dna_struct.fields)
+        return (f.dna_name.name_only for f in dna_struct.fields)
 
     def values(self):
         return (self[k] for k in self.keys())
@@ -480,7 +480,7 @@ class DNAName:
     """
     __slots__ = (
         "name",
-        "name_short",
+        "name_only",
         "is_pointer",
         "is_method_pointer",
         "array_size",
@@ -488,7 +488,7 @@ class DNAName:
 
     def __init__(self, name):
         self.name = name
-        self.name_short = self.calc_name_short()
+        self.name_only = self.calc_name_only()
         self.is_pointer = self.calc_is_pointer()
         self.is_method_pointer = self.calc_is_method_pointer()
         self.array_size = self.calc_array_size()
@@ -499,14 +499,11 @@ class DNAName:
         else:
             result = parent + b'.'
 
-        result = result + self.name_short
+        result = result + self.name_only
         return result
 
-    def calc_name_short(self):
-        result = self.name
-        result = result.replace(b'*', b'')
-        result = result.replace(b'(', b'')
-        result = result.replace(b')', b'')
+    def calc_name_only(self):
+        result = self.name.strip(b'*()')
         index = result.find(b'[')
         if index != -1:
             result = result[:index]
@@ -574,7 +571,7 @@ class DNAStruct:
         # TODO, use dict lookup?
         for field in self.fields:
             dna_name = field.dna_name
-            if dna_name.name_short == name:
+            if dna_name.name_only == name:
                 return field
 
     def field_from_path(self, handle, path):
@@ -595,7 +592,7 @@ class DNAStruct:
 
         field = self.field_from_path(handle, path)
         if field is None:
-            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_short for f in self.fields]))
+            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_only for f in self.fields]))
 
         dna_type = field.dna_type
         dna_name = field.dna_name
@@ -625,7 +622,7 @@ class DNAStruct:
 
         field = self.field_from_path(handle, path)
         if field is None:
-            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_short for f in self.fields]))
+            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_only for f in self.fields]))
 
         dna_type = field.dna_type
         dna_name = field.dna_name
@@ -762,5 +759,3 @@ class DNA_IO:
         if header.pointer_size == 8:
             st = DNA_IO.ULONG[header.endian_index]
             return st.unpack(handle.read(st.size))[0]
-
-

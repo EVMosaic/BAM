@@ -216,9 +216,18 @@ class FilePath:
             yield from fn(block, basedir, rootdir)
 
     def _from_block_IM(block, basedir, rootdir):
+        # (IMA_SRC_FILE, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)
+        if block[b'source'] not in {1, 2, 3}:
+            return
+        if block[b'packedfile']:
+            return
+
         yield FilePath(block, b'name', basedir), rootdir
 
     def _from_block_LI(block, basedir, rootdir):
+        if block[b'packedfile']:
+            return
+
         yield FilePath(block, b'name', basedir), rootdir
 
     _from_block_dict = {
@@ -254,43 +263,81 @@ class bf_utils:
 
 class ExpandID:
     # fake module
+    #
+    # TODO:
+    #
+    # Array lookups here are _WAY_ too complicated,
+    # we need some nicer way to represent pointer indirection (easy like in C!)
+    # but for now, use what we have.
+    #
     __slots__ = ()
 
     def __new__(cls, *args, **kwargs):
         raise RuntimeError("%s should not be instantiated" % cls)
 
-    def expand_OB(block):
-        yield block.get_pointer(b'data')
-    def expand_ME(block):
-        # TODO, generalize into an ID array
+    @staticmethod
+    def _expand_generic_material(block):
         array_len = block.get(b'totcol')
         if array_len != 0:
-            mat = block.get_pointer(b'mat')
-            # print(mat)
-            print("MATERIALS", array_len)
-            for item in bf_utils.iter_array(mat, array_len):
-                print(item)
+            array = block.get_pointer(b'mat')
+            for sub_block in bf_utils.iter_array(array, array_len):
+                yield sub_block
 
-        return
-        yield none
+    @staticmethod
+    def _expand_generic_mtex(block):
+        field = block.dna_type.field_from_name(b'mtex')
+        array_len = field.dna_size // block.file.header.pointer_size
+
+        for i in range(array_len):
+            path = ('mtex[%d]' % i).encode('ascii')
+            item = block.get_pointer(path)
+            if item:
+                tex = item.get_pointer(b'tex')
+                yield tex
+
+    @staticmethod
+    def expand_OB(block):
+        yield block.get_pointer(b'data')
+
+    @staticmethod
+    def expand_ME(block):
+        yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
+    def expand_ME(block):
+        yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
+    def expand_CU(block):
+        yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
+    def expand_MB(block):
+        yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
     def expand_MA(block):
+        yield from ExpandID._expand_generic_mtex(block)
         print(block)
         return
         yield none
+
+    @staticmethod
     def expand_TE(block):
-        return
-        yield none
+        yield block.get_pointer(b'ima')
+
+    @staticmethod
     def expand_GR(block):
         sdna_index_GroupObject = block.file.sdna_index_from_id[b'GroupObject']
         for gobj in bf_utils.iter_ListBase(block.get_pointer(b'gobject.first')):
             yield gobj.get_pointer(b'ob', sdna_index_refine=sdna_index_GroupObject)
 
     expand_funcs = {
-        b'OB': expand_OB,
-        b'ME': expand_ME,
-        b'MA': expand_MA,
-        b'TE': expand_TE,
-        b'GR': expand_GR,
+        b'OB': expand_OB.__func__,
+        b'ME': expand_ME.__func__,
+        b'MA': expand_MA.__func__,
+        b'TE': expand_TE.__func__,
+        b'GR': expand_GR.__func__,
         }
 
 
@@ -301,6 +348,9 @@ class ExpandID:
 class utils:
     # fake module
     __slots__ = ()
+
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
 
     @staticmethod
     def abspath(path, start, library=None):

@@ -281,12 +281,13 @@ class BlendFileBlock:
         )
 
     def __str__(self):
-        return ("<%s.%s (%s), size=%d, fields=[%s] at %s>" %
+        return ("<%s.%s (%s), size=%d at %s>" %
+                # fields=[%s]
                 (self.__class__.__name__,
-                 self.file.structs[self.sdna_index].dna_type_id.decode('ascii'),
+                 self.dna_type.dna_type_id.decode('ascii'),
                  self.code.decode(),
                  self.size,
-                 b", ".join(f.dna_name.name_only for f in self.file.structs[self.sdna_index].fields).decode('ascii'),
+                 # b", ".join(f.dna_name.name_only for f in self.dna_type.fields).decode('ascii'),
                  hex(self.addr_old),
                  ))
 
@@ -326,6 +327,9 @@ class BlendFileBlock:
             self.count = 0
             self.file_offset = 0
 
+    @property
+    def dna_type(self):
+        return self.file.structs[self.sdna_index]
 
     def refine_type_from_index(self, sdna_index_next):
         assert(type(sdna_index_next) is int)
@@ -376,7 +380,7 @@ class BlendFileBlock:
         if sdna_index_refine is None:
             sdna_index_refine = self.sdna_index
         result = self.get(path, sdna_index_refine=sdna_index_refine)
-        assert(self.file.structs[sdna_index_refine].field_from_path(self.file.handle, path).dna_name.is_pointer)
+        assert(self.file.structs[sdna_index_refine].field_from_path(self.file.header, self.file.handle, path).dna_name.is_pointer)
         if result != 0:
             # possible (but unlikely)
             # that this fails and returns None
@@ -397,8 +401,7 @@ class BlendFileBlock:
         self.set(item, value)
 
     def keys(self):
-        dna_struct = self.file.structs[self.sdna_index]
-        return (f.dna_name.name_only for f in dna_struct.fields)
+        return (f.dna_name.name_only for f in self.dna_type.fields)
 
     def values(self):
         return (self[k] for k in self.keys())
@@ -568,29 +571,46 @@ class DNAStruct:
         self.fields = []
 
     def field_from_name(self, name):
-        # TODO, use dict lookup?
         for field in self.fields:
             dna_name = field.dna_name
             if dna_name.name_only == name:
                 return field
 
-    def field_from_path(self, handle, path):
+    def field_from_path(self, header, handle, path):
         assert(type(path) == bytes)
+        # support 'id.name'
         name, _, name_tail = path.partition(b'.')
+
+        # support 'mtex[1].tex'
+        # note, multi-dimensional arrays not supported
+        # FIXME: 'mtex[1]' works, but not 'mtex[1].tex', why is this???
+        if name.endswith(b']'):
+            name, _, index = name[:-1].partition(b'[')
+            index = int(index)
+        else:
+            index = 0
+
         field = self.field_from_name(name)
 
         if field is not None:
             handle.seek(field.dna_offset, os.SEEK_CUR)
+            if index != 0:
+                if field.dna_name.is_pointer:
+                    index_offset = header.pointer_size * index
+                else:
+                    index_offset = field.dna_type.size * index
+                assert(index_offset < field.dna_size)
+                handle.seek(index_offset, os.SEEK_CUR)
             if name_tail == b'':
                 return field
             else:
-                return field.dna_type.field_from_path(handle, name_tail)
+                return field.dna_type.field_from_path(header, handle, name_tail)
 
     def field_get(self, header, handle, path,
                   use_nil=True, use_str=True):
         assert(type(path) == bytes)
 
-        field = self.field_from_path(handle, path)
+        field = self.field_from_path(header, handle, path)
         if field is None:
             raise KeyError("%r not found in %r" % (path, [f.dna_name.name_only for f in self.fields]))
 
@@ -620,7 +640,7 @@ class DNAStruct:
     def field_set(self, header, handle, path, value):
         assert(type(path) == bytes)
 
-        field = self.field_from_path(handle, path)
+        field = self.field_from_path(header, handle, path)
         if field is None:
             raise KeyError("%r not found in %r" % (path, [f.dna_name.name_only for f in self.fields]))
 

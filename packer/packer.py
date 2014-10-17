@@ -30,12 +30,15 @@ class FilePath:
         "path",
         # path may be relative to basepath
         "basedir",
+        # library link level
+        "level",
         )
 
-    def __init__(self, block, path, basedir):
+    def __init__(self, block, path, basedir, level):
         self.block = block
         self.path = path
         self.basedir = basedir
+        self.level = level
 
     # --------
     # filepath
@@ -128,7 +131,7 @@ class FilePath:
 
 
         if temp_remap_cb is not None:
-            filepath_tmp = temp_remap_cb(filepath)
+            filepath_tmp = temp_remap_cb(filepath, level)
         else:
             filepath_tmp = filepath
 
@@ -151,7 +154,7 @@ class FilePath:
 
             print("  Scanning", code)
             for block in iter_blocks_id(code):
-                yield from FilePath.from_block(block, basedir, rootdir)
+                yield from FilePath.from_block(block, basedir, rootdir, level)
 
         if recursive:
             # look into libraries
@@ -170,7 +173,7 @@ class FilePath:
 
         # do this after, incase we mangle names above
         for block in iter_blocks_id(b'LI'):
-            yield from FilePath.from_block(block, basedir, rootdir)
+            yield from FilePath.from_block(block, basedir, rootdir, level)
 
         blend.close()
 
@@ -208,27 +211,27 @@ class FilePath:
     # (no expanding or following references)
 
     @staticmethod
-    def from_block(block, basedir, rootdir):
+    def from_block(block, basedir, rootdir, level):
         # print(block)
         assert(block.code != b'DATA')
         fn = FilePath._from_block_dict.get(block.code)
         if fn is not None:
-            yield from fn(block, basedir, rootdir)
+            yield from fn(block, basedir, rootdir, level)
 
-    def _from_block_IM(block, basedir, rootdir):
+    def _from_block_IM(block, basedir, rootdir, level):
         # (IMA_SRC_FILE, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)
         if block[b'source'] not in {1, 2, 3}:
             return
         if block[b'packedfile']:
             return
 
-        yield FilePath(block, b'name', basedir), rootdir
+        yield FilePath(block, b'name', basedir, level), rootdir
 
-    def _from_block_LI(block, basedir, rootdir):
+    def _from_block_LI(block, basedir, rootdir, level):
         if block[b'packedfile']:
             return
 
-        yield FilePath(block, b'name', basedir), rootdir
+        yield FilePath(block, b'name', basedir, level), rootdir
 
     _from_block_dict = {
         b'IM': _from_block_IM,
@@ -381,11 +384,17 @@ def pack(blendfile_src, blendfile_dst):
     path_temp_files = set()
     path_copy_files = set()
 
-    def temp_remap_cb(filepath):
+    SUBDIR = b'data'
+
+    def temp_remap_cb(filepath, level):
         """
         Create temp files in the destination path.
         """
-        filepath_tmp = os.path.join(base_dir_dst, os.path.basename(filepath)) + b'@'
+        if level == 0:
+            filepath_tmp = os.path.join(base_dir_dst, os.path.basename(filepath)) + b'@'
+        else:
+            filepath_tmp = os.path.join(base_dir_dst, SUBDIR, os.path.basename(filepath)) + b'@'
+
         # only overwrite once (allows us to )
         if filepath_tmp not in path_temp_files:
             shutil.copy(filepath, filepath_tmp)
@@ -394,6 +403,10 @@ def pack(blendfile_src, blendfile_dst):
 
     base_dir_src = os.path.dirname(blendfile_src)
     base_dir_dst = os.path.dirname(blendfile_dst)
+
+    base_dir_dst_subdir = os.path.join(base_dir_dst, SUBDIR)
+    if not os.path.exists(base_dir_dst_subdir):
+        os.makedirs(base_dir_dst_subdir)
 
     lib_visit = {}
 
@@ -408,10 +421,13 @@ def pack(blendfile_src, blendfile_dst):
         path_rel = fp.filepath
         path_base = path_rel.split(b"\\")[-1].split(b"/")[-1]
         path_src = utils.abspath(path_rel, fp.basedir)
-        path_dst = os.path.join(base_dir_dst, path_base)
 
         # rename in the blend
-        fp.filepath = b"//" + path_base
+        path_dst = os.path.join(base_dir_dst_subdir, path_base)
+        if fp.level == 0:
+            fp.filepath = b"//" + os.path.join(SUBDIR, path_base)
+        else:
+            fp.filepath = b'//' + path_base
 
         # add to copylist
         path_copy_files.add((path_src, path_dst))
@@ -419,7 +435,7 @@ def pack(blendfile_src, blendfile_dst):
     del lib_visit
 
     # handle the
-    blendfile_dst_tmp = temp_remap_cb(blendfile_src)
+    blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
     shutil.move(blendfile_dst_tmp, blendfile_dst)
     path_temp_files.remove(blendfile_dst_tmp)
 
@@ -438,4 +454,11 @@ def pack(blendfile_src, blendfile_dst):
 
 
 if __name__ == "__main__":
+    import os
+
+    # LAZY
+    os.system("rm -rf /src/blendfile/test/out")
+
     pack(b"/src/blendfile/test/paths.blend", b"/src/blendfile/test/out/paths.blend")
+    # pack(b"/src/blendfile/test_agent/animationtest/agent_animationtest_05.blend",
+    #      b"/src/blendfile/test/out/paths.blend")

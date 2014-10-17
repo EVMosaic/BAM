@@ -25,6 +25,7 @@ app = Flask(__name__)
 api = Api(app)
 auth = HTTPBasicAuth()
 
+
 @api.representation('application/octet-stream')
 def output_file(data, code, headers=None):
     """Makes a Flask response to return a file."""
@@ -32,16 +33,18 @@ def output_file(data, code, headers=None):
     resp.headers.extend(headers or {})
     return resp
 
+
 @auth.get_password
 def get_password(username):
     if username == 'bam':
         return 'bam'
     return None
- 
+
+
 @auth.error_handler
 def unauthorized():
-    return make_response(jsonify( { 'message': 'Unauthorized access' } ), 403)
-    # return 403 instead of 401 to prevent browsers from displaying 
+    return make_response(jsonify({'message': 'Unauthorized access'}), 403)
+    # return 403 instead of 401 to prevent browsers from displaying
     # the default auth dialog
 
 
@@ -51,19 +54,20 @@ class FilesListAPI(Resource):
 
     def __init__(self):
         super(FilesListAPI, self).__init__()
-        
+
     def get(self):
-        return { 'message': 'Display files list' }
+        return {'message': 'Display files list'}
 
 
 class FileAPI(Resource):
     """Downloads a file."""
 
     decorators = [auth.login_required]
+
     def __init__(self):
         # self.reqparse = reqparse.RequestParser()
-        # self.reqparse.add_argument('path', 
-        #     type = str, 
+        # self.reqparse.add_argument('path',
+        #     type = str,
         #     location = 'json')
         super(FileAPI, self).__init__()
 
@@ -71,8 +75,8 @@ class FileAPI(Resource):
         with open(path, 'r') as f:
             body = f.read()
         return output_file(body, 200)
-        #return { 'path': path }
+        # return {'path': path}
 
 
-api.add_resource(FilesListAPI, '/files', endpoint = 'files')
-api.add_resource(FileAPI, '/file/<path:path>', endpoint = 'file')
+api.add_resource(FilesListAPI, '/files', endpoint='files')
+api.add_resource(FileAPI, '/file/<path:path>', endpoint='file')

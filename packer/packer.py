@@ -182,7 +182,7 @@ class FilePath:
         if recursive:
             # now we've closed the file, loop on other files
             for lib_path, lib_block_codes in lib_all.items():
-                lib_path_abs = utils.abspath(lib_path, basedir)
+                lib_path_abs = utils.compatpath(utils.abspath(lib_path, basedir))
 
                 # if we visited this before,
                 # check we don't follow the same links more than once
@@ -212,7 +212,6 @@ class FilePath:
 
     @staticmethod
     def from_block(block, basedir, rootdir, level):
-        # print(block)
         assert(block.code != b'DATA')
         fn = FilePath._from_block_dict.get(block.code)
         if fn is not None:
@@ -321,9 +320,6 @@ class ExpandID:
     @staticmethod
     def expand_MA(block):
         yield from ExpandID._expand_generic_mtex(block)
-        print(block)
-        return
-        yield none
 
     @staticmethod
     def expand_TE(block):
@@ -364,6 +360,16 @@ class utils:
             return os.path.join(start, path[2:])
         return path
 
+    if __import__("os").sep == '/':
+        @staticmethod
+        def compatpath(path):
+            return path.replace(b'\\', b'/')
+    else:
+        @staticmethod
+        def compatpath(path):
+            # keep '//'
+            return path[:2] + path[2:].replace(b'/', b'\\')
+
 
 def pack(blendfile_src, blendfile_dst):
 
@@ -390,6 +396,8 @@ def pack(blendfile_src, blendfile_dst):
         """
         Create temp files in the destination path.
         """
+        filepath = utils.compatpath(filepath)
+
         if level == 0:
             filepath_tmp = os.path.join(base_dir_dst, os.path.basename(filepath)) + b'@'
         else:
@@ -418,8 +426,8 @@ def pack(blendfile_src, blendfile_dst):
             lib_visit=lib_visit):
 
         # assume the path might be relative
-        path_rel = fp.filepath
-        path_base = path_rel.split(b"\\")[-1].split(b"/")[-1]
+        path_rel = utils.compatpath(fp.filepath)
+        path_base = path_rel.split(os.sep.encode('ascii'))[-1]
         path_src = utils.abspath(path_rel, fp.basedir)
 
         # rename in the blend

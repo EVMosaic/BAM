@@ -461,12 +461,40 @@ def pack(blendfile_src, blendfile_dst):
     print("  Written:", blendfile_dst)
 
 
-if __name__ == "__main__":
+def create_argparse():
     import os
+    import argparse
 
-    # LAZY
-    os.system("rm -rf /src/blendfile/test/out")
+    usage_text = (
+        "Run this script to extract blend-files(s) to a destination path:" +
+        os.path.basename(__file__) +
+        "--input=FILE --output=FILE [options]")
 
-    pack(b"/src/blendfile/test/paths.blend", b"/src/blendfile/test/out/paths.blend")
-    # pack(b"/src/blendfile/test_agent/animationtest/agent_animationtest_05.blend",
-    #      b"/src/blendfile/test/out/paths.blend")
+    parser = argparse.ArgumentParser(description=usage_text)
+
+    # for main_render() only, but validate args.
+    parser.add_argument(
+            "-i", "--input", dest="path_src", metavar='FILE', required=True,
+            help="Input path(s) or a wildcard to glob many files")
+    parser.add_argument(
+            "-o", "--output", dest="path_dst", metavar='FILE', required=True,
+            help="Output file or a directory when multiple inputs are passed")
+
+    return parser
+
+
+def main():
+    import sys
+
+    parser = create_argparse()
+    args = parser.parse_args(sys.argv[1:])
+
+    encoding = sys.getfilesystemencoding()
+
+    pack(args.path_src.encode(encoding),
+         args.path_dst.encode(encoding))
+
+
+if __name__ == "__main__":
+    main()
+

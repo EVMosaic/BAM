@@ -259,7 +259,9 @@ class BlendFile:
                 else:
                     dna_size = dna_type.size * dna_name.array_size
 
-                dna_struct.fields.append(DNAField(dna_type, dna_name, dna_size, dna_offset))
+                field = DNAField(dna_type, dna_name, dna_size, dna_offset)
+                dna_struct.fields.append(field)
+                dna_struct.field_from_name[dna_name.name_only] = field
                 dna_offset += dna_size
 
         return structs, sdna_index_from_id
@@ -564,17 +566,13 @@ class DNAStruct:
         "dna_type_id",
         "size",
         "fields",
+        "field_from_name",
         )
 
     def __init__(self, dna_type_id):
         self.dna_type_id = dna_type_id
         self.fields = []
-
-    def field_from_name(self, name):
-        for field in self.fields:
-            dna_name = field.dna_name
-            if dna_name.name_only == name:
-                return field
+        self.field_from_name = {}
 
     def field_from_path(self, header, handle, path):
         assert(type(path) == bytes)
@@ -590,7 +588,7 @@ class DNAStruct:
         else:
             index = 0
 
-        field = self.field_from_name(name)
+        field = self.field_from_name.get(name)
 
         if field is not None:
             handle.seek(field.dna_offset, os.SEEK_CUR)

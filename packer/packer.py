@@ -18,8 +18,8 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-VERBOSE = True
-
+VERBOSE = False
+TIMEIT = True
 
 class FilePath:
     """
@@ -93,6 +93,10 @@ class FilePath:
             expand_codes = set()
 
             def expand_codes_add_test(block):
+                # we could investigate a better way...
+                # Not to be accessing ID blocks at this point. but its harmless
+                if block.code == b'ID':
+                    return False
                 len_prev = len(expand_codes)
                 expand_codes.add(block[b'id.name'])
                 return (len_prev != len(expand_codes))
@@ -152,7 +156,9 @@ class FilePath:
 
                 continue
 
-            print("  Scanning", code)
+            if VERBOSE:
+                print("  Scanning", code)
+
             for block in iter_blocks_id(code):
                 yield from FilePath.from_block(block, basedir, rootdir, level)
 
@@ -287,7 +293,7 @@ class ExpandID:
 
     @staticmethod
     def _expand_generic_mtex(block):
-        field = block.dna_type.field_from_name(b'mtex')
+        field = block.dna_type.field_from_name[b'mtex']
         array_len = field.dna_size // block.file.header.pointer_size
 
         for i in range(array_len):
@@ -392,6 +398,10 @@ def pack(blendfile_src, blendfile_dst):
 
     SUBDIR = b'data'
 
+    if TIMEIT:
+        import time
+        t = time.time()
+
     def temp_remap_cb(filepath, level):
         """
         Create temp files in the destination path.
@@ -459,6 +469,9 @@ def pack(blendfile_src, blendfile_dst):
             shutil.copy(src, dst)
 
     print("  Written:", blendfile_dst)
+
+    if TIMEIT:
+        print("  Time: %.4f" % (time.time() - t))
 
 
 def create_argparse():

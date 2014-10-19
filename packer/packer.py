@@ -18,8 +18,22 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-VERBOSE = False
+VERBOSE = True
 TIMEIT = True
+
+if VERBOSE:
+    _A = open("/tmp/a.log", 'w')
+    class log_deps:
+        @staticmethod
+        def info(msg):
+            _A.write(msg)
+            _A.write("\n")
+
+    def set_as_str(s):
+        if s is None:
+            return "None"
+        else:
+             return (", ".join(sorted(i.decode('ascii') for i in sorted(s))))
 
 class FilePath:
     """
@@ -74,13 +88,18 @@ class FilePath:
             # {lib_path: set([block id's ...])}
             lib_visit=None,
             ):
-
+        # print(level, block_codes)
         import os
 
         if VERBOSE:
             indent_str = "  " * level
             print(indent_str + "Opening:", filepath)
-            print(indent_str + "... blocks:", block_codes)
+            # print(indent_str + "... blocks:", block_codes)
+
+
+            log_deps.info("~")
+            log_deps.info("%s%s" % (indent_str, filepath.decode('utf-8')))
+            log_deps.info("%s%s" % (indent_str, set_as_str(block_codes)))
 
 
         basedir = os.path.dirname(os.path.abspath(filepath))
@@ -92,17 +111,21 @@ class FilePath:
             # same datablock more then once
             expand_codes = set()
 
-            def expand_codes_add_test(block):
+            # only for this block
+            def _expand_codes_add_test(block):
                 # we could investigate a better way...
                 # Not to be accessing ID blocks at this point. but its harmless
                 if block.code == b'ID':
+                    if recursive:
+                        lib_all
                     return False
-                len_prev = len(expand_codes)
-                expand_codes.add(block[b'id.name'])
-                return (len_prev != len(expand_codes))
+                else:
+                    len_prev = len(expand_codes)
+                    expand_codes.add(block[b'id.name'])
+                    return (len_prev != len(expand_codes))
 
             def block_expand(block, code):
-                if expand_codes_add_test(block):
+                if _expand_codes_add_test(block):
                     yield block
 
                     fn = ExpandID.expand_funcs.get(code)
@@ -129,10 +152,16 @@ class FilePath:
         if expand_codes is None:
             iter_blocks_lib = lambda: blend.find_blocks_from_code(b'ID')
         else:
-            iter_blocks_lib = lambda: (block
-                                       for block in blend.find_blocks_from_code(b'ID')
-                                       if block[b'name'] in expand_codes)
-
+            # iter_blocks_lib = lambda: (block
+            #                            for block in blend.find_blocks_from_code(b'ID')
+            #                            if block[b'name'] in expand_codes)
+            def iter_blocks_lib():
+                for block in blend.find_blocks_from_code(b'ID'):
+                    # if block[b'name'] in expand_codes:
+                    log_deps.info("%ssearching: %s" % (indent_str, block[b'name'].decode('ascii')))
+                    if block[b'name'] in expand_codes:
+                        print("AAA", block[b'name'], expand_codes)
+                        yield block
 
         if temp_remap_cb is not None:
             filepath_tmp = temp_remap_cb(filepath, level)
@@ -156,11 +185,16 @@ class FilePath:
 
                 continue
 
-            if VERBOSE:
-                print("  Scanning", code)
+            # if VERBOSE:
+            #     print("  Scanning", code)
 
             for block in iter_blocks_id(code):
                 yield from FilePath.from_block(block, basedir, rootdir, level)
+
+        # print("A:", expand_codes)
+        # print("B:", block_codes)
+        if VERBOSE:
+            log_deps.info("%s%s" % (indent_str, set_as_str(expand_codes)))
 
         if recursive:
             # look into libraries
@@ -175,6 +209,7 @@ class FilePath:
 
                 # get all data needed to read the blend files here (it will be freed!)
                 # lib is an address at the moment, we only use as a way to group
+                print("OOO", block[b'name'])
                 lib_all.setdefault(lib_path, set()).add(block[b'name'])
 
         # do this after, incase we mangle names above
@@ -187,8 +222,10 @@ class FilePath:
         # Handle Recursive
         if recursive:
             # now we've closed the file, loop on other files
-            for lib_path, lib_block_codes in lib_all.items():
-                lib_path_abs = utils.compatpath(utils.abspath(lib_path, basedir))
+
+            # note, sorting - isn't needed, it just gives predictable load-order.
+            for lib_path, lib_block_codes in sorted(lib_all.items()):
+                lib_path_abs = os.path.normpath(utils.compatpath(utils.abspath(lib_path, basedir)))
 
                 # if we visited this before,
                 # check we don't follow the same links more than once
@@ -197,10 +234,13 @@ class FilePath:
                 # don't touch them again
                 lib_block_codes_existing.update(lib_block_codes)
 
+                # print("looking for", lib_block_codes)
+
                 # import IPython; IPython.embed()
                 if VERBOSE:
                     print((indent_str + "  "), "Library: ", filepath, " -> ", lib_path_abs, sep="")
-                    print((indent_str + "  "), lib_block_codes)
+                    # print((indent_str + "  "), lib_block_codes)
+                    print(level)
                 yield from FilePath.visit_from_blend(
                         lib_path_abs,
                         readonly=readonly,
@@ -520,7 +560,11 @@ def pack(blendfile_src, blendfile_dst):
 
     del lib_visit
 
-    # handle the
+    if TIMEIT:
+        print("  Time: %.4f" % (time.time() - t))
+
+    # ----------------
+    # Handle File Copy
     blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
     shutil.move(blendfile_dst_tmp, blendfile_dst)
     path_temp_files.remove(blendfile_dst_tmp)
@@ -537,9 +581,6 @@ def pack(blendfile_src, blendfile_dst):
             shutil.copy(src, dst)
 
     print("  Written:", blendfile_dst)
-
-    if TIMEIT:
-        print("  Time: %.4f" % (time.time() - t))
 
 
 def create_argparse():

@@ -209,6 +209,7 @@ class FilePath:
                         block_codes=lib_block_codes,
                         rootdir=rootdir,
                         level=level + 1,
+                        lib_visit=lib_visit,
                         )
 
     # ------------------------------------------------------------------------

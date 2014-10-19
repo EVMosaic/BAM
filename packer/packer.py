@@ -223,6 +223,7 @@ class FilePath:
         if fn is not None:
             yield from fn(block, basedir, rootdir, level)
 
+    @staticmethod
     def _from_block_IM(block, basedir, rootdir, level):
         # (IMA_SRC_FILE, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)
         if block[b'source'] not in {1, 2, 3}:
@@ -232,17 +233,19 @@ class FilePath:
 
         yield FilePath(block, b'name', basedir, level), rootdir
 
+    @staticmethod
     def _from_block_LI(block, basedir, rootdir, level):
         if block[b'packedfile']:
             return
 
         yield FilePath(block, b'name', basedir, level), rootdir
 
+    # _from_block_IM --> {b'IM': _from_block_IM, ...}
     _from_block_dict = {
-        b'IM': _from_block_IM,
-        b'LI': _from_block_LI,
+        k.rpartition("_")[2].encode('ascii'): s_fn.__func__ for k, s_fn in locals().items()
+        if isinstance(s_fn, staticmethod)
+        if k.startswith("_from_block_")
         }
-
 
 
 class bf_utils:
@@ -300,8 +303,8 @@ class ExpandID:
             path = ('mtex[%d]' % i).encode('ascii')
             item = block.get_pointer(path)
             if item:
-                tex = item.get_pointer(b'tex')
-                yield tex
+                yield item.get_pointer(b'tex')
+                yield item.get_pointer(b'object')
 
     @staticmethod
     def _expand_generic_nodetree(block):
@@ -311,57 +314,102 @@ class ExpandID:
         for item in bf_utils.iter_ListBase(block.get_pointer(b'nodes.first')):
             item_type = item.get(b'type', sdna_index_refine=sdna_index_bNode)
 
-            if item_type == 143:  # SH_NODE_TEX_IMAGE
+            if item_type != 221:  # CMP_NODE_R_LAYERS
                 yield item.get_pointer(b'id', sdna_index_refine=sdna_index_bNode)
 
             # import IPython; IPython.embed()
             # print(item.get(b'name', sdna_index_refine=sdna_index_bNode))
             # print(item.get(b'type', sdna_index_refine=sdna_index_bNode))
-
-    @staticmethod
-    def expand_OB(block):
-        yield block.get_pointer(b'data')
-
-    @staticmethod
-    def expand_ME(block):
-        yield from ExpandID._expand_generic_material(block)
-
-    @staticmethod
-    def expand_ME(block):
-        yield from ExpandID._expand_generic_material(block)
-
-    @staticmethod
-    def expand_CU(block):
-        yield from ExpandID._expand_generic_material(block)
-
-    @staticmethod
-    def expand_MB(block):
-        yield from ExpandID._expand_generic_material(block)
-
-    @staticmethod
-    def expand_MA(block):
-        yield from ExpandID._expand_generic_mtex(block)
-
+            #
+    def _expand_generic_nodetree_id(block):
         block_ntree = block.get_pointer(b'nodetree')
         if block_ntree is not None:
             yield from ExpandID._expand_generic_nodetree(block_ntree)
 
     @staticmethod
-    def expand_TE(block):
+    def _expand_generic_animdata(block):
+        block_adt = block.get_pointer(b'adt')
+        if block_adt:
+            yield block_adt.get_pointer(b'action')
+        # TODO, NLA
+
+    @staticmethod
+    def expand_OB(block):  # 'Object'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield block.get_pointer(b'data')
+        yield block.get_pointer(b'dup_group')
+
+        yield block.get_pointer(b'proxy')
+        yield block.get_pointer(b'proxy_group')
+
+    @staticmethod
+    def expand_ME(block):  # 'Mesh'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
+    def expand_CU(block):  # 'Curve'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
+    def expand_MB(block):  # 'MBall'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
+    def expand_LA(block):  # 'Lamp'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_nodetree_id(block)
+        yield from ExpandID._expand_generic_mtex(block)
+
+    @staticmethod
+    def expand_MA(block):  # 'Material'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_nodetree_id(block)
+        yield from ExpandID._expand_generic_mtex(block)
+
+        yield block.get_pointer(b'group')
+
+
+    @staticmethod
+    def expand_TE(block):  # 'Tex'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_nodetree_id(block)
         yield block.get_pointer(b'ima')
 
     @staticmethod
-    def expand_GR(block):
-        sdna_index_GroupObject = block.file.sdna_index_from_id[b'GroupObject']
-        for gobj in bf_utils.iter_ListBase(block.get_pointer(b'gobject.first')):
-            yield gobj.get_pointer(b'ob', sdna_index_refine=sdna_index_GroupObject)
+    def expand_WO(block):  # 'World'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_nodetree_id(block)
+        yield from ExpandID._expand_generic_mtex(block)
 
+    @staticmethod
+    def expand_NT(block):  # 'bNodeTree'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_nodetree(block)
+
+    @staticmethod
+    def expand_SC(block):  # 'Scene'
+        yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_nodetree_id(block)
+        yield block.get_pointer(b'world')
+
+        sdna_index_Base = block.file.sdna_index_from_id[b'Base']
+        for item in bf_utils.iter_ListBase(block.get_pointer(b'base.first')):
+            yield item.get_pointer(b'object', sdna_index_refine=sdna_index_Base)
+
+    @staticmethod
+    def expand_GR(block):  # 'Group'
+        sdna_index_GroupObject = block.file.sdna_index_from_id[b'GroupObject']
+        for item in bf_utils.iter_ListBase(block.get_pointer(b'gobject.first')):
+            yield item.get_pointer(b'ob', sdna_index_refine=sdna_index_GroupObject)
+
+    # expand_GR --> {b'GR': expand_GR, ...}
     expand_funcs = {
-        b'OB': expand_OB.__func__,
-        b'ME': expand_ME.__func__,
-        b'MA': expand_MA.__func__,
-        b'TE': expand_TE.__func__,
-        b'GR': expand_GR.__func__,
+        k.rpartition("_")[2].encode('ascii'): s_fn.__func__ for k, s_fn in locals().items()
+        if isinstance(s_fn, staticmethod)
+        if k.startswith("expand_")
         }
 
 

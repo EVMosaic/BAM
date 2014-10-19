@@ -634,6 +634,8 @@ class DNAStruct:
                     return DNA_IO.read_bytes0(handle, dna_name.array_size)
                 else:
                     return DNA_IO.read_bytes(handle, dna_name.array_size)
+        else:
+            raise NotImplementedError("%r exists but isn't pointer, can't resolve field %r" % (path, dna_name.name))
 
     def field_set(self, header, handle, path, value):
         assert(type(path) == bytes)

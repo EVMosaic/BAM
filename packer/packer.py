@@ -110,14 +110,18 @@ class FilePath:
             # prevent from expanding the
             # same datablock more then once
             expand_codes = set()
+            # {lib_id: {block_ids... }}
+            expand_codes_idlib = {}
 
             # only for this block
-            def _expand_codes_add_test(block):
+            def _expand_codes_add_test(block, code):
+                # return True, if the ID should be searched further
+                #
                 # we could investigate a better way...
                 # Not to be accessing ID blocks at this point. but its harmless
-                if block.code == b'ID':
+                if code == b'ID':
                     if recursive:
-                        lib_all
+                        expand_codes_idlib.setdefault(block[b'lib'], set()).add(block[b'name'])
                     return False
                 else:
                     len_prev = len(expand_codes)
@@ -125,7 +129,7 @@ class FilePath:
                     return (len_prev != len(expand_codes))
 
             def block_expand(block, code):
-                if _expand_codes_add_test(block):
+                if _expand_codes_add_test(block, code):
                     yield block
 
                     fn = ExpandID.expand_funcs.get(code)
@@ -137,6 +141,10 @@ class FilePath:
                     yield block
         else:
             expand_codes = None
+
+            # set below
+            expand_codes_idlib = None
+
             def block_expand(block, code):
                 yield block
 
@@ -148,20 +156,6 @@ class FilePath:
                 for block in blend.find_blocks_from_code(code):
                     if block[b'id.name'] in block_codes:
                         yield from block_expand(block, code)
-
-        if expand_codes is None:
-            iter_blocks_lib = lambda: blend.find_blocks_from_code(b'ID')
-        else:
-            # iter_blocks_lib = lambda: (block
-            #                            for block in blend.find_blocks_from_code(b'ID')
-            #                            if block[b'name'] in expand_codes)
-            def iter_blocks_lib():
-                for block in blend.find_blocks_from_code(b'ID'):
-                    # if block[b'name'] in expand_codes:
-                    log_deps.info("%ssearching: %s" % (indent_str, block[b'name'].decode('ascii')))
-                    if block[b'name'] in expand_codes:
-                        print("AAA", block[b'name'], expand_codes)
-                        yield block
 
         if temp_remap_cb is not None:
             filepath_tmp = temp_remap_cb(filepath, level)
@@ -197,20 +191,24 @@ class FilePath:
             log_deps.info("%s%s" % (indent_str, set_as_str(expand_codes)))
 
         if recursive:
-            # look into libraries
-            lib_all = {}
 
-            for block in iter_blocks_lib():
-                lib_id = block[b'lib']
+            if expand_codes_idlib is None:
+                expand_codes_idlib = {}
+                for block in blend.find_blocks_from_code(b'ID'):
+                    expand_codes_idlib.setdefault(block[b'lib'], set()).add(block[b'name'])
+
+            # look into libraries
+            lib_all = []
+
+            for lib_id, lib_block_codes in sorted(expand_codes_idlib.items()):
                 lib = blend.find_block_from_offset(lib_id)
                 lib_path = lib[b'name']
 
-                # import IPython; IPython.embed()
-
                 # get all data needed to read the blend files here (it will be freed!)
                 # lib is an address at the moment, we only use as a way to group
-                print("OOO", block[b'name'])
-                lib_all.setdefault(lib_path, set()).add(block[b'name'])
+
+                lib_all.append((lib_path, lib_block_codes))
+                # import IPython; IPython.embed()
 
         # do this after, incase we mangle names above
         for block in iter_blocks_id(b'LI'):
@@ -224,7 +222,7 @@ class FilePath:
             # now we've closed the file, loop on other files
 
             # note, sorting - isn't needed, it just gives predictable load-order.
-            for lib_path, lib_block_codes in sorted(lib_all.items()):
+            for lib_path, lib_block_codes in lib_all:
                 lib_path_abs = os.path.normpath(utils.compatpath(utils.abspath(lib_path, basedir)))
 
                 # if we visited this before,
@@ -240,7 +238,6 @@ class FilePath:
                 if VERBOSE:
                     print((indent_str + "  "), "Library: ", filepath, " -> ", lib_path_abs, sep="")
                     # print((indent_str + "  "), lib_block_codes)
-                    print(level)
                 yield from FilePath.visit_from_blend(
                         lib_path_abs,
                         readonly=readonly,

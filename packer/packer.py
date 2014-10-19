@@ -304,6 +304,21 @@ class ExpandID:
                 yield tex
 
     @staticmethod
+    def _expand_generic_nodetree(block):
+        assert(block.dna_type.dna_type_id == b'bNodeTree')
+
+        sdna_index_bNode = block.file.sdna_index_from_id[b'bNode']
+        for item in bf_utils.iter_ListBase(block.get_pointer(b'nodes.first')):
+            item_type = item.get(b'type', sdna_index_refine=sdna_index_bNode)
+
+            if item_type == 143:  # SH_NODE_TEX_IMAGE
+                yield item.get_pointer(b'id', sdna_index_refine=sdna_index_bNode)
+
+            # import IPython; IPython.embed()
+            # print(item.get(b'name', sdna_index_refine=sdna_index_bNode))
+            # print(item.get(b'type', sdna_index_refine=sdna_index_bNode))
+
+    @staticmethod
     def expand_OB(block):
         yield block.get_pointer(b'data')
 
@@ -326,6 +341,10 @@ class ExpandID:
     @staticmethod
     def expand_MA(block):
         yield from ExpandID._expand_generic_mtex(block)
+
+        block_ntree = block.get_pointer(b'nodetree')
+        if block_ntree is not None:
+            yield from ExpandID._expand_generic_nodetree(block_ntree)
 
     @staticmethod
     def expand_TE(block):

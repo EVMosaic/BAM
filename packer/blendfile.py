@@ -484,15 +484,15 @@ class DNAName:
     DNAName is a C-type name stored in the DNA
     """
     __slots__ = (
-        "name",
+        "name_full",
         "name_only",
         "is_pointer",
         "is_method_pointer",
         "array_size",
         )
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, name_full):
+        self.name_full = name_full
         self.name_only = self.calc_name_only()
         self.is_pointer = self.calc_is_pointer()
         self.is_method_pointer = self.calc_is_method_pointer()
@@ -508,21 +508,21 @@ class DNAName:
         return result
 
     def calc_name_only(self):
-        result = self.name.strip(b'*()')
+        result = self.name_full.strip(b'*()')
         index = result.find(b'[')
         if index != -1:
             result = result[:index]
         return result
 
     def calc_is_pointer(self):
-        return (b'*' in self.name)
+        return (b'*' in self.name_full)
 
     def calc_is_method_pointer(self):
-        return (b'(*' in self.name)
+        return (b'(*' in self.name_full)
 
     def calc_array_size(self):
         result = 1
-        temp = self.name
+        temp = self.name_full
         index = temp.find(b'[')
 
         while index != -1:

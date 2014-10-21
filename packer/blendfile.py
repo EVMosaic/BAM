@@ -610,7 +610,7 @@ class DNAStruct:
 
         field = self.field_from_path(header, handle, path)
         if field is None:
-            raise KeyError("%r not found in %r" % (path, [f.dna_name.name_only for f in self.fields]))
+            raise KeyError("%r not found in %r (%r)" % (path, [f.dna_name.name_only for f in self.fields], self.dna_type_id))
 
         dna_type = field.dna_type
         dna_name = field.dna_name

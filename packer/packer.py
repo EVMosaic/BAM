@@ -93,7 +93,7 @@ class FilePath:
 
         if VERBOSE:
             indent_str = "  " * level
-            print(indent_str + "Opening:", filepath)
+            # print(indent_str + "Opening:", filepath)
             # print(indent_str + "... blocks:", block_codes)
 
 
@@ -113,6 +113,9 @@ class FilePath:
             # {lib_id: {block_ids... }}
             expand_codes_idlib = {}
 
+            # libraries used by this blend
+            block_codes_idlib = set()
+
             # only for this block
             def _expand_codes_add_test(block, code):
                 # return True, if the ID should be searched further
@@ -120,6 +123,7 @@ class FilePath:
                 # we could investigate a better way...
                 # Not to be accessing ID blocks at this point. but its harmless
                 if code == b'ID':
+                    assert(code == block.code)
                     if recursive:
                         expand_codes_idlib.setdefault(block[b'lib'], set()).add(block[b'name'])
                     return False
@@ -132,6 +136,7 @@ class FilePath:
                 if _expand_codes_add_test(block, code):
                     yield block
 
+                    assert(block.code == code)
                     fn = ExpandID.expand_funcs.get(code)
                     if fn is not None:
                         for sub_block in fn(block):
@@ -145,17 +150,37 @@ class FilePath:
             # set below
             expand_codes_idlib = None
 
+            # never set
+            block_codes_idlib = None
+
             def block_expand(block, code):
                 yield block
 
+        # ------
+        # Define
+        #
+        # - iter_blocks_id(code)
+        # - iter_blocks_idlib()
         if block_codes is None:
             def iter_blocks_id(code):
                 return blend.find_blocks_from_code(code)
+
+            def iter_blocks_idlib():
+                return blend.find_blocks_from_code(b'LI')
         else:
             def iter_blocks_id(code):
                 for block in blend.find_blocks_from_code(code):
                     if block[b'id.name'] in block_codes:
                         yield from block_expand(block, code)
+
+            if block_codes_idlib is not None:
+                def iter_blocks_idlib():
+                    for block in blend.find_blocks_from_code(b'LI'):
+                        if block[b'name'] in block_codes_idlib:
+                            yield from block_expand(block, b'LI')
+            else:
+                def iter_blocks_idlib():
+                    return blend.find_blocks_from_code(b'LI')
 
         if temp_remap_cb is not None:
             filepath_tmp = temp_remap_cb(filepath, level)
@@ -210,8 +235,12 @@ class FilePath:
                 lib_all.append((lib_path, lib_block_codes))
                 # import IPython; IPython.embed()
 
+                # ensure we expand indirect linked libs
+                if block_codes_idlib is not None:
+                    block_codes_idlib.add(lib_path)
+
         # do this after, incase we mangle names above
-        for block in iter_blocks_id(b'LI'):
+        for block in iter_blocks_idlib():
             yield from FilePath.from_block(block, basedir, rootdir, level)
 
         blend.close()
@@ -502,6 +531,7 @@ def pack(blendfile_src, blendfile_dst):
     path_copy_files = set()
 
     SUBDIR = b'data'
+    TEMP_SUFFIX = b'@'
 
     if TIMEIT:
         import time
@@ -514,9 +544,11 @@ def pack(blendfile_src, blendfile_dst):
         filepath = utils.compatpath(filepath)
 
         if level == 0:
-            filepath_tmp = os.path.join(base_dir_dst, os.path.basename(filepath)) + b'@'
+            filepath_tmp = os.path.join(base_dir_dst, os.path.basename(filepath)) + TEMP_SUFFIX
         else:
-            filepath_tmp = os.path.join(base_dir_dst, SUBDIR, os.path.basename(filepath)) + b'@'
+            filepath_tmp = os.path.join(base_dir_dst, SUBDIR, os.path.basename(filepath)) + TEMP_SUFFIX
+
+        filepath_tmp = os.path.normpath(filepath_tmp)
 
         # only overwrite once (allows us to )
         if filepath_tmp not in path_temp_files:
@@ -567,10 +599,15 @@ def pack(blendfile_src, blendfile_dst):
     path_temp_files.remove(blendfile_dst_tmp)
 
     for fn in path_temp_files:
-        # strip '@'
-        shutil.move(fn, fn[:-1])
+        # strip TEMP_SUFFIX
+        shutil.copyfile(fn, fn[:-1])
 
     for src, dst in path_copy_files:
+        if dst + TEMP_SUFFIX in path_temp_files:
+            continue
+
+        assert(b'.blend' not in dst)
+
         if not os.path.exists(src):
             print("  Source missing! %r" % src)
         else:

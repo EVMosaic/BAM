@@ -134,7 +134,7 @@ class BlendFile:
         self.blocks.append(block)
 
         # cache (could lazy init, incase we never use?)
-        self.block_from_offset = {block.addr_old: block for block in self.blocks}
+        self.block_from_offset = {block.addr_old: block for block in self.blocks if block.code != b'ENDB'}
 
 
     def find_blocks_from_code(self, code):

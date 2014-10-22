@@ -134,9 +134,6 @@ class FilePath:
 
             def block_expand(block, code):
                 assert(block.code == code)
-                if code == b'ENDB':
-                    return
-
                 if _expand_codes_add_test(block, code):
                     yield block
 
@@ -159,9 +156,6 @@ class FilePath:
 
             def block_expand(block, code):
                 assert(block.code == code)
-                if code == b'ENDB':
-                    return
-
                 yield block
 
         # ------
@@ -545,7 +539,7 @@ class utils:
             return path[:2] + path[2:].replace(b'/', b'\\')
 
 
-def pack(blendfile_src, blendfile_dst):
+def pack(blendfile_src, blendfile_dst, mode='FILE'):
 
     # Internal details:
     # - we copy to a temp path before operating on the blend file
@@ -626,28 +620,55 @@ def pack(blendfile_src, blendfile_dst):
     del lib_visit
 
     if TIMEIT:
-        print("  Time: %.4f" % (time.time() - t))
+        print("  Time: %.4f\n" % (time.time() - t))
 
-    # ----------------
-    # Handle File Copy
-    blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
-    shutil.move(blendfile_dst_tmp, blendfile_dst)
-    path_temp_files.remove(blendfile_dst_tmp)
+    # --------------------
+    # Handle File Copy/Zip
 
-    for fn in path_temp_files:
+    if mode == 'FILE':
+        blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
+        shutil.move(blendfile_dst_tmp, blendfile_dst)
+        path_temp_files.remove(blendfile_dst_tmp)
+
         # strip TEMP_SUFFIX
-        shutil.copyfile(fn, fn[:-1])
+        for fn in path_temp_files:
+            shutil.copyfile(fn, fn[:-1])
 
-    for src, dst in path_copy_files:
-        assert(b'.blend' not in dst)
+        for src, dst in path_copy_files:
+            assert(b'.blend' not in dst)
 
-        if not os.path.exists(src):
-            print("  Source missing! %r" % src)
-        else:
-            print("  Copying %r -> %r" % (src, dst))
-            shutil.copy(src, dst)
+            if not os.path.exists(src):
+                print("  Source missing! %r" % src)
+            else:
+                print("  Copying %r -> %r" % (src, dst))
+                shutil.copy(src, dst)
 
-    print("  Written:", blendfile_dst)
+        print("  Written:", blendfile_dst)
+
+    elif mode == 'ZIP':
+        import zipfile
+        with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', zipfile.ZIP_DEFLATED) as zip:
+            for fn in path_temp_files:
+                print("  Copying %r -> <zip>" % fn)
+                zip.write(fn.decode('utf-8'),
+                          arcname=os.path.relpath(fn[:-1], base_dir_dst).decode('utf-8'))
+                os.remove(fn)
+
+            shutil.rmtree(base_dir_dst_subdir)
+
+            for src, dst in path_copy_files:
+                assert(b'.blend' not in dst)
+
+                if not os.path.exists(src):
+                    print("  Source missing! %r" % src)
+                else:
+                    print("  Copying %r -> <zip>" % src)
+                    zip.write(src.decode('utf-8'),
+                              arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
+
+        print("  Written:", blendfile_dst)
+    else:
+        raise Exception("%s not a known mode" % mode)
 
 
 def create_argparse():
@@ -668,6 +689,10 @@ def create_argparse():
     parser.add_argument(
             "-o", "--output", dest="path_dst", metavar='FILE', required=True,
             help="Output file or a directory when multiple inputs are passed")
+    parser.add_argument(
+            "-m", "--mode", dest="mode", metavar='MODE', required=False,
+            choices=('FILE', 'ZIP'), default='FILE',
+            help="Output file or a directory when multiple inputs are passed")
 
     return parser
 
@@ -681,7 +706,9 @@ def main():
     encoding = sys.getfilesystemencoding()
 
     pack(args.path_src.encode(encoding),
-         args.path_dst.encode(encoding))
+         args.path_dst.encode(encoding),
+         args.mode,
+         )
 
 
 if __name__ == "__main__":

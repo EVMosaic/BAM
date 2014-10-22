@@ -344,6 +344,7 @@ class BlendFileBlock:
         self.refine_type_from_index(self.file.sdna_index_from_id[dna_type_id])
 
     def get(self, path,
+            default=...,
             sdna_index_refine=None,
             use_nil=True, use_str=True,
             ):
@@ -357,7 +358,9 @@ class BlendFileBlock:
         self.file.handle.seek(self.file_offset, os.SEEK_SET)
         return dna_struct.field_get(
                 self.file.header, self.file.handle, path,
-                use_nil=use_nil, use_str=use_str)
+                default=default,
+                use_nil=use_nil, use_str=use_str,
+                )
 
     def set(self, path, value,
             sdna_index_refine=None,
@@ -605,12 +608,17 @@ class DNAStruct:
                 return field.dna_type.field_from_path(header, handle, name_tail)
 
     def field_get(self, header, handle, path,
-                  use_nil=True, use_str=True):
+                  default=...,
+                  use_nil=True, use_str=True,
+                  ):
         assert(type(path) == bytes)
 
         field = self.field_from_path(header, handle, path)
         if field is None:
-            raise KeyError("%r not found in %r (%r)" % (path, [f.dna_name.name_only for f in self.fields], self.dna_type_id))
+            if default is not ...:
+                return default
+            else:
+                raise KeyError("%r not found in %r (%r)" % (path, [f.dna_name.name_only for f in self.fields], self.dna_type_id))
 
         dna_type = field.dna_type
         dna_name = field.dna_name

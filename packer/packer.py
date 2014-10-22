@@ -133,6 +133,10 @@ class FilePath:
                     return (len_prev != len(expand_codes))
 
             def block_expand(block, code):
+                assert(block.code == code)
+                if code == b'ENDB':
+                    return
+
                 if _expand_codes_add_test(block, code):
                     yield block
 
@@ -154,6 +158,10 @@ class FilePath:
             block_codes_idlib = None
 
             def block_expand(block, code):
+                assert(block.code == code)
+                if code == b'ENDB':
+                    return
+
                 yield block
 
         # ------
@@ -291,6 +299,11 @@ class FilePath:
             yield from fn(block, basedir, rootdir, level)
 
     @staticmethod
+    def _from_block_MC(block, basedir, rootdir, level):
+        # TODO, image sequence
+        yield FilePath(block, b'name', basedir, level), rootdir
+
+    @staticmethod
     def _from_block_IM(block, basedir, rootdir, level):
         # (IMA_SRC_FILE, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)
         if block[b'source'] not in {1, 2, 3}:
@@ -301,8 +314,26 @@ class FilePath:
         yield FilePath(block, b'name', basedir, level), rootdir
 
     @staticmethod
-    def _from_block_LI(block, basedir, rootdir, level):
+    def _from_block_VF(block, basedir, rootdir, level):
         if block[b'packedfile']:
+            return
+        yield FilePath(block, b'name', basedir, level), rootdir
+
+    @staticmethod
+    def _from_block_SO(block, basedir, rootdir, level):
+        if block[b'packedfile']:
+            return
+        yield FilePath(block, b'name', basedir, level), rootdir
+
+    @staticmethod
+    def _from_block_ME(block, basedir, rootdir, level):
+        block_external = block.get_pointer(b'ldata.external')
+        if block_external is not None:
+            yield FilePath(block_external, b'filename', basedir, level), rootdir
+
+    @staticmethod
+    def _from_block_LI(block, basedir, rootdir, level):
+        if block.get(b'packedfile', None):
             return
 
         yield FilePath(block, b'name', basedir, level), rootdir
@@ -384,10 +415,6 @@ class ExpandID:
             if item_type != 221:  # CMP_NODE_R_LAYERS
                 yield item.get_pointer(b'id', sdna_index_refine=sdna_index_bNode)
 
-            # import IPython; IPython.embed()
-            # print(item.get(b'name', sdna_index_refine=sdna_index_bNode))
-            # print(item.get(b'type', sdna_index_refine=sdna_index_bNode))
-            #
     def _expand_generic_nodetree_id(block):
         block_ntree = block.get_pointer(b'nodetree')
         if block_ntree is not None:
@@ -418,6 +445,13 @@ class ExpandID:
     def expand_CU(block):  # 'Curve'
         yield from ExpandID._expand_generic_animdata(block)
         yield from ExpandID._expand_generic_material(block)
+
+        sub_block = block.get_pointer(b'vfont')
+        if sub_block is not None:
+            yield sub_block
+            yield block.get_pointer(b'vfontb')
+            yield block.get_pointer(b'vfonti')
+            yield block.get_pointer(b'vfontbi')
 
     @staticmethod
     def expand_MB(block):  # 'MBall'
@@ -584,8 +618,10 @@ def pack(blendfile_src, blendfile_dst):
         else:
             fp.filepath = b'//' + path_base
 
-        # add to copylist
-        path_copy_files.add((path_src, path_dst))
+        # add to copy-list
+        # never copy libs (handled separately)
+        if fp.block.code != b'LI':
+            path_copy_files.add((path_src, path_dst))
 
     del lib_visit
 
@@ -603,9 +639,6 @@ def pack(blendfile_src, blendfile_dst):
         shutil.copyfile(fn, fn[:-1])
 
     for src, dst in path_copy_files:
-        if dst + TEMP_SUFFIX in path_temp_files:
-            continue
-
         assert(b'.blend' not in dst)
 
         if not os.path.exists(src):

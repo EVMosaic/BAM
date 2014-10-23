@@ -18,7 +18,7 @@
 
 import os
 
-from flask import Flask, jsonify, abort, request, make_response, url_for
+from flask import Flask, jsonify, abort, request, make_response, url_for, Response
 from flask.views import MethodView
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal
 from flask.ext.httpauth import HTTPBasicAuth
@@ -53,6 +53,7 @@ def unauthorized():
 
 class FilesListAPI(Resource):
     """Displays list of files."""
+
     decorators = [auth.login_required]
 
     def __init__(self):
@@ -81,12 +82,10 @@ class FilesListAPI(Resource):
             relative_path = os.path.join(path, f)
             absolute_path = os.path.join(absolute_path_root, f)
 
-            # we are going to pick up only blend files and folders
-            if absolute_path.endswith('blend'):
-                # items[f] = relative_path
-                items_list.append((f, relative_path, 'blendfile'))
-            elif os.path.isdir(absolute_path):
+            if os.path.isdir(absolute_path):
                 items_list.append((f, relative_path, 'folder'))
+            else:
+                items_list.append((f, relative_path, 'file'))
 
         project_files = dict(
             parent_path=parent_path,
@@ -103,26 +102,16 @@ class FileAPI(Resource):
 
     def __init__(self):
         parser = reqparse.RequestParser()
-        #parser.add_argument('rate', type=int, help='Rate cannot be converted')
-        parser.add_argument('filepath', type=str)
+        parser.add_argument('filepath', type=str, required=True,
+            help="Filepath cannot be blank!")
         args = parser.parse_args()
-        # parser = reqparse.RequestParser()
-        # parser.add_argument('filepath', type=str, required=True,
-        #     help="Filepath cannot be blank!")
-        # args = parser.parse_args()
+
         super(FileAPI, self).__init__()
 
     def get(self):
-        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath']) 
-        print (filepath)
-        with open(filepath, 'r') as f:
-            body = f.read()
-        response = flask.make_response(body)
-        response.headers['content-type'] = 'application/octet-stream'
-        return response
-        
-        return output_file(body, 200)
-        # return {'path': path}
+        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])         
+        f = open(filepath, 'rb')
+        return Response(f, direct_passthrough=True)
 
 
 api.add_resource(FilesListAPI, '/files', endpoint='files')

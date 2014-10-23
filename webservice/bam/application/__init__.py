@@ -16,6 +16,8 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
+import os
+
 from flask import Flask, jsonify, abort, request, make_response, url_for
 from flask.views import MethodView
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal
@@ -24,7 +26,8 @@ from flask.ext.httpauth import HTTPBasicAuth
 app = Flask(__name__)
 api = Api(app)
 auth = HTTPBasicAuth()
-
+import config
+app.config.from_object(config.Development)
 
 @api.representation('application/octet-stream')
 def output_file(data, code, headers=None):
@@ -53,10 +56,44 @@ class FilesListAPI(Resource):
     decorators = [auth.login_required]
 
     def __init__(self):
+        parser = reqparse.RequestParser()
+        #parser.add_argument('rate', type=int, help='Rate cannot be converted')
+        parser.add_argument('path', type=str)
+        args = parser.parse_args()
         super(FilesListAPI, self).__init__()
 
     def get(self):
-        return {'message': 'Display files list'}
+
+        path = request.args['path']
+        if not path:
+            path = ''
+
+        absolute_path_root = app.config['STORAGE_PATH']
+        parent_path = ''
+
+        if path != '':
+            absolute_path_root = os.path.join(absolute_path_root, path)
+            parent_path = os.pardir
+
+        items_list = []
+
+        for f in os.listdir(absolute_path_root):
+            relative_path = os.path.join(path, f)
+            absolute_path = os.path.join(absolute_path_root, f)
+
+            # we are going to pick up only blend files and folders
+            if absolute_path.endswith('blend'):
+                # items[f] = relative_path
+                items_list.append((f, relative_path, 'blendfile'))
+            elif os.path.isdir(absolute_path):
+                items_list.append((f, relative_path, 'folder'))
+
+        project_files = dict(
+            parent_path=parent_path,
+            items_list=items_list)
+
+        return jsonify(project_files)
+        #return {'message': 'Display files list'}
 
 
 class FileAPI(Resource):
@@ -65,18 +102,28 @@ class FileAPI(Resource):
     decorators = [auth.login_required]
 
     def __init__(self):
-        # self.reqparse = reqparse.RequestParser()
-        # self.reqparse.add_argument('path',
-        #     type = str,
-        #     location = 'json')
+        parser = reqparse.RequestParser()
+        #parser.add_argument('rate', type=int, help='Rate cannot be converted')
+        parser.add_argument('filepath', type=str)
+        args = parser.parse_args()
+        # parser = reqparse.RequestParser()
+        # parser.add_argument('filepath', type=str, required=True,
+        #     help="Filepath cannot be blank!")
+        # args = parser.parse_args()
         super(FileAPI, self).__init__()
 
-    def get(self, path):
-        with open(path, 'r') as f:
+    def get(self):
+        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath']) 
+        print (filepath)
+        with open(filepath, 'r') as f:
             body = f.read()
+        response = flask.make_response(body)
+        response.headers['content-type'] = 'application/octet-stream'
+        return response
+        
         return output_file(body, 200)
         # return {'path': path}
 
 
 api.add_resource(FilesListAPI, '/files', endpoint='files')
-api.add_resource(FileAPI, '/file/<path:path>', endpoint='file')
+api.add_resource(FileAPI, '/file', endpoint='file')

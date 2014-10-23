@@ -21,6 +21,23 @@
 VERBOSE = True
 TIMEIT = True
 
+class C_defs:
+    __slots__ = ()
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
+
+    # DNA_sequence_types.h (Sequence.type)
+    SEQ_TYPE_IMAGE       = 0
+    SEQ_TYPE_META        = 1
+    SEQ_TYPE_SCENE       = 2
+    SEQ_TYPE_MOVIE       = 3
+    SEQ_TYPE_SOUND_RAM   = 4
+    SEQ_TYPE_SOUND_HD    = 5
+    SEQ_TYPE_MOVIECLIP   = 6
+    SEQ_TYPE_MASK        = 7
+    SEQ_TYPE_EFFECT      = 8
+
+
 if VERBOSE:
     _A = open("/tmp/a.log", 'w')
     class log_deps:
@@ -35,35 +52,85 @@ if VERBOSE:
         else:
              return (", ".join(sorted(i.decode('ascii') for i in sorted(s))))
 
-class FilePath:
+
+
+class FPElem:
     """
     Tiny filepath class to hide blendfile.
     """
+
     __slots__ = (
-        "block",
-        "path",
-        # path may be relative to basepath
         "basedir",
+
         # library link level
         "level",
+
+        "userdata",
         )
 
-    def __init__(self, block, path, basedir, level):
-        self.block = block
-        self.path = path
+    def __init__(self, basedir, level,
+                 # subclasses get/set functions should use
+                 userdata):
         self.basedir = basedir
         self.level = level
 
+        # subclass must call
+        self.userdata = userdata
+
     # --------
     # filepath
-    #
+
     @property
     def filepath(self):
-        return self.block[self.path]
+        return self._get_cb()
 
     @filepath.setter
     def filepath(self, filepath):
-        self.block[self.path] = filepath
+        self._set_cb(filepath)
+
+
+class FPElem_block_path(FPElem):
+    """
+    Simple block-path:
+        userdata = (block, path)
+    """
+    __slots__ = ()
+
+    def _get_cb(self):
+        block, path = self.userdata
+        return block[path]
+
+    def _set_cb(self, filepath):
+        block, path = self.userdata
+        block[path] = filepath
+
+
+class FPElem_sequence_single(FPElem):
+    """
+    Movie sequence
+        userdata = (block, path)
+    """
+    __slots__ = ()
+
+    def _get_cb(self):
+        block, path, sub_block, sub_path = self.userdata
+        return block[path] + sub_block[sub_path]
+
+    def _set_cb(self, filepath):
+        block, path, sub_block, sub_path = self.userdata
+
+        # TODO, pathname
+        a, b = filepath.rsplit(b'/', 1)
+
+        block[path] = a + b'/'
+        sub_block[sub_path] = b
+
+
+class FilePath:
+    __slots__ = ()
+
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
 
     # ------------------------------------------------------------------------
     # Main function to visit paths
@@ -295,7 +362,7 @@ class FilePath:
     @staticmethod
     def _from_block_MC(block, basedir, rootdir, level):
         # TODO, image sequence
-        yield FilePath(block, b'name', basedir, level), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
 
     @staticmethod
     def _from_block_IM(block, basedir, rootdir, level):
@@ -305,32 +372,65 @@ class FilePath:
         if block[b'packedfile']:
             return
 
-        yield FilePath(block, b'name', basedir, level), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
 
     @staticmethod
     def _from_block_VF(block, basedir, rootdir, level):
         if block[b'packedfile']:
             return
-        yield FilePath(block, b'name', basedir, level), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
 
     @staticmethod
     def _from_block_SO(block, basedir, rootdir, level):
         if block[b'packedfile']:
             return
-        yield FilePath(block, b'name', basedir, level), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
 
     @staticmethod
     def _from_block_ME(block, basedir, rootdir, level):
         block_external = block.get_pointer(b'ldata.external')
         if block_external is not None:
-            yield FilePath(block_external, b'filename', basedir, level), rootdir
+            yield FPElem_block_path(basedir, level, (block_external, b'filename')), rootdir
+
+    @staticmethod
+    def _from_block_SC(block, basedir, rootdir, level):
+        block_ed = block.get_pointer(b'ed')
+        if block_ed is not None:
+            sdna_index_Sequence = block.file.sdna_index_from_id[b'Sequence']
+
+            def seqbase(someseq):
+                for item in someseq:
+                    item_type = item.get(b'type', sdna_index_refine=sdna_index_Sequence)
+
+                    if item_type >= C_defs.SEQ_TYPE_EFFECT:
+                        continue
+                    elif item_type == C_defs.SEQ_TYPE_META:
+                        yield from aaa(bf_utils.iter_ListBase(item.get_pointer(b'seqbase.first', sdna_index_refine=sdna_index_Sequence)))
+                        continue
+
+                    item_strip = item.get_pointer(b'strip', sdna_index_refine=sdna_index_Sequence)
+                    if item_strip is None:  # unlikely!
+                        continue
+                    item_stripdata = item_strip.get_pointer(b'stripdata')
+
+                    if item_type == C_defs.SEQ_TYPE_IMAGE:
+                        # TODO, multiple images
+                        yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), rootdir
+                    elif item_type == C_defs.SEQ_TYPE_MOVIE:
+                        yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), rootdir
+                    elif item_type == C_defs.SEQ_TYPE_SOUND_RAM:
+                        pass
+                    elif item_type == C_defs.SEQ_TYPE_SOUND_HD:
+                        pass
+
+            yield from seqbase(bf_utils.iter_ListBase(block_ed.get_pointer(b'seqbase.first')))
 
     @staticmethod
     def _from_block_LI(block, basedir, rootdir, level):
         if block.get(b'packedfile', None):
             return
 
-        yield FilePath(block, b'name', basedir, level), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
 
     # _from_block_IM --> {b'IM': _from_block_IM, ...}
     _from_block_dict = {
@@ -494,6 +594,7 @@ class ExpandID:
         for item in bf_utils.iter_ListBase(block.get_pointer(b'base.first')):
             yield item.get_pointer(b'object', sdna_index_refine=sdna_index_Base)
 
+
     @staticmethod
     def expand_GR(block):  # 'Group'
         sdna_index_GroupObject = block.file.sdna_index_from_id[b'GroupObject']
@@ -614,7 +715,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE'):
 
         # add to copy-list
         # never copy libs (handled separately)
-        if fp.block.code != b'LI':
+        if not isinstance(fp, FPElem_block_path) or fp.userdata[0].code != b'LI':
             path_copy_files.add((path_src, path_dst))
 
     del lib_visit

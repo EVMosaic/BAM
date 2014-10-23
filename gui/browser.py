@@ -56,20 +56,34 @@ class PathHandle:
         self.refresh()
 
     @staticmethod
+    def request_url(req_path):
+        # TODO, get from config
+        BAM_SERVER = "http://localhost:5000"
+        result = "%s/%s" % (BAM_SERVER, req_path)
+        print(result)
+        return result
+
+    @staticmethod
     def json_from_server(path):
-        def request_url(req_path):
-            # TODO, get from config
-            BAM_SERVER = "http://localhost:5000"
-            result = "%s/%s" % (BAM_SERVER, req_path)
-            print(result)
-            return result
 
         import requests
         payload = {"path": "/".join(path)}
-        r = requests.get(request_url("files"), params=payload, auth=("bam", "bam"))
+        r = requests.get(PathHandle.request_url("files"), params=payload, auth=("bam", "bam"))
         print(r.text)
         return r.json()
 
+    @staticmethod
+    def download_from_server(path, idname):
+        import requests
+        payload = {"filepath": "/".join(path) + "/" + idname}
+        r = requests.get(PathHandle.request_url("file"), params=payload, auth=("bam", "bam"), stream=True)
+        local_filename = payload['filepath'].split('/')[-1]
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk: # filter out keep-alive new chunks
+                    f.write(chunk)
+                    f.flush()
+        print(local_filename)
 
 
 class Application(tk.Frame):
@@ -126,8 +140,10 @@ class Application(tk.Frame):
 
             self.repopulate()
 
-
         def exec_path_file(idname):
+            self.path_handle.download_from_server(self.path_handle.path, idname)
+            print(self.path_handle.path)
+
             self.repopulate()
 
 
@@ -142,8 +158,10 @@ class Application(tk.Frame):
         self.grid_members.append(but_path)
 
         row = 1
-        import random
-        random.shuffle(items)
+
+        # import random
+        # random.shuffle(items)
+
         for name_short, name_full, item_type in [("..", "", "folder")] + items:
             print(name_short, name_full, item_type)
             if item_type == "folder":

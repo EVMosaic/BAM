@@ -114,5 +114,70 @@ class FileAPI(Resource):
         return Response(f, direct_passthrough=True)
 
 
+class FileDepsAPI(Resource):
+    """Downloads a file and its deps."""
+
+    decorators = [auth.login_required]
+
+    def __init__(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('filepath', type=str, required=True,
+            help="Filepath cannot be blank!")
+        args = parser.parse_args()
+
+        super(FileDepsAPI, self).__init__()
+
+    def get(self):
+        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])
+
+        # pack the file!
+        print("PACKING")
+        filepath_zip = self.pack_fn(filepath)
+
+        # TODO, handle fail
+        if filepath_zip is None:
+            pass
+
+        f = open(filepath_zip, 'rb')
+        return Response(f, direct_passthrough=True)
+
+    @staticmethod
+    def pack_fn(filepath):
+        import tempfile
+        filepath_zip = tempfile.mkstemp(suffix=".zip")
+
+        import os
+        modpath = \
+            os.path.normpath(
+            os.path.abspath(
+            os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "packer")))
+
+        import sys
+        if modpath not in sys.path:
+            sys.path.append(modpath)
+        del modpath
+
+        import packer
+
+        print("AAA", filepath)
+        print("NNN", filepath_zip)
+
+        try:
+            packer.pack(filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP')
+            return filepath_zip[-1]
+        except:
+            import traceback
+            traceback.print_exc()
+
+            return None
+
+
+
 api.add_resource(FilesListAPI, '/file_list', endpoint='file_list')
 api.add_resource(FileAPI, '/file', endpoint='file')
+api.add_resource(FileDepsAPI, '/file_deps', endpoint='file_deps')

@@ -73,11 +73,15 @@ class PathHandle:
         return r.json()
 
     @staticmethod
-    def download_from_server(path, idname):
+    def download_from_server(path, idname, file_type, local_filename=None):
         import requests
         payload = {"filepath": "/".join(path) + "/" + idname}
-        r = requests.get(PathHandle.request_url("file"), params=payload, auth=("bam", "bam"), stream=True)
+        r = requests.get(PathHandle.request_url(file_type), params=payload, auth=("bam", "bam"), stream=True)
         local_filename = payload['filepath'].split('/')[-1]
+
+        if file_type == "file_deps":
+            local_filename += ".zip"
+
         with open(local_filename, 'wb') as f:
             for chunk in r.iter_content(chunk_size=1024):
                 if chunk: # filter out keep-alive new chunks
@@ -101,7 +105,7 @@ class Application(tk.Frame):
 
         self.vsb.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.canvas.create_window((4, 4), window=self.frame, anchor="nw", 
+        self.canvas.create_window((4, 4), window=self.frame, anchor="nw",
                                   tags="self.frame")
 
         self.frame.bind("<Configure>", self.OnFrameConfigure)
@@ -141,11 +145,12 @@ class Application(tk.Frame):
             self.repopulate()
 
         def exec_path_file(idname):
-            self.path_handle.download_from_server(self.path_handle.path, idname)
-            print(self.path_handle.path)
-
+            self.path_handle.download_from_server(self.path_handle.path, idname, "file")
             self.repopulate()
 
+        def exec_path_blendfile(idname):
+            self.path_handle.download_from_server(self.path_handle.path, idname, "file_deps")
+            self.repopulate()
 
         js = self.path_handle.json
         items = js.get("items_list")
@@ -177,15 +182,29 @@ class Application(tk.Frame):
 
                 self.grid_members.append(but)
                 row += 1
+#
+#        for name_short, name_full, item_type in items:
+#            print(name_short, name_full, item_type)
+#            if item_type == "file":
+#                but = tk.Label(self.frame, text="(f)", width=3, borderwidth="1", relief="solid")
+#                but.grid(row=row, column=0)
+#                def fn(idname=name_short): exec_path_file(idname)
+#                self.grid_members.append(but)
+#
+#                but = tk.Button(self.frame, text=name_short, fg="blue", command=fn)
+#                but.grid(row=row, column=1, sticky="nw")
+#                del fn
+#
+#                self.grid_members.append(but)
+#                row += 1
 
         for name_short, name_full, item_type in items:
             print(name_short, name_full, item_type)
-            if item_type in {"file", "blendfile"}:
-                but = tk.Label(self.frame, text="(f)", width=3, borderwidth="1", relief="solid")
+            if item_type == "file":
+                but = tk.Label(self.frame, text="(b)", width=3, borderwidth="1", relief="solid")
                 but.grid(row=row, column=0)
-                def fn(idname=name_short): exec_path_file(idname)
+                def fn(idname=name_short): exec_path_blendfile(idname)
                 self.grid_members.append(but)
-
 
                 but = tk.Button(self.frame, text=name_short, fg="blue", command=fn)
                 but.grid(row=row, column=1, sticky="nw")

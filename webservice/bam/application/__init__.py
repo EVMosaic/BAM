@@ -109,10 +109,10 @@ class FileAPI(Resource):
         super(FileAPI, self).__init__()
 
     def get(self):
-        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])         
+        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])
         f = open(filepath, 'rb')
         return Response(f, direct_passthrough=True)
 
 
-api.add_resource(FilesListAPI, '/files', endpoint='files')
+api.add_resource(FilesListAPI, '/file_list', endpoint='file_list')
 api.add_resource(FileAPI, '/file', endpoint='file')

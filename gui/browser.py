@@ -68,7 +68,7 @@ class PathHandle:
 
         import requests
         payload = {"path": "/".join(path)}
-        r = requests.get(PathHandle.request_url("files"), params=payload, auth=("bam", "bam"))
+        r = requests.get(PathHandle.request_url("file_list"), params=payload, auth=("bam", "bam"))
         print(r.text)
         return r.json()
 

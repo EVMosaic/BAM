@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ***** BEGIN GPL LICENSE BLOCK *****
 #
 # This program is free software; you can redistribute it and/or
@@ -17,6 +18,8 @@
 # ***** END GPL LICENCE BLOCK *****
 
 import os
+import svn.local
+import pprint
 
 from flask import Flask, jsonify, abort, request, make_response, url_for, Response
 from flask.views import MethodView
@@ -96,7 +99,7 @@ class FilesListAPI(Resource):
 
 
 class FileAPI(Resource):
-    """Downloads a file."""
+    """Gives acces to a file."""
 
     decorators = [auth.login_required]
 
@@ -104,14 +107,33 @@ class FileAPI(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('filepath', type=str, required=True,
             help="Filepath cannot be blank!")
+        parser.add_argument('command', type=str, required=True,
+            help="Command cannot be blank!")
         args = parser.parse_args()
 
         super(FileAPI, self).__init__()
 
     def get(self):
-        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])
-        f = open(filepath, 'rb')
-        return Response(f, direct_passthrough=True)
+        filepath = request.args['filepath']
+        command = request.args['command']
+
+        if command == 'info':
+            r = svn.local.LocalClient(app.config['STORAGE_PATH'])
+
+            log = r.log_default(None, None, 5, filepath)
+            log = [l for l in log]
+            
+            return jsonify(
+                filepath=filepath,
+                log=log)
+
+        elif command == 'checkout':
+            filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])
+            f = open(filepath, 'rb')
+            return Response(f, direct_passthrough=True)
+
+        else:
+            return jsonify(message='Command unknown')
 
 
 class FileDepsAPI(Resource):

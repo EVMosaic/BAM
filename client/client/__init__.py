@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import requests
 
 with open('config.json', 'r') as config:
@@ -12,13 +14,17 @@ def request_url(path):
 #r = requests.get(request_url('/files'), params=payload, auth=('bam', 'bam'))
 #print (r.json())
 
-payload = {'filepath': 'video.mp4'}
+payload = {
+    'filepath': 'pro',
+    'command' : 'info'}
+
 r = requests.get(request_url('/file'), params=payload, auth=('bam', 'bam'), stream=True)
 local_filename = payload['filepath'].split('/')[-1]
 
-with open(local_filename, 'wb') as f:
-    for chunk in r.iter_content(chunk_size=1024): 
-        if chunk: # filter out keep-alive new chunks
-            f.write(chunk)
-            f.flush()
-print(local_filename)
+print (r.json())
+# with open(local_filename, 'wb') as f:
+#     for chunk in r.iter_content(chunk_size=1024): 
+#         if chunk: # filter out keep-alive new chunks
+#             f.write(chunk)
+#             f.flush()
+# print(local_filename)

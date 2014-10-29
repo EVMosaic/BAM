@@ -1,10 +1,13 @@
 *.pyc
+*.sublime-project
+*.sublime-workspace
+
 webservice/venv/
 docs/venv/
 docs/build/
 client/venv/
 
-
 client/client/config.json
-
 webservice/bam/config.py
+
+

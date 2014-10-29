@@ -173,6 +173,9 @@ class FilePath:
         if rootdir is None:
             rootdir = basedir
 
+        # store info to pass along with each iteration
+        extra_info = rootdir, os.path.basename(filepath)
+
         if recursive and (level > 0) and (block_codes is not None):
             # prevent from expanding the
             # same datablock more then once
@@ -277,7 +280,7 @@ class FilePath:
             #     print("  Scanning", code)
 
             for block in iter_blocks_id(code):
-                yield from FilePath.from_block(block, basedir, rootdir, level)
+                yield from FilePath.from_block(block, basedir, extra_info, level)
 
         # print("A:", expand_codes)
         # print("B:", block_codes)
@@ -310,7 +313,7 @@ class FilePath:
 
         # do this after, incase we mangle names above
         for block in iter_blocks_idlib():
-            yield from FilePath.from_block(block, basedir, rootdir, level)
+            yield from FilePath.from_block(block, basedir, extra_info, level)
 
         blend.close()
 
@@ -353,47 +356,47 @@ class FilePath:
     # (no expanding or following references)
 
     @staticmethod
-    def from_block(block, basedir, rootdir, level):
+    def from_block(block, basedir, extra_info, level):
         assert(block.code != b'DATA')
         fn = FilePath._from_block_dict.get(block.code)
         if fn is not None:
-            yield from fn(block, basedir, rootdir, level)
+            yield from fn(block, basedir, extra_info, level)
 
     @staticmethod
-    def _from_block_MC(block, basedir, rootdir, level):
+    def _from_block_MC(block, basedir, extra_info, level):
         # TODO, image sequence
-        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
 
     @staticmethod
-    def _from_block_IM(block, basedir, rootdir, level):
+    def _from_block_IM(block, basedir, extra_info, level):
         # (IMA_SRC_FILE, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)
         if block[b'source'] not in {1, 2, 3}:
             return
         if block[b'packedfile']:
             return
 
-        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
 
     @staticmethod
-    def _from_block_VF(block, basedir, rootdir, level):
+    def _from_block_VF(block, basedir, extra_info, level):
         if block[b'packedfile']:
             return
-        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
 
     @staticmethod
-    def _from_block_SO(block, basedir, rootdir, level):
+    def _from_block_SO(block, basedir, extra_info, level):
         if block[b'packedfile']:
             return
-        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
 
     @staticmethod
-    def _from_block_ME(block, basedir, rootdir, level):
+    def _from_block_ME(block, basedir, extra_info, level):
         block_external = block.get_pointer(b'ldata.external')
         if block_external is not None:
-            yield FPElem_block_path(basedir, level, (block_external, b'filename')), rootdir
+            yield FPElem_block_path(basedir, level, (block_external, b'filename')), extra_info
 
     @staticmethod
-    def _from_block_SC(block, basedir, rootdir, level):
+    def _from_block_SC(block, basedir, extra_info, level):
         block_ed = block.get_pointer(b'ed')
         if block_ed is not None:
             sdna_index_Sequence = block.file.sdna_index_from_id[b'Sequence']
@@ -414,9 +417,9 @@ class FilePath:
 
                         if item_type == C_defs.SEQ_TYPE_IMAGE:
                             # TODO, multiple images
-                            yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), rootdir
+                            yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
                         elif item_type == C_defs.SEQ_TYPE_MOVIE:
-                            yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), rootdir
+                            yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
                         elif item_type == C_defs.SEQ_TYPE_SOUND_RAM:
                             pass
                         elif item_type == C_defs.SEQ_TYPE_SOUND_HD:
@@ -425,11 +428,11 @@ class FilePath:
             yield from seqbase(bf_utils.iter_ListBase(block_ed.get_pointer(b'seqbase.first')))
 
     @staticmethod
-    def _from_block_LI(block, basedir, rootdir, level):
+    def _from_block_LI(block, basedir, extra_info, level):
         if block.get(b'packedfile', None):
             return
 
-        yield FPElem_block_path(basedir, level, (block, b'name')), rootdir
+        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
 
     # _from_block_IM --> {b'IM': _from_block_IM, ...}
     _from_block_dict = {
@@ -639,7 +642,13 @@ class utils:
             return path[:2] + path[2:].replace(b'/', b'\\')
 
 
-def pack(blendfile_src, blendfile_dst, mode='FILE'):
+def pack(blendfile_src, blendfile_dst, mode='FILE', remap=None):
+    """
+    :param remap: Store path remapping info as follows.
+       {"file.blend": {"path_new": "path_old", ...}, ...}
+
+    :type remap: dict or None
+    """
 
     # Internal details:
     # - we copy to a temp path before operating on the blend file
@@ -693,7 +702,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE'):
 
     lib_visit = {}
 
-    for fp, rootdir in FilePath.visit_from_blend(
+    for fp, (rootdir, fp_blend_basename) in FilePath.visit_from_blend(
             blendfile_src,
             readonly=False,
             temp_remap_cb=temp_remap_cb,
@@ -707,15 +716,24 @@ def pack(blendfile_src, blendfile_dst, mode='FILE'):
 
         # rename in the blend
         path_dst = os.path.join(base_dir_dst_subdir, path_base)
+
         if fp.level == 0:
-            fp.filepath = b"//" + os.path.join(SUBDIR, path_base)
+            path_dst_final =b"//" + os.path.join(SUBDIR, path_base)
         else:
-            fp.filepath = b'//' + path_base
+            path_dst_final = b'//' + path_base
+
+        fp.filepath = path_dst_final
 
         # add to copy-list
         # never copy libs (handled separately)
         if not isinstance(fp, FPElem_block_path) or fp.userdata[0].code != b'LI':
             path_copy_files.add((path_src, path_dst))
+
+        if remap is not None:
+            # this needs to become JSON later... ugh, need to use strings
+            remap.setdefault(
+                    fp_blend_basename.decode('utf-8'),
+                    {})[path_dst_final.decode('utf-8')] = path_src.decode('utf-8')
 
     del lib_visit
 
@@ -793,6 +811,9 @@ def create_argparse():
             "-m", "--mode", dest="mode", metavar='MODE', required=False,
             choices=('FILE', 'ZIP'), default='FILE',
             help="Output file or a directory when multiple inputs are passed")
+    parser.add_argument(
+            "-r", "--remap", dest="path_remap", metavar='FILE',
+            help="Write out the path mapping to a JSON file")
 
     return parser
 
@@ -805,11 +826,27 @@ def main():
 
     encoding = sys.getfilesystemencoding()
 
+    if args.path_remap:
+        remap = {}
+    else:
+        remap = None
+
     pack(args.path_src.encode(encoding),
          args.path_dst.encode(encoding),
          args.mode,
+         remap,
          )
 
+    if remap is not None:
+        import json
+
+        with open(args.path_remap, 'w', encoding='utf-8') as f:
+
+            json.dump(
+                    remap, f, ensure_ascii=False,
+                    # optional (pretty)
+                    sort_keys=True, indent=4, separators=(',', ': '),
+                    )
 
 if __name__ == "__main__":
     main()

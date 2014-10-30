@@ -144,19 +144,25 @@ class FileAPI(Resource):
         elif command == 'checkout':
             filepath = os.path.join(app.config['STORAGE_PATH'], filepath)
 
+
+            if not os.path.exists(filepath):
+                return jsonify(message="Path not found %r" % filepath)
+            elif os.path.isdir(filepath):
+                return jsonify(message="Path is a directory %r" % filepath)
+
             # pack the file!
             print("PACKING")
             filepath_zip = self.pack_fn(filepath)
 
             # TODO, handle fail
             if filepath_zip is None:
-                pass
+                return jsonify(message="Path not found %r" % filepath)
 
             f = open(filepath_zip, 'rb')
             return Response(f, direct_passthrough=True)
 
         else:
-            return jsonify(message='Command unknown')
+            return jsonify(message="Command unknown")
 
     def put(self):
         command = request.args['command']
@@ -196,10 +202,9 @@ class FileAPI(Resource):
 
     @staticmethod
     def pack_fn(filepath):
-        import tempfile
-        filepath_zip = tempfile.mkstemp(suffix=".zip")
-
         import os
+        assert(os.path.exists(filepath) and not os.path.isdir(filepath))
+
         modpath = \
             os.path.normpath(
             os.path.abspath(
@@ -215,8 +220,10 @@ class FileAPI(Resource):
             sys.path.append(modpath)
         del modpath
 
+        import tempfile
         import packer
 
+        filepath_zip = tempfile.mkstemp(suffix=".zip")
         print("  Source path:", filepath)
         print("  Zip path:", filepath_zip)
 

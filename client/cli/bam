@@ -17,13 +17,18 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
+"""
+Blender asset manager
+"""
+
 # TODO
-# * checkout command
+# * checkout command (store some handy json info!)
 # * commit command
 # ** staging for svn commit
 # ** svn commit
 # ** handle errors
 # * definition of project (.bam (like .git)) ... json
+
 
 
 class bam_utils:
@@ -36,12 +41,82 @@ class bam_utils:
     def session_find_url():
         return "http://localhost:5000"
 
+    @staticmethod
+    def session_request_url(req_path):
+        # TODO, get from config
+        BAM_SERVER = "http://localhost:5000"
+        result = "%s/%s" % (BAM_SERVER, req_path)
+        print(result)
+        return result
 
+    @staticmethod
+    def checkout(paths):
+        import sys
+        import requests
 
+        # TODO(cam) multiple paths
+        path = paths[0]
+        del paths
+
+        payload = {
+            "filepath": path,
+            "command": "checkout",
+            }
+        r = requests.get(
+                bam_utils.session_request_url("file"),
+                params=payload,
+                auth=("bam", "bam"),
+                stream=True,
+                )
+
+        if r.status_code not in {200,}:
+            # TODO(cam), make into reusable function?
+            print("Error %d:\n%s" % (r.status_code, next(r.iter_content(chunk_size=1024)).decode('utf-8')))
+            return
+
+        # TODO(cam) how to tell if we get back a message payload? or real data???
+        local_filename = payload['filepath'].split('/')[-1]
+
+        if 1:
+            local_filename += ".zip"
+
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk: # filter out keep-alive new chunks
+                    f.write(chunk)
+                    f.flush()
+
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
+
+        print("Written:", local_filename)
+
+    @staticmethod
+    def list_dir(paths):
+        import sys
+        import requests
+
+        path = paths[0]
+        del paths
+
+        # TODO(cam) multiple paths
+        payload = {
+            "path": path,
+            }
+        r = requests.get(
+                bam_utils.session_request_url("file_list"),
+                params=payload,
+                auth=("bam", "bam"),
+                stream=True,
+                )
+
+        for chunk in r.iter_content(chunk_size=1024):
+            if chunk: # filter out keep-alive new chunks
+                sys.stdout.write(chunk.decode('utf-8'))
+                sys.stdout.flush()
 
 def subcommand_checkout_cb(args):
-    print(args)
-
+    bam_utils.checkout(args.paths)
 
 def subcommand_commit_cb(args):
     print(args)
@@ -56,7 +131,7 @@ def subcommand_revert_cb(args):
 
 
 def subcommand_list_cb(args):
-    print(args)
+    bam_utils.list_dir(args.paths)
 
 
 def subcommand_status_cb(args):
@@ -75,8 +150,13 @@ def create_argparse_checkout(subparsers):
 def create_argparse_commit(subparsers):
     subparse = subparsers.add_parser("commit", aliases=("ci",))
     subparse.add_argument(
+            "-m", "--message", dest="message", metavar='MESSAGE',
+            help="Commit message",
+            )
+    subparse.add_argument(
             "paths", nargs="*", help="paths to commit",
             )
+
     subparse.set_defaults(func=subcommand_commit_cb)
 
 
@@ -120,8 +200,8 @@ def create_argparse():
     import argparse
 
     usage_text = (
-        "BAM! (Blender Asset Manager) " +
-        os.path.basename(__file__)
+        "BAM! (Blender Asset Manager)\n" +
+        __doc__
         )
 
     parser = argparse.ArgumentParser(description=usage_text)

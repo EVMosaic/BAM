@@ -147,7 +147,7 @@ class Application(tk.Frame):
         def calc_label_text():
             return "Path: " + "/".join(self.path_handle.path)
 
-        def exec_path_folder(idname, but_path):
+        def exec_path_dir(idname, but_path):
             self.path_handle.append_path(idname)
             print(self.path_handle.path)
 
@@ -178,14 +178,14 @@ class Application(tk.Frame):
         # import random
         # random.shuffle(items)
 
-        for name_short, name_full, item_type in [("..", "", "folder")] + items:
+        for name_short, name_full, item_type in [("..", "", "dir")] + items:
             print(name_short, name_full, item_type)
-            if item_type == "folder":
+            if item_type == "dir":
                 but = tk.Label(self.frame, text="(/)", width=3, borderwidth="1", relief="solid")
                 but.grid(row=row, column=0)
                 self.grid_members.append(but)
 
-                def fn(idname=name_short, but_path=but_path): exec_path_folder(idname, but_path)
+                def fn(idname=name_short, but_path=but_path): exec_path_dir(idname, but_path)
 
                 but = tk.Button(self.frame, text=name_short + "/", fg="green", command=fn)
                 but.grid(row=row, column=1, sticky="nw")

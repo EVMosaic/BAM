@@ -88,9 +88,9 @@ class FilesListAPI(Resource):
             absolute_path = os.path.join(absolute_path_root, f)
 
             if os.path.isdir(absolute_path):
-                items_list.append((f, relative_path, 'folder'))
+                items_list.append((f, relative_path, "dir"))
             else:
-                items_list.append((f, relative_path, 'file'))
+                items_list.append((f, relative_path, "file"))
 
         project_files = dict(
             parent_path=parent_path,

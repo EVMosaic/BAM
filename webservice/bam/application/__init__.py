@@ -18,6 +18,7 @@
 # ***** END GPL LICENCE BLOCK *****
 
 import os
+import json
 import svn.local
 import pprint
 import werkzeug
@@ -119,6 +120,7 @@ class FileAPI(Resource):
             help="Filepath cannot be blank!")
         parser.add_argument('command', type=str, required=True,
             help="Command cannot be blank!")
+        parser.add_argument('arguments', type=str)
         parser.add_argument('files', type=werkzeug.datastructures.FileStorage, 
             location='files')
         args = parser.parse_args()
@@ -155,16 +157,39 @@ class FileAPI(Resource):
 
         else:
             return jsonify(message='Command unknown')
-    
+
     def put(self):
         command = request.args['command']
+        arguments = ''
+        if 'arguments' in request.args:
+            arguments = json.loads(request.args['arguments'])
         file = request.files['file']
 
         if file and self.allowed_file(file.filename):
+            local_client = svn.local.LocalClient(app.config['STORAGE_PATH'])
+            # TODO, add the merge operation to a queue. Later on, the request could stop here
+            # and all the next steps could be done in another loop, or triggered again via 
+            # another request
             filename = werkzeug.secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            #file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-            return jsonify(message='Done')
+            # TODO, once all files are uploaded, unpack and run the tasklist (copy, add, remove
+            # files on a filesystem level and subsequently as svn commands)
+
+            # TODO, dry run commit (using committ message)
+            # Seems not easily possible with SVN
+            result = local_client.run_command('status', 
+                [local_client.info()['entry_path'], '--xml'], 
+                combine=True)
+
+            # Commit command
+            result = local_client.run_command('commit', 
+                [local_client.info()['entry_path'], '--message', arguments['message']],
+                combine=True)
+
+            print(result)
+
+            return jsonify(message=result)
         else:
             return jsonify(message='File not allowed')
 

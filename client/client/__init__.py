@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import requests
+import json
 
 import os
 MODULE_DIR = os.path.dirname(__file__)
@@ -43,8 +44,13 @@ def request_url(path):
 #                params={'file': filepath}
 #                 )
 
+args = {
+    'message' : 'Adding test file.'
+}
+
 payload = {
-    'command' : 'checkin',
+    'command' : 'commit',
+    'arguments' : json.dumps(args)
 }
 
 files = {'file': open('buck.mp4', 'rb')}

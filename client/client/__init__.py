@@ -17,18 +17,43 @@ def request_url(path):
 #r = requests.get(request_url('/files'), params=payload, auth=('bam', 'bam'))
 #print (r.json())
 
-payload = {
-    'filepath': 'shots',
-    'command' : 'info',
-    }
+# payload = {
+#     'filepath': 'shots',
+#     'command' : 'info',
+#     }
 
-r = requests.get(request_url('/file'), params=payload, auth=('bam', 'bam'), stream=True)
-local_filename = payload['filepath'].split('/')[-1]
+# r = requests.get(request_url('/file'), params=payload, auth=('bam', 'bam'), stream=True)
+# local_filename = payload['filepath'].split('/')[-1]
 
-print (r.json())
+# print (r.json())
 # with open(local_filename, 'wb') as f:
 #     for chunk in r.iter_content(chunk_size=1024): 
 #         if chunk: # filter out keep-alive new chunks
 #             f.write(chunk)
 #             f.flush()
 # print(local_filename)
+
+# filepath = 'yourfilename.txt'
+# with open(filepath) as fh:
+#     mydata = fh.read()
+#     response = requests.put('https://api.elasticemail.com/attachments/upload',
+#                data=mydata,                         
+#                auth=('omer', 'b01ad0ce'),
+#                headers={'content-type':'text/plain'},
+#                params={'file': filepath}
+#                 )
+
+payload = {
+    'command' : 'checkin',
+}
+
+files = {'file': open('buck.mp4', 'rb')}
+#files = {'name': ('filename', (open('mytest.txt', 'rb')))}
+
+r = requests.put(request_url('/file'), 
+    params=payload,
+    auth=('bam', 'bam'),
+    files=files)
+
+print(r.text)
+

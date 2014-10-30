@@ -20,6 +20,7 @@
 import os
 import svn.local
 import pprint
+import werkzeug
 
 from flask import Flask, jsonify, abort, request, make_response, url_for, Response
 from flask.views import MethodView
@@ -114,10 +115,12 @@ class FileAPI(Resource):
 
     def __init__(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('filepath', type=str, required=True,
+        parser.add_argument('filepath', type=str,
             help="Filepath cannot be blank!")
         parser.add_argument('command', type=str, required=True,
             help="Command cannot be blank!")
+        parser.add_argument('files', type=werkzeug.datastructures.FileStorage, 
+            location='files')
         args = parser.parse_args()
 
         super(FileAPI, self).__init__()
@@ -152,6 +155,19 @@ class FileAPI(Resource):
 
         else:
             return jsonify(message='Command unknown')
+    
+    def put(self):
+        command = request.args['command']
+        file = request.files['file']
+
+        if file and self.allowed_file(file.filename):
+            filename = werkzeug.secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+            return jsonify(message='Done')
+        else:
+            return jsonify(message='File not allowed')
+
 
     @staticmethod
     def pack_fn(filepath):
@@ -187,6 +203,11 @@ class FileAPI(Resource):
             traceback.print_exc()
 
             return None
+
+    @staticmethod
+    def allowed_file(filename):
+        return '.' in filename and \
+            filename.rsplit('.', 1)[1] in app.config['ALLOWED_EXTENSIONS']
 
 
 api.add_resource(FilesListAPI, '/file_list', endpoint='file_list')

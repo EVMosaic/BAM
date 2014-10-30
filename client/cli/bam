@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+# ***** BEGIN GPL LICENSE BLOCK *****
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+# ***** END GPL LICENCE BLOCK *****
+
+# TODO
+# * checkout command
+# * commit command
+# ** staging for svn commit
+# ** svn commit
+# ** handle errors
+# * definition of project (.bam (like .git)) ... json
+
+
+class bam_utils:
+    # fake module
+    __slots__ = ()
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
+
+    @staticmethod
+    def session_find_url():
+        return "http://localhost:5000"
+
+
+
+
+def subcommand_checkout_cb(args):
+    print(args)
+
+
+def subcommand_commit_cb(args):
+    print(args)
+
+
+def subcommand_update_cb(args):
+    print(args)
+
+
+def subcommand_revert_cb(args):
+    print(args)
+
+
+def subcommand_list_cb(args):
+    print(args)
+
+
+def subcommand_status_cb(args):
+    print(args)
+
+
+def create_argparse_checkout(subparsers):
+    subparse = subparsers.add_parser("checkout", aliases=("co",))
+    subparse.add_argument(
+            "paths", nargs="*", help="Paths to checkout",
+            )
+    subparse.set_defaults(func=subcommand_checkout_cb)
+
+
+
+def create_argparse_commit(subparsers):
+    subparse = subparsers.add_parser("commit", aliases=("ci",))
+    subparse.add_argument(
+            "paths", nargs="*", help="paths to checkout",
+            )
+    subparse.set_defaults(func=subcommand_commit_cb)
+
+
+def create_argparse_update(subparsers):
+    subparse = subparsers.add_parser("update", aliases=("up",))
+    subparse.add_argument(
+            "paths", nargs="*", help="Paths to checkout",
+            )
+    subparse.set_defaults(func=subcommand_update_cb)
+
+
+def create_argparse_revert(subparsers):
+    subparse = subparsers.add_parser("update", aliases=("up",))
+    subparse.add_argument(
+            "paths", nargs="*", help="Paths to checkout",
+            )
+    subparse.set_defaults(func=subcommand_revert_cb)
+
+
+
+def create_argparse_status(subparsers):
+    subparse = subparsers.add_parser("status", aliases=("st",))
+    subparse.add_argument(
+            "paths", nargs="*", help="Paths to checkout",
+            )
+    subparse.set_defaults(func=subcommand_status_cb)
+
+
+def create_argparse_list(subparsers):
+    subparse = subparsers.add_parser("list", aliases=("ls",))
+    subparse.add_argument(
+            "paths", nargs="*", help="Paths to checkout",
+            )
+    subparse.set_defaults(func=subcommand_list_cb)
+
+
+
+
+def create_argparse():
+    import os
+    import argparse
+
+    usage_text = (
+        "BAM! (Blender Asset Manager) " +
+        os.path.basename(__file__)
+        )
+
+    parser = argparse.ArgumentParser(description=usage_text)
+
+    subparsers = parser.add_subparsers(
+            title='subcommands',
+            description='valid subcommands',
+            help='additional help')
+
+    create_argparse_checkout(subparsers)
+    create_argparse_commit(subparsers)
+    create_argparse_update(subparsers)
+    create_argparse_revert(subparsers)
+    create_argparse_status(subparsers)
+    create_argparse_list(subparsers)
+
+    return parser
+
+
+def main():
+    import sys
+
+    parser = create_argparse()
+    args = parser.parse_args(sys.argv[1:])
+
+    # call subparser callback
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
+
+

@@ -41,7 +41,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE', pathmap=None):
     #   this means that the same libs wont be touched many times to modify the same data
     #   also prevents cyclic loops from crashing.
 
-
     import os
     import shutil
 
@@ -74,7 +73,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE', pathmap=None):
             path_temp_files.add(filepath_tmp)
         return filepath_tmp
 
-    base_dir_src = os.path.dirname(blendfile_src)
+    # base_dir_src = os.path.dirname(blendfile_src)
     base_dir_dst = os.path.dirname(blendfile_dst)
 
     base_dir_dst_subdir = os.path.join(base_dir_dst, SUBDIR)
@@ -127,15 +126,11 @@ def pack(blendfile_src, blendfile_dst, mode='FILE', pathmap=None):
     if pathmap is not None:
         blendfile_src_basename = os.path.basename(blendfile_src).decode('utf-8')
         blendfile_dst_basename = os.path.basename(blendfile_dst).decode('utf-8')
-        print("AAAAA")
-        print(blendfile_src_basename, blendfile_dst_basename)
 
         if blendfile_src_basename != blendfile_dst_basename:
             pathmap[blendfile_dst_basename] = pathmap[blendfile_src_basename]
             del pathmap[blendfile_src_basename]
-        # del blendfile_src_basename, blendfile_dst_basename
-        # print(pathmap)
-
+        del blendfile_src_basename, blendfile_dst_basename
 
     # --------------------
     # Handle File Copy/Zip
@@ -247,4 +242,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

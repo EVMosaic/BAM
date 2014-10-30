@@ -46,7 +46,6 @@ def blendfile_remap(blendfile_src, blendpath_dst, path_remap):
 
         return filepath_tmp
 
-
     for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
             blendfile_src,
             readonly=False,
@@ -128,4 +127,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

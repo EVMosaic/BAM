@@ -37,9 +37,14 @@ class C_defs:
     SEQ_TYPE_MASK        = 7
     SEQ_TYPE_EFFECT      = 8
 
+    IMA_SRC_FILE        = 1
+    IMA_SRC_SEQUENCE    = 2
+    IMA_SRC_MOVIE       = 3
+
 
 if VERBOSE:
     _A = open("/tmp/a.log", 'w')
+
     class log_deps:
         @staticmethod
         def info(msg):
@@ -50,8 +55,7 @@ if VERBOSE:
         if s is None:
             return "None"
         else:
-             return (", ".join(sorted(i.decode('ascii') for i in sorted(s))))
-
+            return (", ".join(sorted(i.decode('ascii') for i in sorted(s))))
 
 
 class FPElem:
@@ -163,11 +167,9 @@ class FilePath:
             # print(indent_str + "Opening:", filepath)
             # print(indent_str + "... blocks:", block_codes)
 
-
             log_deps.info("~")
             log_deps.info("%s%s" % (indent_str, filepath.decode('utf-8')))
             log_deps.info("%s%s" % (indent_str, set_as_str(block_codes)))
-
 
         basedir = os.path.dirname(os.path.abspath(filepath))
         if rootdir is None:
@@ -369,8 +371,7 @@ class FilePath:
 
     @staticmethod
     def _from_block_IM(block, basedir, extra_info, level):
-        # (IMA_SRC_FILE, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)
-        if block[b'source'] not in {1, 2, 3}:
+        if block[b'source'] not in {C_defs.IMA_SRC_FILE, C_defs.IMA_SRC_SEQUENCE, C_defs.IMA_SRC_MOVIE}:
             return
         if block[b'packedfile']:
             return
@@ -596,7 +597,6 @@ class ExpandID:
         for item in bf_utils.iter_ListBase(block.get_pointer(b'base.first')):
             yield item.get_pointer(b'object', sdna_index_refine=sdna_index_Base)
 
-
     @staticmethod
     def expand_GR(block):  # 'Group'
         sdna_index_GroupObject = block.file.sdna_index_from_id[b'GroupObject']
@@ -640,4 +640,3 @@ class utils:
         def compatpath(path):
             # keep '//'
             return path[:2] + path[2:].replace(b'/', b'\\')
-

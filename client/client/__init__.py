@@ -2,7 +2,10 @@
 
 import requests
 
-with open('config.json', 'r') as config:
+import os
+MODULE_DIR = os.path.dirname(__file__)
+
+with open(os.path.join(MODULE_DIR, 'config.json'), 'r') as config:
     import json
     config = json.load(config)
 
@@ -15,8 +18,9 @@ def request_url(path):
 #print (r.json())
 
 payload = {
-    'filepath': 'pro',
-    'command' : 'info'}
+    'filepath': 'shots',
+    'command' : 'info',
+    }
 
 r = requests.get(request_url('/file'), params=payload, auth=('bam', 'bam'), stream=True)
 local_filename = payload['filepath'].split('/')[-1]

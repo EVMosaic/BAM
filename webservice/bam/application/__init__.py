@@ -122,7 +122,7 @@ class FileAPI(Resource):
 
             log = r.log_default(None, None, 5, filepath)
             log = [l for l in log]
-            
+
             return jsonify(
                 filepath=filepath,
                 log=log)

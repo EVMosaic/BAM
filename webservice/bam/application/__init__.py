@@ -176,8 +176,8 @@ class FileAPI(Resource):
 
         import packer
 
-        print("AAA", filepath)
-        print("NNN", filepath_zip)
+        print("  Source path:", filepath)
+        print("  Zip path:", filepath_zip)
 
         try:
             packer.pack(filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP')

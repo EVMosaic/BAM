@@ -75,11 +75,14 @@ class PathHandle:
     @staticmethod
     def download_from_server(path, idname, file_type, local_filename=None):
         import requests
-        payload = {"filepath": "/".join(path) + "/" + idname}
+        payload = {
+            "filepath": "/".join(path) + "/" + idname,
+            "command": "checkout",
+            }
         r = requests.get(PathHandle.request_url(file_type), params=payload, auth=("bam", "bam"), stream=True)
         local_filename = payload['filepath'].split('/')[-1]
 
-        if file_type == "file_deps":
+        if file_type == "file":
             local_filename += ".zip"
 
         with open(local_filename, 'wb') as f:
@@ -149,7 +152,7 @@ class Application(tk.Frame):
             self.repopulate()
 
         def exec_path_blendfile(idname):
-            self.path_handle.download_from_server(self.path_handle.path, idname, "file_deps")
+            self.path_handle.download_from_server(self.path_handle.path, idname, "file")
             self.repopulate()
 
         js = self.path_handle.json

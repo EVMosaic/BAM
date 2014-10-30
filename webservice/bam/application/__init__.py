@@ -99,7 +99,16 @@ class FilesListAPI(Resource):
 
 
 class FileAPI(Resource):
-    """Gives acces to a file."""
+    """Gives acces to a file. Currently requires 2 arguments:
+    - filepath: the path of the file (relative to the project root)
+    - the command (info, checkout)
+
+    In the case of checkout we plan to support the following arguments:
+    --dependencies
+    --zip (eventually with a compression rate)
+
+    Default behavior for file checkout is to retunr a zipfile with all dependencies.
+    """
 
     decorators = [auth.login_required]
 
@@ -128,40 +137,21 @@ class FileAPI(Resource):
                 log=log)
 
         elif command == 'checkout':
-            filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])
-            f = open(filepath, 'rb')
+            filepath = os.path.join(app.config['STORAGE_PATH'], filepath)
+
+            # pack the file!
+            print("PACKING")
+            filepath_zip = self.pack_fn(filepath)
+
+            # TODO, handle fail
+            if filepath_zip is None:
+                pass
+
+            f = open(filepath_zip, 'rb')
             return Response(f, direct_passthrough=True)
 
         else:
             return jsonify(message='Command unknown')
-
-
-class FileDepsAPI(Resource):
-    """Downloads a file and its deps."""
-
-    decorators = [auth.login_required]
-
-    def __init__(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument('filepath', type=str, required=True,
-            help="Filepath cannot be blank!")
-        args = parser.parse_args()
-
-        super(FileDepsAPI, self).__init__()
-
-    def get(self):
-        filepath = os.path.join(app.config['STORAGE_PATH'], request.args['filepath'])
-
-        # pack the file!
-        print("PACKING")
-        filepath_zip = self.pack_fn(filepath)
-
-        # TODO, handle fail
-        if filepath_zip is None:
-            pass
-
-        f = open(filepath_zip, 'rb')
-        return Response(f, direct_passthrough=True)
 
     @staticmethod
     def pack_fn(filepath):
@@ -199,7 +189,5 @@ class FileDepsAPI(Resource):
             return None
 
 
-
 api.add_resource(FilesListAPI, '/file_list', endpoint='file_list')
 api.add_resource(FileAPI, '/file', endpoint='file')
-api.add_resource(FileDepsAPI, '/file_deps', endpoint='file_deps')

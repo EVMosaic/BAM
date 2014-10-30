@@ -46,7 +46,6 @@ class bam_utils:
         # TODO, get from config
         BAM_SERVER = "http://localhost:5000"
         result = "%s/%s" % (BAM_SERVER, req_path)
-        print(result)
         return result
 
     @staticmethod
@@ -110,10 +109,14 @@ class bam_utils:
                 stream=True,
                 )
 
-        for chunk in r.iter_content(chunk_size=1024):
-            if chunk: # filter out keep-alive new chunks
-                sys.stdout.write(chunk.decode('utf-8'))
-                sys.stdout.flush()
+        items = r.json().get("items_list", ())
+
+        for (name_short, name_full, file_type) in items:
+            if file_type == "dir":
+                print("  %s/" % name_short)
+        for (name_short, name_full, file_type) in items:
+            if file_type != "dir":
+                print("  %s" % name_short)
 
 def subcommand_checkout_cb(args):
     bam_utils.checkout(args.paths)

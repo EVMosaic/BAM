@@ -96,6 +96,14 @@ class PathHandle:
 class Application(tk.Frame):
     def __init__(self, root):
 
+        # ----
+        # Menu
+        menubar = tk.Menu(root)
+        menubar.add_command(label="Project", command=lambda: print("Switch-Project"))
+        menubar.add_command(label="Preferences", command=lambda: print("Preferences"))
+        root.config(menu=menubar)
+
+
         # local data
         self.item_list = []
 

@@ -66,7 +66,7 @@ def subcommand_status_cb(args):
 def create_argparse_checkout(subparsers):
     subparse = subparsers.add_parser("checkout", aliases=("co",))
     subparse.add_argument(
-            "paths", nargs="*", help="Paths to checkout",
+            "paths", nargs="*", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_checkout_cb)
 
@@ -75,7 +75,7 @@ def create_argparse_checkout(subparsers):
 def create_argparse_commit(subparsers):
     subparse = subparsers.add_parser("commit", aliases=("ci",))
     subparse.add_argument(
-            "paths", nargs="*", help="paths to checkout",
+            "paths", nargs="*", help="paths to commit",
             )
     subparse.set_defaults(func=subcommand_commit_cb)
 
@@ -83,7 +83,7 @@ def create_argparse_commit(subparsers):
 def create_argparse_update(subparsers):
     subparse = subparsers.add_parser("update", aliases=("up",))
     subparse.add_argument(
-            "paths", nargs="*", help="Paths to checkout",
+            "paths", nargs="*", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_update_cb)
 
@@ -91,7 +91,7 @@ def create_argparse_update(subparsers):
 def create_argparse_revert(subparsers):
     subparse = subparsers.add_parser("update", aliases=("up",))
     subparse.add_argument(
-            "paths", nargs="*", help="Paths to checkout",
+            "paths", nargs="*", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_revert_cb)
 
@@ -100,7 +100,7 @@ def create_argparse_revert(subparsers):
 def create_argparse_status(subparsers):
     subparse = subparsers.add_parser("status", aliases=("st",))
     subparse.add_argument(
-            "paths", nargs="*", help="Paths to checkout",
+            "paths", nargs="*", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_status_cb)
 
@@ -108,7 +108,7 @@ def create_argparse_status(subparsers):
 def create_argparse_list(subparsers):
     subparse = subparsers.add_parser("list", aliases=("ls",))
     subparse.add_argument(
-            "paths", nargs="*", help="Paths to checkout",
+            "paths", nargs="*", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_list_cb)
 

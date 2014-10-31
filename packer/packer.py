@@ -132,8 +132,9 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         blendfile_dst_basename = os.path.basename(blendfile_dst).decode('utf-8')
 
         if blendfile_src_basename != blendfile_dst_basename:
-            deps_remap[blendfile_dst_basename] = deps_remap[blendfile_src_basename]
-            del deps_remap[blendfile_src_basename]
+            if mode != 'ZIP':
+                deps_remap[blendfile_dst_basename] = deps_remap[blendfile_src_basename]
+                del deps_remap[blendfile_src_basename]
         del blendfile_src_basename, blendfile_dst_basename
 
     # store path mapping {dst: src}

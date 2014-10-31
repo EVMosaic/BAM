@@ -29,7 +29,7 @@ VERBOSE = 1
 import blendfile_path_walker
 
 
-def blendfile_remap(blendfile_src, blendpath_dst, path_remap):
+def blendfile_remap(blendfile_src, blendpath_dst, deps_remap):
     import os
 
     def temp_remap_cb(filepath, level):
@@ -57,7 +57,7 @@ def blendfile_remap(blendfile_src, blendpath_dst, path_remap):
         # path_src_orig - original path from JSON.
 
         path_dst_final = fp.filepath.decode('utf-8')
-        path_src_orig = path_remap.get(path_dst_final)
+        path_src_orig = deps_remap.get(path_dst_final)
         if path_src_orig is not None:
             fp.filepath = path_src_orig.encode('utf-8')
             if VERBOSE:
@@ -100,7 +100,7 @@ def create_argparse():
             "-o", "--output", dest="path_dst", metavar='DIR', required=True,
             help="Output directory ")
     parser.add_argument(
-            "-r", "--remap", dest="path_remap", metavar='JSON', required=True,
+            "-r", "--deps_remap", dest="deps_remap", metavar='JSON', required=True,
             help="JSON file containing the path remapping info")
 
     return parser
@@ -115,7 +115,7 @@ def main():
 
     encoding = sys.getfilesystemencoding()
 
-    with open(args.path_remap, 'r', encoding='utf-8') as f:
+    with open(args.deps_remap, 'r', encoding='utf-8') as f:
         pathmap = json.load(f)
 
     pack_restore(

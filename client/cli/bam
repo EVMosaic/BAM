@@ -30,6 +30,46 @@ Blender asset manager
 # * definition of project (.bam (like .git)) ... json
 
 
+class bam_config:
+    # fake module
+    __slots__ = ()
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
+
+    CONFIG_DIR = ".bam"
+
+    @staticmethod
+    def find_basedir():
+        """
+        Return the config path (or None when not found)
+        """
+        import os
+        parent = (os.path.normpath(
+                  os.path.abspath(
+                  os.getcwd())))
+
+        parent_prev = None
+
+        while parent != parent_prev:
+            test_dir = os.path.join(parent, bam_config.CONFIG_DIR)
+            if os.path.isdir(test_dir):
+                return test_dir
+
+            parent_prev = parent
+            parent = os.path.dirname(parent)
+
+        return None
+
+    @staticmethod
+    def load(id_):
+        # bam_config.find_basedir()
+        # data = 
+        pass
+
+    @staticmethod
+    def write(id_, data):
+        pass
+
 
 class bam_utils:
     # fake module
@@ -44,7 +84,7 @@ class bam_utils:
     @staticmethod
     def session_request_url(req_path):
         # TODO, get from config
-        BAM_SERVER = "http://localhost:5000"
+        BAM_SERVER = bam_utils.session_find_url()
         result = "%s/%s" % (BAM_SERVER, req_path)
         return result
 
@@ -94,6 +134,8 @@ class bam_utils:
     def list_dir(paths):
         import sys
         import requests
+
+        # print(bam_config.find_config())
 
         path = paths[0]
         del paths

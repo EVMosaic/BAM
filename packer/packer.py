@@ -23,12 +23,13 @@ import blendfile_path_walker
 TIMEIT = True
 
 
-def pack(blendfile_src, blendfile_dst, mode='FILE', pathmap=None):
+def pack(blendfile_src, blendfile_dst, mode='FILE',
+         deps_remap=None, paths_remap=None):
     """
-    :param pathmap: Store path pathmap info as follows.
+    :param deps_remap: Store path deps_remap info as follows.
        {"file.blend": {"path_new": "path_old", ...}, ...}
 
-    :type pathmap: dict or None
+    :type deps_remap: dict or None
     """
 
     # Internal details:
@@ -111,9 +112,9 @@ def pack(blendfile_src, blendfile_dst, mode='FILE', pathmap=None):
         if not isinstance(fp, blendfile_path_walker.FPElem_block_path) or fp.userdata[0].code != b'LI':
             path_copy_files.add((path_src, path_dst))
 
-        if pathmap is not None:
+        if deps_remap is not None:
             # this needs to become JSON later... ugh, need to use strings
-            pathmap.setdefault(
+            deps_remap.setdefault(
                     fp_blend_basename.decode('utf-8'),
                     {})[path_dst_final.decode('utf-8')] = path_src_orig.decode('utf-8')
 
@@ -122,15 +123,22 @@ def pack(blendfile_src, blendfile_dst, mode='FILE', pathmap=None):
     if TIMEIT:
         print("  Time: %.4f\n" % (time.time() - t))
 
-    # handle pathmap and file renaming
-    if pathmap is not None:
+    # handle deps_remap and file renaming
+    if deps_remap is not None:
         blendfile_src_basename = os.path.basename(blendfile_src).decode('utf-8')
         blendfile_dst_basename = os.path.basename(blendfile_dst).decode('utf-8')
 
         if blendfile_src_basename != blendfile_dst_basename:
-            pathmap[blendfile_dst_basename] = pathmap[blendfile_src_basename]
-            del pathmap[blendfile_src_basename]
+            deps_remap[blendfile_dst_basename] = deps_remap[blendfile_src_basename]
+            del deps_remap[blendfile_src_basename]
         del blendfile_src_basename, blendfile_dst_basename
+
+    # store path mapping {dst: src}
+    if paths_remap:
+        for src, dst in path_copy_files:
+            # TODO. relative to project-basepath
+            paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = src
+    # paths_remap[os.path.relpath(dst, base_dir_dst)] = blendfile_src
 
     # --------------------
     # Handle File Copy/Zip
@@ -153,6 +161,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE', pathmap=None):
             else:
                 print("  Copying %r -> %r" % (src, dst))
                 shutil.copy(src, dst)
+
 
         print("  Written:", blendfile_dst)
 
@@ -205,8 +214,11 @@ def create_argparse():
             choices=('FILE', 'ZIP'), default='FILE',
             help="Output file or a directory when multiple inputs are passed")
     parser.add_argument(
-            "-r", "--remap", dest="path_remap", metavar='FILE',
+            "-r", "--deps_remap", dest="deps_remap", metavar='FILE',
             help="Write out the path mapping to a JSON file")
+    parser.add_argument(
+            "-s", "--paths_remap", dest="paths_remap", metavar='FILE',
+            help="Write out the original paths to a JSON file")
 
     return parser
 
@@ -219,23 +231,29 @@ def main():
 
     encoding = sys.getfilesystemencoding()
 
-    if args.path_remap:
-        pathmap = {}
+    if args.deps_remap:
+        deps_remap = {}
     else:
-        pathmap = None
+        deps_remap = None
+
+    if args.paths_remap:
+        paths_remap = {}
+    else:
+        paths_remap = None
 
     pack(args.path_src.encode(encoding),
          args.path_dst.encode(encoding),
          args.mode,
-         pathmap,
+         deps_remap,
+         paths_remap,
          )
 
-    if pathmap is not None:
+    if deps_remap is not None:
         import json
 
-        with open(args.path_remap, 'w', encoding='utf-8') as f:
+        with open(args.deps_remap, 'w', encoding='utf-8') as f:
             json.dump(
-                    pathmap, f, ensure_ascii=False,
+                    deps_remap, f, ensure_ascii=False,
                     # optional (pretty)
                     sort_keys=True, indent=4, separators=(',', ': '),
                     )

@@ -51,6 +51,9 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
     SUBDIR = b'data'
     TEMP_SUFFIX = b'@'
 
+    # TODO, make configurable
+    WRITE_JSON_REMAP = True
+
     if TIMEIT:
         import time
         t = time.time()
@@ -186,6 +189,25 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     zip.write(src.decode('utf-8'),
                               arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
 
+            if WRITE_JSON_REMAP:
+                import json
+                if deps_remap is not None:
+                    zip.writestr(
+                            ".bam_deps_remap.json",
+                            json.dumps(deps_remap,
+                            check_circular=False,
+                            # optional (pretty)
+                            sort_keys=True, indent=4, separators=(',', ': '),
+                            ).encode('utf-8'))
+                if paths_remap is not None:
+                    zip.writestr(
+                            ".bam_paths_remap.json",
+                            json.dumps(paths_remap,
+                            check_circular=False,
+                            # optional (pretty)
+                            sort_keys=True, indent=4, separators=(',', ': '),
+                            ).encode('utf-8'))
+
         print("  Written:", blendfile_dst)
     else:
         raise Exception("%s not a known mode" % mode)
@@ -247,6 +269,7 @@ def main():
         with open(args.deps_remap, 'w', encoding='utf-8') as f:
             json.dump(
                     deps_remap, f, ensure_ascii=False,
+                    check_circular=False,
                     # optional (pretty)
                     sort_keys=True, indent=4, separators=(',', ': '),
                     )
@@ -257,6 +280,7 @@ def main():
         with open(args.paths_remap, 'w', encoding='utf-8') as f:
             json.dump(
                     paths_remap, f, ensure_ascii=False,
+                    check_circular=False,
                     # optional (pretty)
                     sort_keys=True, indent=4, separators=(',', ': '),
                     )

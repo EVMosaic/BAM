@@ -228,7 +228,9 @@ class FileAPI(Resource):
         print("  Zip path:", filepath_zip)
 
         try:
-            packer.pack(filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP')
+            packer.pack(filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP',
+                        # TODO(cam) this just means the json is written in the zip
+                        deps_remap={}, paths_remap={})
             return filepath_zip[-1]
         except:
             import traceback

@@ -134,10 +134,10 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         del blendfile_src_basename, blendfile_dst_basename
 
     # store path mapping {dst: src}
-    if paths_remap:
+    if paths_remap is not None:
         for src, dst in path_copy_files:
             # TODO. relative to project-basepath
-            paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = src
+            paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = src.decode('utf-8')
     # paths_remap[os.path.relpath(dst, base_dir_dst)] = blendfile_src
 
     # --------------------
@@ -231,15 +231,8 @@ def main():
 
     encoding = sys.getfilesystemencoding()
 
-    if args.deps_remap:
-        deps_remap = {}
-    else:
-        deps_remap = None
-
-    if args.paths_remap:
-        paths_remap = {}
-    else:
-        paths_remap = None
+    deps_remap = {} if args.deps_remap else None
+    paths_remap = {} if args.paths_remap else None
 
     pack(args.path_src.encode(encoding),
          args.path_dst.encode(encoding),
@@ -254,6 +247,16 @@ def main():
         with open(args.deps_remap, 'w', encoding='utf-8') as f:
             json.dump(
                     deps_remap, f, ensure_ascii=False,
+                    # optional (pretty)
+                    sort_keys=True, indent=4, separators=(',', ': '),
+                    )
+
+    if paths_remap is not None:
+        import json
+
+        with open(args.paths_remap, 'w', encoding='utf-8') as f:
+            json.dump(
+                    paths_remap, f, ensure_ascii=False,
                     # optional (pretty)
                     sort_keys=True, indent=4, separators=(',', ': '),
                     )

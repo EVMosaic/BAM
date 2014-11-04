@@ -142,6 +142,8 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         for src, dst in path_copy_files:
             # TODO. relative to project-basepath
             paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = src.decode('utf-8')
+        # main file XXX, should have better way!
+        paths_remap[os.path.basename(blendfile_src).decode('utf-8')] = blendfile_src.decode('utf-8')
 
     if paths_uuid is not None:
         # TODO, multi-process SHA1 calculation (or better cache)

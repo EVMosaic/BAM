@@ -93,7 +93,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         os.makedirs(base_dir_dst_subdir)
 
     lib_visit = {}
-    _last = b''
+    fp_blend_basename_last = b''
 
     for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
             blendfile_src,
@@ -103,9 +103,9 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
             lib_visit=lib_visit,
             ):
 
-        if _last != fp_blend_basename:
+        if fp_blend_basename_last != fp_blend_basename:
             yield report("  %s:       %s\n" % (colorize("blend", color='blue'), fp.basedir + fp_blend_basename))
-            _last = fp_blend_basename
+            fp_blend_basename_last = fp_blend_basename
 
         # assume the path might be relative
         path_src_orig = fp.filepath
@@ -134,7 +134,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     fp_blend_basename.decode('utf-8'),
                     {})[path_dst_final.decode('utf-8')] = path_src_orig.decode('utf-8')
 
-    del lib_visit
+    del lib_visit, fp_blend_basename_last
 
     if TIMEIT:
         print("  Time: %.4f\n" % (time.time() - t))

@@ -152,15 +152,33 @@ class bam_utils:
             local_filename += ".zip"
 
         with open(local_filename, 'wb') as f:
+            import struct
+            ID_MESSAGE = 1
+            ID_PAYLOAD = 2
+            head = r.raw.read(4)
+            if head != b'BAM\0':
+                print("Bad header...")
+                return
+
+            while True:
+                msg_type, msg_size = struct.unpack("<II", r.raw.read(8))
+                if msg_type == ID_MESSAGE:
+                    sys.stdout.write(r.raw.read(msg_size).decode('utf-8'))
+                    sys.stdout.flush()
+                elif msg_type == ID_PAYLOAD:
+                    # payload
+                    break
+
+            tot_size = 0
             for chunk in r.iter_content(chunk_size=1024):
                 if chunk: # filter out keep-alive new chunks
+                    tot_size += len(chunk)
                     f.write(chunk)
                     f.flush()
 
-                    sys.stdout.write(".")
+                    sys.stdout.write("\rdownload: [%03d%%]" % ((100 * tot_size) // msg_size))
                     sys.stdout.flush()
-
-        print("Written:", local_filename)
+        sys.stdout.write("\nwritten: %r\n" % local_filename)
 
     @staticmethod
     def commit(paths, message):

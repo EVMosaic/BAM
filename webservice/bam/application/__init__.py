@@ -150,16 +150,41 @@ class FileAPI(Resource):
             elif os.path.isdir(filepath):
                 return jsonify(message="Path is a directory %r" % filepath)
 
-            # pack the file!
-            print("PACKING")
-            filepath_zip = self.pack_fn(filepath)
+            def response_message_iter():
+                ID_MESSAGE = 1
+                ID_PAYLOAD = 2
+                import struct
 
-            # TODO, handle fail
-            if filepath_zip is None:
-                return jsonify(message="Path not found %r" % filepath)
+                def report(txt):
+                    txt_bytes = txt.encode('utf-8')
+                    return struct.pack('<II', ID_MESSAGE, len(txt_bytes)) + txt_bytes
 
-            f = open(filepath_zip, 'rb')
-            return Response(f, direct_passthrough=True)
+                yield b'BAM\0'
+
+                # pack the file!
+                import tempfile
+                filepath_zip = tempfile.mkstemp(suffix=".zip")
+                yield from self.pack_fn(filepath, filepath_zip, report)
+
+                # TODO, handle fail
+                if not os.path.exists(filepath_zip[-1]):
+                    yield report("%s: %r\n" % (colorize("failed to extract", color='red'), filepath))
+                    return
+
+                with open(filepath_zip[-1], 'rb') as f:
+                    f.seek(0, os.SEEK_END)
+                    f_size = f.tell()
+                    f.seek(0, os.SEEK_SET)
+
+                    yield struct.pack('<II', ID_PAYLOAD, f_size)
+                    while True:
+                        data = f.read(1024)
+                        if not data:
+                            break
+                        yield data
+
+            # return Response(f, direct_passthrough=True)
+            return Response(response_message_iter(), direct_passthrough=True)
 
         else:
             return jsonify(message="Command unknown")
@@ -214,7 +239,7 @@ class FileAPI(Resource):
             return jsonify(message='File not allowed')
 
     @staticmethod
-    def pack_fn(filepath):
+    def pack_fn(filepath, filepath_zip, report):
         import os
         assert(os.path.exists(filepath) and not os.path.isdir(filepath))
 
@@ -233,17 +258,17 @@ class FileAPI(Resource):
             sys.path.append(modpath)
         del modpath
 
-        import tempfile
         import packer
 
-        filepath_zip = tempfile.mkstemp(suffix=".zip")
         print("  Source path:", filepath)
         print("  Zip path:", filepath_zip)
 
         try:
-            packer.pack(filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP',
-                        # TODO(cam) this just means the json is written in the zip
-                        deps_remap={}, paths_remap={}, paths_uuid={})
+            yield from packer.pack(
+                    filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP',
+                    # TODO(cam) this just means the json is written in the zip
+                    deps_remap={}, paths_remap={}, paths_uuid={},
+                    report=report)
             return filepath_zip[-1]
         except:
             import traceback
@@ -259,3 +284,32 @@ class FileAPI(Resource):
 
 api.add_resource(FilesListAPI, '/file_list', endpoint='file_list')
 api.add_resource(FileAPI, '/file', endpoint='file')
+
+USE_COLOR = True
+if USE_COLOR:
+    color_codes = {
+        'black':        '\033[0;30m',
+        'bright_gray':  '\033[0;37m',
+        'blue':         '\033[0;34m',
+        'white':        '\033[1;37m',
+        'green':        '\033[0;32m',
+        'bright_blue':  '\033[1;34m',
+        'cyan':         '\033[0;36m',
+        'bright_green': '\033[1;32m',
+        'red':          '\033[0;31m',
+        'bright_cyan':  '\033[1;36m',
+        'purple':       '\033[0;35m',
+        'bright_red':   '\033[1;31m',
+        'yellow':       '\033[0;33m',
+        'bright_purple':'\033[1;35m',
+        'dark_gray':    '\033[1;30m',
+        'bright_yellow':'\033[1;33m',
+        'normal':       '\033[0m',
+    }
+
+    def colorize(msg, color=None):
+        return (color_codes[color] + msg + color_codes['normal'])
+else:
+    def colorize(msg, color=None):
+        return msg
+

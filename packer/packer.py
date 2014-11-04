@@ -24,7 +24,9 @@ TIMEIT = True
 
 
 def pack(blendfile_src, blendfile_dst, mode='FILE',
-         deps_remap=None, paths_remap=None, paths_uuid=None):
+         deps_remap=None, paths_remap=None, paths_uuid=None,
+         # yield reports
+         report=None):
     """
     :param deps_remap: Store path deps_remap info as follows.
        {"file.blend": {"path_new": "path_old", ...}, ...}
@@ -54,6 +56,11 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
     # TODO, make configurable
     WRITE_JSON_REMAP = True
 
+    if report is None:
+        raise Exception("report not set!")
+
+    yield report("%s: %r...\n" % (colorize("\nscanning deps", color='bright_green'), blendfile_src))
+
     if TIMEIT:
         import time
         t = time.time()
@@ -77,6 +84,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
             path_temp_files.add(filepath_tmp)
         return filepath_tmp
 
+
     # base_dir_src = os.path.dirname(blendfile_src)
     base_dir_dst = os.path.dirname(blendfile_dst)
 
@@ -85,6 +93,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         os.makedirs(base_dir_dst_subdir)
 
     lib_visit = {}
+    _last = b''
 
     for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
             blendfile_src,
@@ -93,6 +102,10 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
             recursive=True,
             lib_visit=lib_visit,
             ):
+
+        if _last != fp_blend_basename:
+            yield report("  %s:       %s\n" % (colorize("blend", color='blue'), fp.basedir + fp_blend_basename))
+            _last = fp_blend_basename
 
         # assume the path might be relative
         path_src_orig = fp.filepath
@@ -125,6 +138,9 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
 
     if TIMEIT:
         print("  Time: %.4f\n" % (time.time() - t))
+
+    yield report(("%s: %d files\n") %
+                 (colorize("\narchiving", color='bright_green'), len(path_copy_files) + 1))
 
     # handle deps_remap and file renaming
     if deps_remap is not None:
@@ -183,19 +199,18 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
             assert(b'.blend' not in dst)
 
             if not os.path.exists(src):
-                print("  Source missing! %r" % src)
+                yield report("  %s: %r\n" % (colorize("source missing", color='red'), src))
             else:
-                print("  Copying %r -> %r" % (src, dst))
+                yield report("  %s: %r -> %r\n" % (colorize("copying", color='blue'), src, dst))
                 shutil.copy(src, dst)
 
-
-        print("  Written:", blendfile_dst)
+        yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
 
     elif mode == 'ZIP':
         import zipfile
         with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', zipfile.ZIP_DEFLATED) as zip:
             for fn in path_temp_files:
-                print("  Copying %r -> <zip>" % fn)
+                yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), fn))
                 zip.write(fn.decode('utf-8'),
                           arcname=os.path.relpath(fn[:-1], base_dir_dst).decode('utf-8'))
                 os.remove(fn)
@@ -206,9 +221,9 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                 assert(b'.blend' not in dst)
 
                 if not os.path.exists(src):
-                    print("  Source missing! %r" % src)
+                    yield report("  %s: %r\n" % (colorize("source missing", color='red'), src))
                 else:
-                    print("  Copying %r -> <zip>" % src)
+                    yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), src))
                     zip.write(src.decode('utf-8'),
                               arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
 
@@ -233,7 +248,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                 del write_dict_as_json
 
 
-        print("  Written:", blendfile_dst)
+        yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
     else:
         raise Exception("%s not a known mode" % mode)
 
@@ -309,3 +324,34 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TODO(cam) de-duplicate
+USE_COLOR = True
+if USE_COLOR:
+    color_codes = {
+        'black':        '\033[0;30m',
+        'bright_gray':  '\033[0;37m',
+        'blue':         '\033[0;34m',
+        'white':        '\033[1;37m',
+        'green':        '\033[0;32m',
+        'bright_blue':  '\033[1;34m',
+        'cyan':         '\033[0;36m',
+        'bright_green': '\033[1;32m',
+        'red':          '\033[0;31m',
+        'bright_cyan':  '\033[1;36m',
+        'purple':       '\033[0;35m',
+        'bright_red':   '\033[1;31m',
+        'yellow':       '\033[0;33m',
+        'bright_purple':'\033[1;35m',
+        'dark_gray':    '\033[1;30m',
+        'bright_yellow':'\033[1;33m',
+        'normal':       '\033[0m',
+    }
+
+    def colorize(msg, color=None):
+        return (color_codes[color] + msg + color_codes['normal'])
+else:
+    def colorize(msg, color=None):
+        return msg
+
+

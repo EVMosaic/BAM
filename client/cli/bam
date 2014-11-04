@@ -177,28 +177,51 @@ class bam_utils:
             print("Expected a directory (%r)" % path)
             sys.exit(1)
 
+
+
+
         # make a zipfile from session
         import json
         with open(os.path.join(path, ".bam_paths_uuid.json")) as f:
-            d = json.load(f)
+            paths_uuid = json.load(f)
 
-        paths_modified = []
-        for fn, sha1 in d.items():
+        paths_modified = {}
+        for fn, sha1 in paths_uuid.items():
             fn_abs = os.path.join(path, fn)
             if bam_utils.sha1_for_file(fn_abs) != sha1:
-                paths_modified.append((fn, fn_abs))
-        print(d)
-        print(paths_modified)
+                paths_modified[fn] = fn_abs
+
+        if not paths_modified:
+            print("Nothing to commit!")
+            return
 
         # -------------------------
         print("Now make a zipfile")
         import zipfile
         temp_zip = os.path.join(path, ".bam_tmp.zip")
         with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zip:
-            for (fn, fn_abs) in paths_modified:
+            for (fn, fn_abs) in paths_modified.items():
                 print("  Archiving %r" % fn_abs)
                 zip.write(fn_abs,
                           arcname=fn)
+
+            # make a paths remap that only includes modified files
+            # TODO(cam), from 'packer.py'
+            def write_dict_as_json(fn, dct):
+                zip.writestr(
+                        fn,
+                        json.dumps(dct,
+                        check_circular=False,
+                        # optional (pretty)
+                        sort_keys=True, indent=4, separators=(',', ': '),
+                        ).encode('utf-8'))
+
+            with open(os.path.join(path, ".bam_paths_remap.json")) as f:
+                paths_remap = json.load(f)
+
+            paths_remap_subset = {k: v for k, v in paths_remap.items() if k in paths_modified}
+            write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)
+
         # --------------
         # Commit Request
         args = {

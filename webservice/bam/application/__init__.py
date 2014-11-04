@@ -183,9 +183,18 @@ class FileAPI(Resource):
             # TODO, once all files are uploaded, unpack and run the tasklist (copy, add, remove
             # files on a filesystem level and subsequently as svn commands)
             import zipfile
+
+            tmp_extracted_folder = os.path.splitext(tmp_filepath)[0]
             with open(tmp_filepath, 'rb') as zipped_file:
                 z = zipfile.ZipFile(zipped_file)
-                z.extractall(os.path.splitext(tmp_filepath)[0])
+                z.extractall(tmp_extracted_folder)
+
+            with open(os.path.join(tmp_extracted_folder, '.bam_paths_remap.json'), 'r') as path_remap:
+                path_remap = json.load(path_remap)
+
+            import shutil
+            for source_file_path, destination_file_pah in path_remap.items():
+                shutil.move(os.path.join(tmp_extracted_folder, source_file_path), destination_file_pah)
 
             # TODO, dry run commit (using committ message)
             # Seems not easily possible with SVN
@@ -194,9 +203,9 @@ class FileAPI(Resource):
                 combine=True)
 
             # Commit command
-            # result = local_client.run_command('commit', 
-            #     [local_client.info()['entry_path'], '--message', arguments['message']],
-            #     combine=True)
+            result = local_client.run_command('commit', 
+                [local_client.info()['entry_path'], '--message', arguments['message']],
+                combine=True)
 
             print(result)
 

@@ -39,14 +39,18 @@ class bam_config:
     CONFIG_DIR = ".bam"
 
     @staticmethod
-    def find_basedir():
+    def find_basedir(cwd=None):
         """
         Return the config path (or None when not found)
         """
         import os
+
+        if cwd is None:
+            cwd = os.getcwd()
+
         parent = (os.path.normpath(
                   os.path.abspath(
-                  os.getcwd())))
+                  cwd)))
 
         parent_prev = None
 
@@ -61,14 +65,27 @@ class bam_config:
         return None
 
     @staticmethod
-    def load(id_):
-        # bam_config.find_basedir()
-        # data = 
-        pass
+    def load(id_, cwd=None):
+        basedir = bam_config.find_basedir(cwd=cwd)
+        filepath = os.path.join(basedir, id_)
+
+        with open(filepath, 'r') as f:
+            import json
+            return json.load(f)
 
     @staticmethod
-    def write(id_, data):
-        pass
+    def write(id_, data, cwd=None):
+        bam_config.find_basedir(cwd=cwd)
+        filepath = os.path.join(basedir, id_)
+
+        with open(filepath) as f:
+            import json
+            json.dump(
+                    data, f, ensure_ascii=False,
+                    check_circular=False,
+                    # optional (pretty)
+                    sort_keys=True, indent=4, separators=(',', ': '),
+                    )
 
 
 class bam_utils:

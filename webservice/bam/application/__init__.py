@@ -183,10 +183,12 @@ class FileAPI(Resource):
             # TODO, once all files are uploaded, unpack and run the tasklist (copy, add, remove
             # files on a filesystem level and subsequently as svn commands)
             import zipfile
-            fh = open(tmp_filepath, 'rb')
-            z = zipfile.ZipFile(fh)
+            zipped_file = open(tmp_filepath, 'rb')
+            z = zipfile.ZipFile(zipped_file)
             z.extractall(os.path.splitext(tmp_filepath)[0])
-            fh.close()
+            zipped_file.close()
+
+            
 
             # TODO, dry run commit (using committ message)
             # Seems not easily possible with SVN
@@ -204,7 +206,6 @@ class FileAPI(Resource):
             return jsonify(message=result)
         else:
             return jsonify(message='File not allowed')
-
 
     @staticmethod
     def pack_fn(filepath):

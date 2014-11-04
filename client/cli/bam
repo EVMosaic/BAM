@@ -77,6 +77,21 @@ class bam_utils:
     def __new__(cls, *args, **kwargs):
         raise RuntimeError("%s should not be instantiated" % cls)
 
+    # Copied from 'packer.py', TODO(cam) de-duplicate
+    @staticmethod
+    def sha1_for_file(fn, block_size=1 << 20):
+        with open(fn, 'rb') as f:
+            import hashlib
+            sha1 = hashlib.new('sha1')
+            while True:
+                data = f.read(block_size)
+                if not data:
+                    break
+                sha1.update(data)
+            return sha1.hexdigest()
+    # end code duplication
+    # --------------------
+
     @staticmethod
     def session_find_url():
         return "http://localhost:5000"
@@ -131,6 +146,66 @@ class bam_utils:
         print("Written:", local_filename)
 
     @staticmethod
+    def commit(paths):
+        import sys
+        import os
+        import requests
+
+        # TODO(cam) ignore files
+
+        # TODO(cam) multiple paths
+        path = paths[0]
+
+        if not os.path.isdir(path):
+            print("Expected a directory (%r)" % path)
+            sys.exit(1)
+
+        # make a zipfile from session
+        import json
+        with open(os.path.join(path, ".bam_paths_uuid.json")) as f:
+            d = json.load(f)
+
+        paths_modified = []
+        for fn, sha1 in d.items():
+            fn_abs = os.path.join(path, fn)
+            if bam_utils.sha1_for_file(fn_abs) != sha1:
+                paths_modified.append((fn, fn_abs))
+        print(d)
+        print(paths_modified)
+
+        # -------------------------
+        print("Now make a zipfile")
+        import zipfile
+        temp_zip = os.path.join(path, ".bam_tmp.zip")
+        with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zip:
+            for (fn, fn_abs) in paths_modified:
+                print("  Archiving %r" % fn_abs)
+                zip.write(fn_abs,
+                          arcname=fn)
+        # -------
+        # Zipfile
+        args = {
+            'message': "Committing!",
+            }
+        payload = {
+            'command': 'commit',
+            'arguments': json.dumps(args),
+            }
+        files = {
+            'file': open(temp_zip, 'rb'),
+            }
+
+        r = requests.put(
+                bam_utils.session_request_url("file"),
+                params=payload,
+                auth=('bam', 'bam'),
+                files=files)
+        print(r.text)
+
+        files['file'].close()
+        os.remove(temp_zip)
+
+    @staticmethod
     def list_dir(paths):
         import sys
         import requests
@@ -164,7 +239,7 @@ def subcommand_checkout_cb(args):
     bam_utils.checkout(args.paths)
 
 def subcommand_commit_cb(args):
-    print(args)
+    bam_utils.commit(args.paths)
 
 
 def subcommand_update_cb(args):

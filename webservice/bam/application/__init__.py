@@ -183,12 +183,9 @@ class FileAPI(Resource):
             # TODO, once all files are uploaded, unpack and run the tasklist (copy, add, remove
             # files on a filesystem level and subsequently as svn commands)
             import zipfile
-            zipped_file = open(tmp_filepath, 'rb')
-            z = zipfile.ZipFile(zipped_file)
-            z.extractall(os.path.splitext(tmp_filepath)[0])
-            zipped_file.close()
-
-            
+            with open(tmp_filepath, 'rb') as zipped_file:
+                z = zipfile.ZipFile(zipped_file)
+                z.extractall(os.path.splitext(tmp_filepath)[0])
 
             # TODO, dry run commit (using committ message)
             # Seems not easily possible with SVN

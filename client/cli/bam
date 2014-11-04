@@ -191,7 +191,6 @@ def create_argparse_checkout(subparsers):
     subparse.set_defaults(func=subcommand_checkout_cb)
 
 
-
 def create_argparse_commit(subparsers):
     subparse = subparsers.add_parser("commit", aliases=("ci",))
     subparse.add_argument(

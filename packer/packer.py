@@ -24,7 +24,7 @@ TIMEIT = True
 
 
 def pack(blendfile_src, blendfile_dst, mode='FILE',
-         deps_remap=None, paths_remap=None):
+         deps_remap=None, paths_remap=None, paths_uuid=None):
     """
     :param deps_remap: Store path deps_remap info as follows.
        {"file.blend": {"path_new": "path_old", ...}, ...}
@@ -142,7 +142,28 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         for src, dst in path_copy_files:
             # TODO. relative to project-basepath
             paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = src.decode('utf-8')
-    # paths_remap[os.path.relpath(dst, base_dir_dst)] = blendfile_src
+
+    if paths_uuid is not None:
+        # TODO, multi-process SHA1 calculation (or better cache)
+        def sha1_for_file(fn, block_size=1 << 20):
+            with open(fn, 'rb') as f:
+                import hashlib
+                sha1 = hashlib.new('sha1')
+                while True:
+                    data = f.read(block_size)
+                    if not data:
+                        break
+                    sha1.update(data)
+                return sha1.hexdigest()
+
+
+        for src, dst in path_copy_files:
+            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = sha1_for_file(dst)
+        # XXX, better way to store temp target
+        blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
+        paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = sha1_for_file(blendfile_dst_tmp)
+        del blendfile_dst_tmp
+
 
     # --------------------
     # Handle File Copy/Zip
@@ -192,22 +213,24 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
 
             if WRITE_JSON_REMAP:
                 import json
+                def write_dict_as_json(fn, dct):
+                    zip.writestr(
+                            fn,
+                            json.dumps(dct,
+                            check_circular=False,
+                            # optional (pretty)
+                            sort_keys=True, indent=4, separators=(',', ': '),
+                            ).encode('utf-8'))
+
                 if deps_remap is not None:
-                    zip.writestr(
-                            ".bam_deps_remap.json",
-                            json.dumps(deps_remap,
-                            check_circular=False,
-                            # optional (pretty)
-                            sort_keys=True, indent=4, separators=(',', ': '),
-                            ).encode('utf-8'))
+                    write_dict_as_json(".bam_deps_remap.json", deps_remap)
                 if paths_remap is not None:
-                    zip.writestr(
-                            ".bam_paths_remap.json",
-                            json.dumps(paths_remap,
-                            check_circular=False,
-                            # optional (pretty)
-                            sort_keys=True, indent=4, separators=(',', ': '),
-                            ).encode('utf-8'))
+                    write_dict_as_json(".bam_paths_remap.json", paths_remap)
+                if paths_uuid is not None:
+                    write_dict_as_json(".bam_paths_uuid.json", paths_uuid)
+
+                del write_dict_as_json
+
 
         print("  Written:", blendfile_dst)
     else:
@@ -264,27 +287,24 @@ def main():
          paths_remap,
          )
 
-    if deps_remap is not None:
-        import json
-
-        with open(args.deps_remap, 'w', encoding='utf-8') as f:
+    def write_dict_as_json(fn, dct):
+        with open(fn, 'w', encoding='utf-8') as f:
+            import json
             json.dump(
-                    deps_remap, f, ensure_ascii=False,
+                    dct, f, ensure_ascii=False,
                     check_circular=False,
                     # optional (pretty)
                     sort_keys=True, indent=4, separators=(',', ': '),
                     )
+
+
+    if deps_remap is not None:
+        write_dict_as_json(args.deps_remap, deps_remap)
 
     if paths_remap is not None:
-        import json
+        write_dict_as_json(args.paths_remap, paths_remap)
 
-        with open(args.paths_remap, 'w', encoding='utf-8') as f:
-            json.dump(
-                    paths_remap, f, ensure_ascii=False,
-                    check_circular=False,
-                    # optional (pretty)
-                    sort_keys=True, indent=4, separators=(',', ': '),
-                    )
+    del write_dict_as_json
 
 if __name__ == "__main__":
     main()

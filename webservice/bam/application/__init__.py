@@ -177,10 +177,16 @@ class FileAPI(Resource):
             # and all the next steps could be done in another loop, or triggered again via 
             # another request
             filename = werkzeug.secure_filename(file.filename)
-            #file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            tmp_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(tmp_filepath)
 
             # TODO, once all files are uploaded, unpack and run the tasklist (copy, add, remove
             # files on a filesystem level and subsequently as svn commands)
+            import zipfile
+            fh = open(tmp_filepath, 'rb')
+            z = zipfile.ZipFile(fh)
+            z.extractall(os.path.splitext(tmp_filepath)[0])
+            fh.close()
 
             # TODO, dry run commit (using committ message)
             # Seems not easily possible with SVN
@@ -189,9 +195,9 @@ class FileAPI(Resource):
                 combine=True)
 
             # Commit command
-            result = local_client.run_command('commit', 
-                [local_client.info()['entry_path'], '--message', arguments['message']],
-                combine=True)
+            # result = local_client.run_command('commit', 
+            #     [local_client.info()['entry_path'], '--message', arguments['message']],
+            #     combine=True)
 
             print(result)
 

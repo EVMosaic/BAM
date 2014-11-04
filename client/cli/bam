@@ -146,7 +146,7 @@ class bam_utils:
         print("Written:", local_filename)
 
     @staticmethod
-    def commit(paths):
+    def commit(paths, message):
         import sys
         import os
         import requests
@@ -182,10 +182,10 @@ class bam_utils:
                 print("  Archiving %r" % fn_abs)
                 zip.write(fn_abs,
                           arcname=fn)
-        # -------
-        # Zipfile
+        # --------------
+        # Commit Request
         args = {
-            'message': "Committing!",
+            'message': message,
             }
         payload = {
             'command': 'commit',

@@ -213,7 +213,8 @@ class FilePath:
                             if sub_block is not None:
                                 yield from block_expand(sub_block, sub_block.code)
                 else:
-                    yield block
+                    if code == b'ID':
+                        yield block
         else:
             expand_codes = None
 

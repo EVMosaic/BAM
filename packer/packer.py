@@ -156,9 +156,8 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     sha1.update(data)
                 return sha1.hexdigest()
 
-
         for src, dst in path_copy_files:
-            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = sha1_for_file(dst)
+            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = sha1_for_file(src)
         # XXX, better way to store temp target
         blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
         paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = sha1_for_file(blendfile_dst_tmp)

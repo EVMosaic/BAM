@@ -200,7 +200,7 @@ class bam_utils:
                 params=payload,
                 auth=('bam', 'bam'),
                 files=files)
-        print(r.text)
+        print("Return is:", r.text)
 
         files['file'].close()
         os.remove(temp_zip)
@@ -239,7 +239,7 @@ def subcommand_checkout_cb(args):
     bam_utils.checkout(args.paths)
 
 def subcommand_commit_cb(args):
-    bam_utils.commit(args.paths)
+    bam_utils.commit(args.paths, args.message)
 
 
 def subcommand_update_cb(args):

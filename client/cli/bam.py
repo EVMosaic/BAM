@@ -114,10 +114,10 @@ class bam_utils:
     @staticmethod
     def session_request_url(req_path):
         # TODO, get from config
-        project_config = bam_config.load()
+        cfg = bam_config.load()
 
         BAM_SERVER = bam_utils.session_find_url()
-        result = "%s/%s" % (project_config['url'], req_path)
+        result = "%s/%s" % (cfg['url'], req_path)
         return result
 
     @staticmethod
@@ -157,7 +157,7 @@ class bam_utils:
         import requests
 
         # Load project configuration
-        project_config = bam_config.load()
+        cfg = bam_config.load()
 
         # TODO(cam) multiple paths
         path = paths[0]
@@ -174,7 +174,7 @@ class bam_utils:
         r = requests.get(
                 bam_utils.session_request_url("file"),
                 params=payload,
-                auth=(project_config['user'], project_config['password']),
+                auth=(cfg['user'], cfg['password']),
                 stream=True,
                 )
 
@@ -237,7 +237,7 @@ class bam_utils:
         from bam_utils.system import sha1_from_file
 
         # Load project configuration
-        project_config = bam_config.load()
+        cfg = bam_config.load()
 
         # TODO(cam) ignore files
 
@@ -305,7 +305,7 @@ class bam_utils:
         r = requests.put(
                 bam_utils.session_request_url("file"),
                 params=payload,
-                auth=(project_config['user'], project_config['password']),
+                auth=(cfg['user'], cfg['password']),
                 files=files)
         print("Return is:", r.text)
 
@@ -318,7 +318,7 @@ class bam_utils:
         import requests
 
         # Load project configuration
-        project_config = bam_config.load()
+        cfg = bam_config.load()
 
         # TODO(cam) multiple paths
         path = paths[0]
@@ -330,7 +330,7 @@ class bam_utils:
         r = requests.get(
                 bam_utils.session_request_url("file_list"),
                 params=payload,
-                auth=(project_config['user'], project_config['password']),
+                auth=(cfg['user'], cfg['password']),
                 stream=True,
                 )
 

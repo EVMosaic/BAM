@@ -50,6 +50,7 @@ class bam_config:
     def find_basedir(cwd=None):
         """
         Return the config path (or None when not found)
+        Actually should raise an error?
         """
         import os
 
@@ -73,7 +74,8 @@ class bam_config:
         return None
 
     @staticmethod
-    def load(id_, cwd=None):
+    def load(id_="config", cwd=None):
+        import os
         basedir = bam_config.find_basedir(cwd=cwd)
         filepath = os.path.join(basedir, id_)
 
@@ -112,8 +114,10 @@ class bam_utils:
     @staticmethod
     def session_request_url(req_path):
         # TODO, get from config
+        project_config = bam_config.load()
+
         BAM_SERVER = bam_utils.session_find_url()
-        result = "%s/%s" % (BAM_SERVER, req_path)
+        result = "%s/%s" % (project_config['url'], req_path)
         return result
 
     @staticmethod
@@ -143,6 +147,7 @@ class bam_utils:
                  },
                 cwd=bam_folder)
 
+
         print("Project %s initialized" % project_directory_name)
 
     @staticmethod
@@ -150,6 +155,9 @@ class bam_utils:
         import sys
         import os
         import requests
+
+        # Load project configuration
+        project_config = bam_config.load()
 
         # TODO(cam) multiple paths
         path = paths[0]
@@ -166,7 +174,7 @@ class bam_utils:
         r = requests.get(
                 bam_utils.session_request_url("file"),
                 params=payload,
-                auth=("bam", "bam"),
+                auth=(project_config['user'], project_config['password']),
                 stream=True,
                 )
 
@@ -227,6 +235,9 @@ class bam_utils:
         import os
         import requests
         from bam_utils.system import sha1_from_file
+
+        # Load project configuration
+        project_config = bam_config.load()
 
         # TODO(cam) ignore files
 
@@ -294,7 +305,7 @@ class bam_utils:
         r = requests.put(
                 bam_utils.session_request_url("file"),
                 params=payload,
-                auth=('bam', 'bam'),
+                auth=(project_config['user'], project_config['password']),
                 files=files)
         print("Return is:", r.text)
 
@@ -306,6 +317,9 @@ class bam_utils:
         import sys
         import requests
 
+        # Load project configuration
+        project_config = bam_config.load()
+
         # TODO(cam) multiple paths
         path = paths[0]
         del paths
@@ -316,7 +330,7 @@ class bam_utils:
         r = requests.get(
                 bam_utils.session_request_url("file_list"),
                 params=payload,
-                auth=("bam", "bam"),
+                auth=(project_config['user'], project_config['password']),
                 stream=True,
                 )
 

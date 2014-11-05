@@ -71,7 +71,7 @@ class FilesListAPI(Resource):
         args = parser.parse_args()
         super(FilesListAPI, self).__init__()
 
-    def get(self):
+    def get(self, project_name):
 
         path = request.args['path']
         if not path:
@@ -130,7 +130,7 @@ class FileAPI(Resource):
 
         super(FileAPI, self).__init__()
 
-    def get(self):
+    def get(self, project_name):
         filepath = request.args['filepath']
         command = request.args['command']
 
@@ -191,7 +191,7 @@ class FileAPI(Resource):
         else:
             return jsonify(message="Command unknown")
 
-    def put(self):
+    def put(self, project_name):
         command = request.args['command']
         arguments = ''
         if 'arguments' in request.args:
@@ -271,6 +271,6 @@ class FileAPI(Resource):
             filename.rsplit('.', 1)[1] in app.config['ALLOWED_EXTENSIONS']
 
 
-api.add_resource(FilesListAPI, '/file_list', endpoint='file_list')
-api.add_resource(FileAPI, '/file', endpoint='file')
+api.add_resource(FilesListAPI, '/<project_name>/file_list', endpoint='file_list')
+api.add_resource(FileAPI, '/<project_name>/file', endpoint='file')
 

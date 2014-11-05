@@ -59,7 +59,7 @@ def unauthorized():
     # the default auth dialog
 
 
-class FilesListAPI(Resource):
+class DirectoryAPI(Resource):
     """Displays list of files."""
 
     decorators = [auth.login_required]
@@ -69,7 +69,7 @@ class FilesListAPI(Resource):
         #parser.add_argument('rate', type=int, help='Rate cannot be converted')
         parser.add_argument('path', type=str)
         args = parser.parse_args()
-        super(FilesListAPI, self).__init__()
+        super(DirectoryAPI, self).__init__()
 
     def get(self, project_name):
 
@@ -271,6 +271,6 @@ class FileAPI(Resource):
             filename.rsplit('.', 1)[1] in app.config['ALLOWED_EXTENSIONS']
 
 
-api.add_resource(FilesListAPI, '/<project_name>/file_list', endpoint='file_list')
+api.add_resource(DirectoryAPI, '/<project_name>/file_list', endpoint='file_list')
 api.add_resource(FileAPI, '/<project_name>/file', endpoint='file')
 

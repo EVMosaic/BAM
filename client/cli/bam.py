@@ -237,16 +237,50 @@ class bam_utils:
             print("Expected a directory (%r)" % path)
             sys.exit(1)
 
+        basedir = bam_config.find_basedir(cwd=path)
+        basedir_temp = os.path.join(basedir, "tmp")
+
+        if os.path.isdir(basedir_temp):
+            print("Path found, "
+                  "another commit in progress, or remove with path, aborting! (%r)" %
+                  basedir_temp)
+            sys.exit(1)
+
         # make a zipfile from session
         import json
         with open(os.path.join(path, ".bam_paths_uuid.json")) as f:
             paths_uuid = json.load(f)
 
+
+        with open(os.path.join(path, ".bam_deps_remap.json")) as f:
+            deps_remap = json.load(f)
+
         paths_modified = {}
-        for fn, sha1 in paths_uuid.items():
-            fn_abs = os.path.join(path, fn)
+        for fn_rel, sha1 in paths_uuid.items():
+            fn_abs = os.path.join(path, fn_rel)
             if sha1_from_file(fn_abs) != sha1:
-                paths_modified[fn] = fn_abs
+
+                # we may want to be more clever here
+                if fn_rel.endswith(".blend"):
+                    deps = deps_remap.get(fn_rel)
+                    if deps:
+                        # ----
+                        # Remap!
+                        fn_abs_remap = os.path.join(basedir_temp, fn_rel)
+                        dir_remap = os.path.dirname(fn_abs_remap)
+                        os.makedirs(dir_remap, exist_ok=True)
+
+                        import blendfile_pack_restore
+                        blendfile_pack_restore.blendfile_remap(
+                                fn_abs.encode('utf-8'),
+                                dir_remap.encode('utf-8'),
+                                deps,
+                                )
+                        if os.path.exists(fn_abs_remap):
+                            fn_abs = fn_abs_remap
+                        # ----
+
+                paths_modified[fn_rel] = fn_abs
 
         if not paths_modified:
             print("Nothing to commit!")
@@ -257,9 +291,9 @@ class bam_utils:
         import zipfile
         temp_zip = os.path.join(path, ".bam_tmp.zip")
         with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zip_handle:
-            for (fn, fn_abs) in paths_modified.items():
+            for (fn_rel, fn_abs) in paths_modified.items():
                 print("  Archiving %r" % fn_abs)
-                zip_handle.write(fn_abs, arcname=fn)
+                zip_handle.write(fn_abs, arcname=fn_rel)
 
             # make a paths remap that only includes modified files
             # TODO(cam), from 'packer.py'
@@ -277,6 +311,12 @@ class bam_utils:
 
             paths_remap_subset = {k: v for k, v in paths_remap.items() if k in paths_modified}
             write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)
+
+
+        if os.path.exists(basedir_temp):
+            import shutil
+            shutil.rmtree(basedir_temp)
+            del shutil
 
         # --------------
         # Commit Request

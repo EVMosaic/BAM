@@ -83,7 +83,9 @@ class bam_config:
 
     @staticmethod
     def write(id_, data, cwd=None):
-        bam_config.find_basedir(cwd=cwd)
+        import os
+
+        basedir = bam_config.find_basedir(cwd=cwd)
         filepath = os.path.join(basedir, id_)
 
         with open(filepath, 'w') as f:
@@ -117,7 +119,7 @@ class bam_utils:
     @staticmethod
     def init(url, directory_name=None):
         import os
-        import urllib
+        import urllib.parse
 
         parsed_url = urllib.parse.urlsplit(url)
 
@@ -128,21 +130,19 @@ class bam_utils:
         # Create the project directory inside the current directory
         os.mkdir(project_directory_path)
         # Create the .bam folder
-        bam_folder = os.path.join(project_directory_path, ".bam")
+        bam_folder = os.path.join(project_directory_path, bam_config.CONFIG_DIR)
         os.mkdir(bam_folder)
+
         # Add a config file with project url, username and password
-        with open(os.path.join(bam_folder, "config"), 'w') as f:
-            import json
-            json.dump(
-                {
-                    "url":url,
-                    "user":"bam",
-                    "password":"bam",
-                    "config_version":1
-                }, f,
-                # Pretty printing
-                sort_keys=True, indent=4, separators=(',', ': ')
-            )
+        bam_config.write(
+                "config",
+                {"url":url,
+                 "user":"bam",
+                 "password":"bam",
+                 "config_version":1
+                 },
+                cwd=bam_folder)
+
         print("Project %s initialized" % project_directory_name)
 
     @staticmethod

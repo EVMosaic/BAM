@@ -96,7 +96,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
             path_temp_files.add(filepath_tmp)
         return filepath_tmp
 
-
     # base_dir_src = os.path.dirname(blendfile_src)
     base_dir_dst = os.path.dirname(blendfile_dst)
 
@@ -184,7 +183,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         del blendfile_dst_tmp
         del sha1_from_file
 
-
     # --------------------
     # Handle File Copy/Zip
 
@@ -232,6 +230,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
 
             if WRITE_JSON_REMAP:
                 import json
+
                 def write_dict_as_json(fn, dct):
                     zip.writestr(
                             fn,
@@ -249,7 +248,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     write_dict_as_json(".bam_paths_uuid.json", paths_uuid)
 
                 del write_dict_as_json
-
 
         yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
     else:
@@ -315,7 +313,6 @@ def main():
                     # optional (pretty)
                     sort_keys=True, indent=4, separators=(',', ': '),
                     )
-
 
     if deps_remap is not None:
         write_dict_as_json(args.deps_remap, deps_remap)

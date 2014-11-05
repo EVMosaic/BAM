@@ -44,6 +44,7 @@ auth = HTTPBasicAuth()
 import config
 app.config.from_object(config.Development)
 
+
 @api.representation('application/octet-stream')
 def output_file(data, code, headers=None):
     """Makes a Flask response to return a file."""
@@ -153,7 +154,6 @@ class FileAPI(Resource):
 
         elif command == 'checkout':
             filepath = os.path.join(app.config['STORAGE_PATH'], filepath)
-
 
             if not os.path.exists(filepath):
                 return jsonify(message="Path not found %r" % filepath)

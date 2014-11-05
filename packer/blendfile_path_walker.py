@@ -21,8 +21,10 @@
 VERBOSE = True
 TIMEIT = True
 
+
 class C_defs:
     __slots__ = ()
+
     def __new__(cls, *args, **kwargs):
         raise RuntimeError("%s should not be instantiated" % cls)
 
@@ -569,7 +571,6 @@ class ExpandID:
         yield from ExpandID._expand_generic_mtex(block)
 
         yield block.get_pointer(b'group')
-
 
     @staticmethod
     def expand_TE(block):  # 'Tex'

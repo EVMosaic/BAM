@@ -103,7 +103,6 @@ class Application(tk.Frame):
         menubar.add_command(label="Preferences", command=lambda: print("Preferences"))
         root.config(menu=menubar)
 
-
         # local data
         self.item_list = []
 
@@ -223,7 +222,6 @@ class Application(tk.Frame):
 
                 self.grid_members.append(but)
                 row += 1
-
 
     def OnFrameConfigure(self, event):
         '''Reset the scroll region to encompass the inner frame'''

@@ -10,6 +10,7 @@ with open(os.path.join(MODULE_DIR, 'config.json'), 'r') as config:
     import json
     config = json.load(config)
 
+
 def request_url(path):
     return ('%s%s' % (config['BAM_SERVER'], path))
 
@@ -45,12 +46,12 @@ def request_url(path):
 #                 )
 
 args = {
-    'message' : 'Adding test file.'
+    'message': "Adding test file."
 }
 
 payload = {
-    'command' : 'commit',
-    'arguments' : json.dumps(args)
+    'command': 'commit',
+    'arguments': json.dumps(args)
 }
 
 files = {'file': open('buck.mp4', 'rb')}

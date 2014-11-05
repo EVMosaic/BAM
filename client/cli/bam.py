@@ -40,6 +40,7 @@ del os, sys, path
 class bam_config:
     # fake module
     __slots__ = ()
+
     def __new__(cls, *args, **kwargs):
         raise RuntimeError("%s should not be instantiated" % cls)
 
@@ -98,6 +99,7 @@ class bam_config:
 class bam_utils:
     # fake module
     __slots__ = ()
+
     def __new__(cls, *args, **kwargs):
         raise RuntimeError("%s should not be instantiated" % cls)
 
@@ -186,9 +188,6 @@ class bam_utils:
         if not os.path.isdir(path):
             print("Expected a directory (%r)" % path)
             sys.exit(1)
-
-
-
 
         # make a zipfile from session
         import json
@@ -285,8 +284,10 @@ class bam_utils:
             if file_type != "dir":
                 print("  %s" % name_short)
 
+
 def subcommand_checkout_cb(args):
     bam_utils.checkout(args.paths)
+
 
 def subcommand_commit_cb(args):
     bam_utils.commit(args.paths, args.message)
@@ -345,7 +346,6 @@ def create_argparse_revert(subparsers):
     subparse.set_defaults(func=subcommand_revert_cb)
 
 
-
 def create_argparse_status(subparsers):
     subparse = subparsers.add_parser("status", aliases=("st",))
     subparse.add_argument(
@@ -360,8 +360,6 @@ def create_argparse_list(subparsers):
             "paths", nargs="+", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_list_cb)
-
-
 
 
 def create_argparse():

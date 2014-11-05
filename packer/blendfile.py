@@ -136,7 +136,6 @@ class BlendFile:
         # cache (could lazy init, incase we never use?)
         self.block_from_offset = {block.addr_old: block for block in self.blocks if block.code != b'ENDB'}
 
-
     def find_blocks_from_code(self, code):
         assert(type(code) == bytes)
         if code not in self.code_index:
@@ -242,7 +241,6 @@ class BlendFile:
             dna_struct = types[struct_type_index]
             sdna_index_from_id[dna_struct.dna_type_id] = sdna_index
             structs.append(dna_struct)
-
 
             fields_len = d[1]
             dna_offset = 0
@@ -394,7 +392,6 @@ class BlendFileBlock:
         else:
             return None
 
-
     # ----------------------
     # Python convenience API
 
@@ -479,7 +476,6 @@ class BlendFileHeader:
                 b'I' if self.pointer_size == 4 else b'Q',
                 b'II',
                 )))
-
 
 
 class DNAName:

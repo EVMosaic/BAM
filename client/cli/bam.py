@@ -259,12 +259,10 @@ class bam_utils:
         import sys
         import requests
 
-        # print(bam_config.find_config())
-
+        # TODO(cam) multiple paths
         path = paths[0]
         del paths
 
-        # TODO(cam) multiple paths
         payload = {
             "path": path,
             }
@@ -276,6 +274,7 @@ class bam_utils:
                 )
 
         items = r.json().get("items_list", ())
+        items.sort()
 
         for (name_short, name_full, file_type) in items:
             if file_type == "dir":

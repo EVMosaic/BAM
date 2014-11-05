@@ -47,7 +47,7 @@ class bam_config:
     CONFIG_DIR = ".bam"
 
     @staticmethod
-    def find_basedir(cwd=None):
+    def find_basedir(cwd=None, suffix=None):
         """
         Return the config path (or None when not found)
         Actually should raise an error?
@@ -66,6 +66,8 @@ class bam_config:
         while parent != parent_prev:
             test_dir = os.path.join(parent, bam_config.CONFIG_DIR)
             if os.path.isdir(test_dir):
+                if suffix is not None:
+                    test_dir = os.path.join(test_dir, suffix)
                 return test_dir
 
             parent_prev = parent
@@ -75,20 +77,15 @@ class bam_config:
 
     @staticmethod
     def load(id_="config", cwd=None):
-        import os
-        basedir = bam_config.find_basedir(cwd=cwd)
-        filepath = os.path.join(basedir, id_)
+        filepath = bam_config.find_basedir(cwd=cwd, suffix=id_)
 
         with open(filepath, 'r') as f:
             import json
             return json.load(f)
 
     @staticmethod
-    def write(id_, data, cwd=None):
-        import os
-
-        basedir = bam_config.find_basedir(cwd=cwd)
-        filepath = os.path.join(basedir, id_)
+    def write(id_="config", data=None, cwd=None):
+        filepath = bam_config.find_basedir(cwd=cwd, suffix=id_)
 
         with open(filepath, 'w') as f:
             import json
@@ -127,18 +124,18 @@ class bam_utils:
         # Create the project directory inside the current directory
         os.mkdir(project_directory_path)
         # Create the .bam folder
-        bam_folder = os.path.join(project_directory_path, bam_config.CONFIG_DIR)
-        os.mkdir(bam_folder)
+        bam_basedir = os.path.join(project_directory_path, bam_config.CONFIG_DIR)
+        os.mkdir(bam_basedir)
 
         # Add a config file with project url, username and password
         bam_config.write(
-                "config",
-                {"url": url,
-                 "user": "bam",
-                 "password": "bam",
-                 "config_version": 1
-                 },
-                cwd=bam_folder)
+                data={
+                    "url": url,
+                    "user": "bam",
+                    "password": "bam",
+                    "config_version": 1
+                    },
+                cwd=project_directory_path)
 
         print("Project %r initialized" % project_directory_name)
 

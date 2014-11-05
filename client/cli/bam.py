@@ -316,16 +316,23 @@ def subcommand_revert_cb(args):
     print(args)
 
 
-def subcommand_list_cb(args):
-    bam_utils.list_dir(args.paths or ["."])
-
-
 def subcommand_status_cb(args):
     print(args)
 
 
+def subcommand_list_cb(args):
+    bam_utils.list_dir(args.paths or ["."])
+
+
+def subcommand_deps_cb(args):
+    bam_utils.deps(args.paths or ["."], args.recursive)
+
+
 def create_argparse_checkout(subparsers):
-    subparse = subparsers.add_parser("checkout", aliases=("co",))
+    subparse = subparsers.add_parser(
+            "checkout", aliases=("co",),
+            help="",
+            )
     subparse.add_argument(
             "paths", nargs="+", help="Path(s) to operate on",
             )
@@ -333,7 +340,10 @@ def create_argparse_checkout(subparsers):
 
 
 def create_argparse_commit(subparsers):
-    subparse = subparsers.add_parser("commit", aliases=("ci",))
+    subparse = subparsers.add_parser(
+            "commit", aliases=("ci",),
+            help="",
+            )
     subparse.add_argument(
             "-m", "--message", dest="message", metavar='MESSAGE',
             required=True,
@@ -347,7 +357,10 @@ def create_argparse_commit(subparsers):
 
 
 def create_argparse_update(subparsers):
-    subparse = subparsers.add_parser("update", aliases=("up",))
+    subparse = subparsers.add_parser(
+            "update", aliases=("up",),
+            help="",
+            )
     subparse.add_argument(
             "paths", nargs="+", help="Path(s) to operate on",
             )
@@ -355,7 +368,10 @@ def create_argparse_update(subparsers):
 
 
 def create_argparse_revert(subparsers):
-    subparse = subparsers.add_parser("revert", aliases=("rv",))
+    subparse = subparsers.add_parser(
+            "revert", aliases=("rv",),
+            help="",
+            )
     subparse.add_argument(
             "paths", nargs="+", help="Path(s) to operate on",
             )
@@ -363,7 +379,10 @@ def create_argparse_revert(subparsers):
 
 
 def create_argparse_status(subparsers):
-    subparse = subparsers.add_parser("status", aliases=("st",))
+    subparse = subparsers.add_parser(
+            "status", aliases=("st",),
+            help="",
+            )
     subparse.add_argument(
             "paths", nargs="+", help="Path(s) to operate on",
             )
@@ -371,11 +390,29 @@ def create_argparse_status(subparsers):
 
 
 def create_argparse_list(subparsers):
-    subparse = subparsers.add_parser("list", aliases=("ls",))
+    subparse = subparsers.add_parser(
+            "list", aliases=("ls",),
+            help="",
+            )
     subparse.add_argument(
             "paths", nargs="+", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_list_cb)
+
+
+def create_argparse_deps(subparsers):
+    subparse = subparsers.add_parser(
+            "deps", aliases=("dp",),
+            help="",
+            )
+    subparse.add_argument(
+            "paths", nargs="+", help="Path(s) to operate on",
+            )
+    subparse.add_argument(
+            "-r", "--recursive", dest="recursive", action='store_true',
+            help="Scan dependencies recursively",
+            )
+    subparse.set_defaults(func=subcommand_deps_cb)
 
 
 def create_argparse():
@@ -400,6 +437,7 @@ def create_argparse():
     create_argparse_revert(subparsers)
     create_argparse_status(subparsers)
     create_argparse_list(subparsers)
+    create_argparse_deps(subparsers)
 
     return parser
 
@@ -420,5 +458,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 

@@ -305,7 +305,7 @@ def subcommand_checkout_cb(args):
 
 
 def subcommand_commit_cb(args):
-    bam_utils.commit(args.paths, args.message)
+    bam_utils.commit(args.paths or ["."], args.message)
 
 
 def subcommand_update_cb(args):
@@ -317,7 +317,7 @@ def subcommand_revert_cb(args):
 
 
 def subcommand_list_cb(args):
-    bam_utils.list_dir(args.paths)
+    bam_utils.list_dir(args.paths or ["."])
 
 
 def subcommand_status_cb(args):

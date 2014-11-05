@@ -115,6 +115,37 @@ class bam_utils:
         return result
 
     @staticmethod
+    def init(url, directory_name=None):
+        import os
+        import urllib
+
+        parsed_url = urllib.parse.urlsplit(url)
+
+        project_directory_name = os.path.basename(parsed_url.path)
+        if directory_name:
+            project_directory_name = directory_name
+        project_directory_path = os.path.join(os.getcwd(), project_directory_name)
+        # Create the project directory inside the current directory
+        os.mkdir(project_directory_path)
+        # Create the .bam folder
+        bam_folder = os.path.join(project_directory_path, ".bam")
+        os.mkdir(bam_folder)
+        # Add a config file with project url, username and password
+        with open(os.path.join(bam_folder, "config"), 'w') as f:
+            import json
+            json.dump(
+                {
+                    "url":url,
+                    "user":"bam",
+                    "password":"bam",
+                    "config_version":1
+                }, f,
+                # Pretty printing
+                sort_keys=True, indent=4, separators=(',', ': ')
+            )
+        print("Project %s initialized" % project_directory_name)
+
+    @staticmethod
     def checkout(paths):
         import sys
         import os
@@ -299,6 +330,9 @@ class bam_utils:
             if file_type != "dir":
                 print("  %s" % name_short)
 
+def subcommand_init_cb(args):
+    bam_utils.init(args.url, args.directory_name)
+
 
     @staticmethod
     def deps(paths):
@@ -333,6 +367,17 @@ def subcommand_list_cb(args):
 
 def subcommand_deps_cb(args):
     bam_utils.deps(args.paths or ["."], args.recursive)
+
+
+def create_argparse_init(subparsers):
+    subparse = subparsers.add_parser("init")
+    subparse.add_argument(
+            "url", help="Project repository url",
+            )
+    subparse.add_argument(
+            "directory_name", nargs="?", help="Directory name",
+            )
+    subparse.set_defaults(func=subcommand_init_cb)
 
 
 def create_argparse_checkout(subparsers):
@@ -438,6 +483,7 @@ def create_argparse():
             description='valid subcommands',
             help='additional help')
 
+    create_argparse_init(subparsers)
     create_argparse_checkout(subparsers)
     create_argparse_commit(subparsers)
     create_argparse_update(subparsers)

@@ -45,14 +45,6 @@ import config
 app.config.from_object(config.Development)
 
 
-@api.representation('application/octet-stream')
-def output_file(data, code, headers=None):
-    """Makes a Flask response to return a file."""
-    resp = make_response(data, code)
-    resp.headers.extend(headers or {})
-    return resp
-
-
 @auth.get_password
 def get_password(username):
     if username == 'bam':

@@ -219,18 +219,19 @@ class FileAPI(Resource):
             # files on a filesystem level and subsequently as svn commands)
             import zipfile
 
-            tmp_extracted_folder = os.path.splitext(tmp_filepath)[0]
+            extract_tmp_dir = os.path.splitext(tmp_filepath)[0]
             with open(tmp_filepath, 'rb') as zip_file:
                 zip_handle = zipfile.ZipFile(zip_file)
-                zip_handle.extractall(tmp_extracted_folder)
+                zip_handle.extractall(extract_tmp_dir)
             del zip_file, zip_handle
+            del zipfile
 
-            with open(os.path.join(tmp_extracted_folder, '.bam_paths_remap.json'), 'r') as path_remap:
+            with open(os.path.join(extract_tmp_dir, '.bam_paths_remap.json'), 'r') as path_remap:
                 path_remap = json.load(path_remap)
 
             import shutil
             for source_file_path, destination_file_pah in path_remap.items():
-                shutil.move(os.path.join(tmp_extracted_folder, source_file_path), destination_file_pah)
+                shutil.move(os.path.join(extract_tmp_dir, source_file_path), destination_file_pah)
 
             # TODO, dry run commit (using committ message)
             # Seems not easily possible with SVN

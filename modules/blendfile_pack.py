@@ -69,7 +69,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
     WRITE_JSON_REMAP = True
 
     if report is None:
-        raise Exception("report not set!")
+        report = lambda msg: msg
 
     yield report("%s: %r...\n" % (colorize("\nscanning deps", color='bright_green'), blendfile_src))
 
@@ -282,6 +282,9 @@ def create_argparse():
     parser.add_argument(
             "-s", "--paths_remap", dest="paths_remap", metavar='FILE',
             help="Write out the original paths to a JSON file")
+    parser.add_argument(
+            "-u", "--paths_uuid", dest="paths_uuid", metavar='FILE',
+            help="Write out the original paths UUID to a JSON file")
 
     return parser
 
@@ -296,13 +299,17 @@ def main():
 
     deps_remap = {} if args.deps_remap else None
     paths_remap = {} if args.paths_remap else None
+    paths_uuid = {} if args.paths_uuid else None
 
-    pack(args.path_src.encode(encoding),
-         args.path_dst.encode(encoding),
-         args.mode,
-         deps_remap,
-         paths_remap,
-         )
+    for msg in pack(
+            args.path_src.encode(encoding),
+            args.path_dst.encode(encoding),
+            args.mode,
+            deps_remap=deps_remap,
+            paths_remap=paths_remap,
+            paths_uuid=paths_uuid,
+            ):
+        print(msg)
 
     def write_dict_as_json(fn, dct):
         with open(fn, 'w', encoding='utf-8') as f:
@@ -319,6 +326,9 @@ def main():
 
     if paths_remap is not None:
         write_dict_as_json(args.paths_remap, paths_remap)
+
+    if paths_uuid is not None:
+        write_dict_as_json(args.paths_uuid, paths_uuid)
 
     del write_dict_as_json
 

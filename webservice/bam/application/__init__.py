@@ -21,7 +21,7 @@
 # Ensure module path
 import os
 import sys
-path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "modules"))
+path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "modules"))
 if path not in sys.path:
     sys.path.append(path)
 del os, sys, path
@@ -255,28 +255,13 @@ class FileAPI(Resource):
         import os
         assert(os.path.exists(filepath) and not os.path.isdir(filepath))
 
-        modpath = \
-            os.path.normpath(
-            os.path.abspath(
-            os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "..",
-            "..",
-            "packer")))
-
-        import sys
-        if modpath not in sys.path:
-            sys.path.append(modpath)
-        del modpath
-
-        import packer
+        import blendfile_pack
 
         print("  Source path:", filepath)
         print("  Zip path:", filepath_zip)
 
         try:
-            yield from packer.pack(
+            yield from blendfile_pack.pack(
                     filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP',
                     # TODO(cam) this just means the json is written in the zip
                     deps_remap={}, paths_remap={}, paths_uuid={},

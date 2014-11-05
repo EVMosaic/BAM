@@ -300,6 +300,13 @@ class bam_utils:
                 print("  %s" % name_short)
 
 
+    @staticmethod
+    def deps(paths):
+        # TODO(cam) multiple paths
+        path = paths[0]
+
+
+
 def subcommand_checkout_cb(args):
     bam_utils.checkout(args.paths)
 

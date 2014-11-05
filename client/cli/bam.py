@@ -195,6 +195,7 @@ class bam_utils:
         import sys
         import os
         import requests
+        from bam_utils.system import sha1_from_file
 
         # TODO(cam) ignore files
 
@@ -213,7 +214,7 @@ class bam_utils:
         paths_modified = {}
         for fn, sha1 in paths_uuid.items():
             fn_abs = os.path.join(path, fn)
-            if bam_utils.sha1_for_file(fn_abs) != sha1:
+            if sha1_from_file(fn_abs) != sha1:
                 paths_modified[fn] = fn_abs
 
         if not paths_modified:
@@ -224,16 +225,15 @@ class bam_utils:
         print("Now make a zipfile")
         import zipfile
         temp_zip = os.path.join(path, ".bam_tmp.zip")
-        with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zip:
+        with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zip_handle:
             for (fn, fn_abs) in paths_modified.items():
                 print("  Archiving %r" % fn_abs)
-                zip.write(fn_abs,
-                          arcname=fn)
+                zip_handle.write(fn_abs, arcname=fn)
 
             # make a paths remap that only includes modified files
             # TODO(cam), from 'packer.py'
             def write_dict_as_json(fn, dct):
-                zip.writestr(
+                zip_handle.writestr(
                         fn,
                         json.dumps(dct,
                         check_circular=False,

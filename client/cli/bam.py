@@ -336,6 +336,7 @@ def create_argparse_commit(subparsers):
     subparse = subparsers.add_parser("commit", aliases=("ci",))
     subparse.add_argument(
             "-m", "--message", dest="message", metavar='MESSAGE',
+            required=True,
             help="Commit message",
             )
     subparse.add_argument(

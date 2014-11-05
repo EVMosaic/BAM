@@ -108,15 +108,8 @@ class bam_utils:
         raise RuntimeError("%s should not be instantiated" % cls)
 
     @staticmethod
-    def session_find_url():
-        return "http://localhost:5000"
-
-    @staticmethod
     def session_request_url(req_path):
-        # TODO, get from config
         cfg = bam_config.load()
-
-        BAM_SERVER = bam_utils.session_find_url()
         result = "%s/%s" % (cfg['url'], req_path)
         return result
 
@@ -140,15 +133,14 @@ class bam_utils:
         # Add a config file with project url, username and password
         bam_config.write(
                 "config",
-                {"url":url,
-                 "user":"bam",
-                 "password":"bam",
-                 "config_version":1
+                {"url": url,
+                 "user": "bam",
+                 "password": "bam",
+                 "config_version": 1
                  },
                 cwd=bam_folder)
 
-
-        print("Project %s initialized" % project_directory_name)
+        print("Project %r initialized" % project_directory_name)
 
     @staticmethod
     def checkout(paths):
@@ -314,7 +306,6 @@ class bam_utils:
 
     @staticmethod
     def list_dir(paths):
-        import sys
         import requests
 
         # Load project configuration
@@ -490,7 +481,6 @@ def create_argparse_deps(subparsers):
 
 
 def create_argparse():
-    import os
     import argparse
 
     usage_text = (
@@ -503,7 +493,8 @@ def create_argparse():
     subparsers = parser.add_subparsers(
             title='subcommands',
             description='valid subcommands',
-            help='additional help')
+            help='additional help',
+            )
 
     create_argparse_init(subparsers)
     create_argparse_checkout(subparsers)
@@ -533,4 +524,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

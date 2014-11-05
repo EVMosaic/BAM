@@ -346,7 +346,7 @@ def create_argparse_update(subparsers):
 
 
 def create_argparse_revert(subparsers):
-    subparse = subparsers.add_parser("update", aliases=("up",))
+    subparse = subparsers.add_parser("revert", aliases=("rv",))
     subparse.add_argument(
             "paths", nargs="+", help="Path(s) to operate on",
             )

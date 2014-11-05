@@ -27,7 +27,6 @@ if path not in sys.path:
 del os, sys, path
 # --------
 
-
 import os
 import json
 import svn.local
@@ -37,12 +36,19 @@ from flask import Flask, jsonify, abort, request, make_response, url_for, Respon
 from flask.views import MethodView
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal
 from flask.ext.httpauth import HTTPBasicAuth
+from flask.ext.sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 api = Api(app)
 auth = HTTPBasicAuth()
 import config
 app.config.from_object(config.Development)
+db = SQLAlchemy(app)
+
+from application.modules.admin import backend
+from application.modules.admin import settings
+from application.modules.projects import admin
+from application.modules.projects.model import Project
 
 
 @auth.get_password
@@ -73,11 +79,13 @@ class DirectoryAPI(Resource):
 
     def get(self, project_name):
 
+        project = Project.query.filter_by(name=project_name).first()
+
         path = request.args['path']
         if not path:
             path = ''
 
-        absolute_path_root = app.config['STORAGE_PATH']
+        absolute_path_root = project.repository_path
         parent_path = ''
 
         if path != '':
@@ -134,8 +142,10 @@ class FileAPI(Resource):
         filepath = request.args['filepath']
         command = request.args['command']
 
+        project = Project.query.filter_by(name=project_name).first()
+
         if command == 'info':
-            r = svn.local.LocalClient(app.config['STORAGE_PATH'])
+            r = svn.local.LocalClient(project.repository_path)
 
             log = r.log_default(None, None, 5, filepath)
             log = [l for l in log]
@@ -145,7 +155,7 @@ class FileAPI(Resource):
                 log=log)
 
         elif command == 'checkout':
-            filepath = os.path.join(app.config['STORAGE_PATH'], filepath)
+            filepath = os.path.join(project.repository_path, filepath)
 
             if not os.path.exists(filepath):
                 return jsonify(message="Path not found %r" % filepath)
@@ -192,6 +202,7 @@ class FileAPI(Resource):
             return jsonify(message="Command unknown")
 
     def put(self, project_name):
+        project = Project.query.filter_by(name=project_name).first()
         command = request.args['command']
         arguments = ''
         if 'arguments' in request.args:
@@ -199,12 +210,12 @@ class FileAPI(Resource):
         file = request.files['file']
 
         if file and self.allowed_file(file.filename):
-            local_client = svn.local.LocalClient(app.config['STORAGE_PATH'])
+            local_client = svn.local.LocalClient(project.repository_path)
             # TODO, add the merge operation to a queue. Later on, the request could stop here
             # and all the next steps could be done in another loop, or triggered again via
             # another request
             filename = werkzeug.secure_filename(file.filename)
-            tmp_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            tmp_filepath = os.path.join(project.upload_path, filename)
             file.save(tmp_filepath)
 
             # TODO, once all files are uploaded, unpack and run the tasklist (copy, add, remove

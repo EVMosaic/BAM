@@ -220,9 +220,10 @@ class FileAPI(Resource):
             import zipfile
 
             tmp_extracted_folder = os.path.splitext(tmp_filepath)[0]
-            with open(tmp_filepath, 'rb') as zipped_file:
-                z = zipfile.ZipFile(zipped_file)
-                z.extractall(tmp_extracted_folder)
+            with open(tmp_filepath, 'rb') as zip_file:
+                zip_handle = zipfile.ZipFile(zip_file)
+                zip_handle.extractall(tmp_extracted_folder)
+            del zip_file, zip_handle
 
             with open(os.path.join(tmp_extracted_folder, '.bam_paths_remap.json'), 'r') as path_remap:
                 path_remap = json.load(path_remap)

@@ -117,11 +117,16 @@ class bam_utils:
     @staticmethod
     def checkout(paths):
         import sys
+        import os
         import requests
 
         # TODO(cam) multiple paths
         path = paths[0]
         del paths
+
+        # TODO(cam) we may want to checkout a single file? how to handle this?
+        # we may want to checkout a dir too
+        dst_dir = os.path.basename(path)
 
         payload = {
             "filepath": path,
@@ -140,12 +145,12 @@ class bam_utils:
             return
 
         # TODO(cam) how to tell if we get back a message payload? or real data???
-        local_filename = payload['filepath'].split('/')[-1]
+        dst_dir_data = payload['filepath'].split('/')[-1]
 
         if 1:
-            local_filename += ".zip"
+            dst_dir_data += ".zip"
 
-        with open(local_filename, 'wb') as f:
+        with open(dst_dir_data, 'wb') as f:
             import struct
             ID_MESSAGE = 1
             ID_PAYLOAD = 2
@@ -172,7 +177,18 @@ class bam_utils:
 
                     sys.stdout.write("\rdownload: [%03d%%]" % ((100 * tot_size) // msg_size))
                     sys.stdout.flush()
-        sys.stdout.write("\nwritten: %r\n" % local_filename)
+
+        # ---------------
+        # extract the zip
+        import zipfile
+        with open(dst_dir_data, 'rb') as zip_file:
+            zip_handle = zipfile.ZipFile(zip_file)
+            zip_handle.extractall(dst_dir)
+        del zipfile, zip_file
+
+        os.remove(dst_dir_data)
+
+        sys.stdout.write("\nwritten: %r\n" % dst_dir)
 
     @staticmethod
     def commit(paths, message):

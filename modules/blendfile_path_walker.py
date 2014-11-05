@@ -177,6 +177,9 @@ class FilePath:
         if rootdir is None:
             rootdir = basedir
 
+        if lib_visit is None:
+            lib_visit = {}
+
         if recursive and (level > 0) and (block_codes is not None):
             # prevent from expanding the
             # same datablock more then once
@@ -339,6 +342,12 @@ class FilePath:
                 lib_block_codes_existing.update(lib_block_codes)
 
                 # print("looking for", lib_block_codes)
+
+                if not os.path.exists(lib_path_abs):
+                    if VERBOSE:
+                        print((indent_str + "  "), "Library Missing: ", filepath, " -> ", lib_path_abs, sep="")
+                    continue
+
 
                 # import IPython; IPython.embed()
                 if VERBOSE:

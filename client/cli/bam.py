@@ -330,15 +330,23 @@ class bam_utils:
             if file_type != "dir":
                 print("  %s" % name_short)
 
+    @staticmethod
+    def deps(paths, recursive=False):
+        import blendfile_path_walker
+        import os
+        # TODO(cam) multiple paths
+        for blendfile_src in paths:
+            blendfile_src = blendfile_src.encode('utf-8')
+            for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
+                    blendfile_src,
+                    readonly=True,
+                    recursive=recursive,
+                    ):
+                print("  %r -> %r" % (os.path.join(fp.basedir, fp_blend_basename), fp.filepath))
+
+
 def subcommand_init_cb(args):
     bam_utils.init(args.url, args.directory_name)
-
-
-    @staticmethod
-    def deps(paths):
-        # TODO(cam) multiple paths
-        path = paths[0]
-
 
 
 def subcommand_checkout_cb(args):

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 # ***** BEGIN GPL LICENSE BLOCK *****
 #
 # This program is free software; you can redistribute it and/or
@@ -21,13 +22,19 @@
 Blender asset manager
 """
 
-# TODO
-# * checkout command (store some handy json info!)
-# * commit command
-# ** staging for svn commit
-# ** svn commit
-# ** handle errors
-# * definition of project (.bam (like .git)) ... json
+
+if __name__ != "__main__":
+    raise Exception("must be imported directly")
+
+# ------------------
+# Ensure module path
+import os
+import sys
+path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "modules"))
+if path not in sys.path:
+    sys.path.append(path)
+del os, sys, path
+# --------
 
 
 class bam_config:
@@ -78,7 +85,7 @@ class bam_config:
         bam_config.find_basedir(cwd=cwd)
         filepath = os.path.join(basedir, id_)
 
-        with open(filepath) as f:
+        with open(filepath, 'w') as f:
             import json
             json.dump(
                     data, f, ensure_ascii=False,
@@ -93,21 +100,6 @@ class bam_utils:
     __slots__ = ()
     def __new__(cls, *args, **kwargs):
         raise RuntimeError("%s should not be instantiated" % cls)
-
-    # Copied from 'packer.py', TODO(cam) de-duplicate
-    @staticmethod
-    def sha1_for_file(fn, block_size=1 << 20):
-        with open(fn, 'rb') as f:
-            import hashlib
-            sha1 = hashlib.new('sha1')
-            while True:
-                data = f.read(block_size)
-                if not data:
-                    break
-                sha1.update(data)
-            return sha1.hexdigest()
-    # end code duplication
-    # --------------------
 
     @staticmethod
     def session_find_url():

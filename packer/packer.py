@@ -22,6 +22,16 @@ import blendfile_path_walker
 
 TIMEIT = True
 
+# ------------------
+# Ensure module path
+import os
+import sys
+path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "modules"))
+if path not in sys.path:
+    sys.path.append(path)
+del os, sys, path
+# --------
+
 
 def pack(blendfile_src, blendfile_dst, mode='FILE',
          deps_remap=None, paths_remap=None, paths_uuid=None,
@@ -46,6 +56,8 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
 
     import os
     import shutil
+
+    from bam_utils.system import colorize
 
     path_temp_files = set()
     path_copy_files = set()
@@ -162,24 +174,15 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         paths_remap[os.path.basename(blendfile_src).decode('utf-8')] = blendfile_src.decode('utf-8')
 
     if paths_uuid is not None:
-        # TODO, multi-process SHA1 calculation (or better cache)
-        def sha1_for_file(fn, block_size=1 << 20):
-            with open(fn, 'rb') as f:
-                import hashlib
-                sha1 = hashlib.new('sha1')
-                while True:
-                    data = f.read(block_size)
-                    if not data:
-                        break
-                    sha1.update(data)
-                return sha1.hexdigest()
+        from bam_utils.system import sha1_from_file
 
         for src, dst in path_copy_files:
-            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = sha1_for_file(src)
+            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = sha1_from_file(src)
         # XXX, better way to store temp target
         blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
-        paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = sha1_for_file(blendfile_dst_tmp)
+        paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = sha1_from_file(blendfile_dst_tmp)
         del blendfile_dst_tmp
+        del sha1_from_file
 
 
     # --------------------
@@ -324,34 +327,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# TODO(cam) de-duplicate
-USE_COLOR = True
-if USE_COLOR:
-    color_codes = {
-        'black':        '\033[0;30m',
-        'bright_gray':  '\033[0;37m',
-        'blue':         '\033[0;34m',
-        'white':        '\033[1;37m',
-        'green':        '\033[0;32m',
-        'bright_blue':  '\033[1;34m',
-        'cyan':         '\033[0;36m',
-        'bright_green': '\033[1;32m',
-        'red':          '\033[0;31m',
-        'bright_cyan':  '\033[1;36m',
-        'purple':       '\033[0;35m',
-        'bright_red':   '\033[1;31m',
-        'yellow':       '\033[0;33m',
-        'bright_purple':'\033[1;35m',
-        'dark_gray':    '\033[1;30m',
-        'bright_yellow':'\033[1;33m',
-        'normal':       '\033[0m',
-    }
-
-    def colorize(msg, color=None):
-        return (color_codes[color] + msg + color_codes['normal'])
-else:
-    def colorize(msg, color=None):
-        return msg
-
 

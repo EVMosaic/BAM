@@ -17,10 +17,20 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
+# ------------------
+# Ensure module path
+import os
+import sys
+path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "modules"))
+if path not in sys.path:
+    sys.path.append(path)
+del os, sys, path
+# --------
+
+
 import os
 import json
 import svn.local
-import pprint
 import werkzeug
 
 from flask import Flask, jsonify, abort, request, make_response, url_for, Response
@@ -121,7 +131,7 @@ class FileAPI(Resource):
         parser.add_argument('command', type=str, required=True,
             help="Command cannot be blank!")
         parser.add_argument('arguments', type=str)
-        parser.add_argument('files', type=werkzeug.datastructures.FileStorage, 
+        parser.add_argument('files', type=werkzeug.datastructures.FileStorage,
             location='files')
         args = parser.parse_args()
 
@@ -199,7 +209,7 @@ class FileAPI(Resource):
         if file and self.allowed_file(file.filename):
             local_client = svn.local.LocalClient(app.config['STORAGE_PATH'])
             # TODO, add the merge operation to a queue. Later on, the request could stop here
-            # and all the next steps could be done in another loop, or triggered again via 
+            # and all the next steps could be done in another loop, or triggered again via
             # another request
             filename = werkzeug.secure_filename(file.filename)
             tmp_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -223,12 +233,12 @@ class FileAPI(Resource):
 
             # TODO, dry run commit (using committ message)
             # Seems not easily possible with SVN
-            result = local_client.run_command('status', 
-                [local_client.info()['entry_path'], '--xml'], 
+            result = local_client.run_command('status',
+                [local_client.info()['entry_path'], '--xml'],
                 combine=True)
 
             # Commit command
-            result = local_client.run_command('commit', 
+            result = local_client.run_command('commit',
                 [local_client.info()['entry_path'], '--message', arguments['message']],
                 combine=True)
 
@@ -284,32 +294,4 @@ class FileAPI(Resource):
 
 api.add_resource(FilesListAPI, '/file_list', endpoint='file_list')
 api.add_resource(FileAPI, '/file', endpoint='file')
-
-USE_COLOR = True
-if USE_COLOR:
-    color_codes = {
-        'black':        '\033[0;30m',
-        'bright_gray':  '\033[0;37m',
-        'blue':         '\033[0;34m',
-        'white':        '\033[1;37m',
-        'green':        '\033[0;32m',
-        'bright_blue':  '\033[1;34m',
-        'cyan':         '\033[0;36m',
-        'bright_green': '\033[1;32m',
-        'red':          '\033[0;31m',
-        'bright_cyan':  '\033[1;36m',
-        'purple':       '\033[0;35m',
-        'bright_red':   '\033[1;31m',
-        'yellow':       '\033[0;33m',
-        'bright_purple':'\033[1;35m',
-        'dark_gray':    '\033[1;30m',
-        'bright_yellow':'\033[1;33m',
-        'normal':       '\033[0m',
-    }
-
-    def colorize(msg, color=None):
-        return (color_codes[color] + msg + color_codes['normal'])
-else:
-    def colorize(msg, color=None):
-        return msg
 

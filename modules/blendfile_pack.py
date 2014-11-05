@@ -114,8 +114,11 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
             lib_visit=lib_visit,
             ):
 
+        # we could pass this in!
+        fp_blend = os.path.join(fp.basedir, fp_blend_basename)
+
         if fp_blend_basename_last != fp_blend_basename:
-            yield report("  %s:       %s\n" % (colorize("blend", color='blue'), fp.basedir + fp_blend_basename))
+            yield report("  %s:       %s\n" % (colorize("blend", color='blue'), fp_blend))
             fp_blend_basename_last = fp_blend_basename
 
         # assume the path might be relative

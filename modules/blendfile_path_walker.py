@@ -202,8 +202,14 @@ class FilePath:
                         expand_codes_idlib.setdefault(block[b'lib'], set()).add(block[b'name'])
                     return False
                 else:
+                    id_name = block[b'id.name']
+
+                    # if we touched this already, don't touch again
+                    if id_name not in block_codes:
+                        return False
+
                     len_prev = len(expand_codes)
-                    expand_codes.add(block[b'id.name'])
+                    expand_codes.add(id_name)
                     return (len_prev != len(expand_codes))
 
             def block_expand(block, code):
@@ -338,16 +344,21 @@ class FilePath:
                 # check we don't follow the same links more than once
                 lib_block_codes_existing = lib_visit.setdefault(lib_path_abs, set())
                 lib_block_codes -= lib_block_codes_existing
+
                 # don't touch them again
                 lib_block_codes_existing.update(lib_block_codes)
 
                 # print("looking for", lib_block_codes)
 
+                if not lib_block_codes:
+                    if VERBOSE:
+                        print((indent_str + "  "), "Library Skipped (visited): ", filepath, " -> ", lib_path_abs, sep="")
+                    continue
+
                 if not os.path.exists(lib_path_abs):
                     if VERBOSE:
                         print((indent_str + "  "), "Library Missing: ", filepath, " -> ", lib_path_abs, sep="")
                     continue
-
 
                 # import IPython; IPython.embed()
                 if VERBOSE:

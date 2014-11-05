@@ -222,8 +222,8 @@ class FileAPI(Resource):
                 path_remap = json.load(path_remap)
 
             import shutil
-            for source_file_path, destination_file_pah in path_remap.items():
-                shutil.move(os.path.join(extract_tmp_dir, source_file_path), destination_file_pah)
+            for src_file_path, dst_file_path in path_remap.items():
+                shutil.move(os.path.join(extract_tmp_dir, src_file_path), dst_file_path)
 
             # TODO, dry run commit (using committ message)
             # Seems not easily possible with SVN

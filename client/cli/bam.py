@@ -424,7 +424,7 @@ def create_argparse_commit(subparsers):
             help="Commit message",
             )
     subparse.add_argument(
-            "paths", nargs="+", help="paths to commit",
+            "paths", nargs="*", help="paths to commit",
             )
 
     subparse.set_defaults(func=subcommand_commit_cb)
@@ -469,7 +469,7 @@ def create_argparse_list(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="+", help="Path(s) to operate on",
+            "paths", nargs="*", help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_list_cb)
 
@@ -480,7 +480,7 @@ def create_argparse_deps(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="+", help="Path(s) to operate on",
+            "paths", nargs="*", help="Path(s) to operate on",
             )
     subparse.add_argument(
             "-r", "--recursive", dest="recursive", action='store_true',

@@ -181,7 +181,7 @@ class FileAPI(Resource):
                 os.close(filepath_zip[0])
                 filepath_zip = filepath_zip[1]
 
-                yield from self.pack_fn(filepath, filepath_zip, report)
+                yield from self.pack_fn(filepath, filepath_zip, project.repository_path, report)
 
                 # TODO, handle fail
                 if not os.path.exists(filepath_zip):
@@ -242,7 +242,12 @@ class FileAPI(Resource):
             for src_file_path, dst_file_path in path_remap.items():
                 shutil.move(os.path.join(extract_tmp_dir, src_file_path), dst_file_path)
 
-            # TODO, dry run commit (using committ message)
+            # TODO (fsiddi), make adding smarter. Right now we just add any untracked file
+            # result = local_client.run_command('add',
+            #     [local_client.info()['entry_path'], '*'],
+            #     combine=True)
+
+            # TODO, dry run commit (using commit message)
             # Seems not easily possible with SVN
             result = local_client.run_command('status',
                 [local_client.info()['entry_path'], '--xml'],
@@ -260,7 +265,7 @@ class FileAPI(Resource):
             return jsonify(message='File not allowed')
 
     @staticmethod
-    def pack_fn(filepath, filepath_zip, report):
+    def pack_fn(filepath, filepath_zip, base_path, report):
         import os
         assert(os.path.exists(filepath) and not os.path.isdir(filepath))
 
@@ -299,12 +304,9 @@ class FileAPI(Resource):
                         sort_keys=True, indent=4, separators=(',', ': '),
                         ).encode('utf-8'))
 
-            if deps_remap is not None:
-                write_dict_as_json(".bam_deps_remap.json", deps_remap)
-            if paths_remap is not None:
-                write_dict_as_json(".bam_paths_remap.json", paths_remap)
-            if paths_uuid is not None:
-                write_dict_as_json(".bam_paths_uuid.json", paths_uuid)
+            write_dict_as_json(".bam_deps_remap.json", deps_remap)
+            write_dict_as_json(".bam_paths_remap.json", paths_remap)
+            write_dict_as_json(".bam_paths_uuid.json", paths_uuid)
 
             del write_dict_as_json
         # done writing json!

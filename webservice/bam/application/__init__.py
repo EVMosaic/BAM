@@ -241,6 +241,7 @@ class FileAPI(Resource):
 
             import shutil
             for src_file_path, dst_file_path in path_remap.items():
+                assert(os.path.exists(os.path.join(extract_tmp_dir, src_file_path)))
                 shutil.move(
                         os.path.join(extract_tmp_dir, src_file_path),
                         os.path.join(project.repository_path, dst_file_path))

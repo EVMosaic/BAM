@@ -31,6 +31,7 @@ import os
 import json
 import svn.local
 import werkzeug
+import xml.etree.ElementTree
 
 from flask import Flask, jsonify, abort, request, make_response, url_for, Response
 from flask.views import MethodView
@@ -242,23 +243,30 @@ class FileAPI(Resource):
             for src_file_path, dst_file_path in path_remap.items():
                 shutil.move(os.path.join(extract_tmp_dir, src_file_path), dst_file_path)
 
-            # TODO (fsiddi), make adding smarter. Right now we just add any untracked file
-            # result = local_client.run_command('add',
-            #     [local_client.info()['entry_path'], '*'],
-            #     combine=True)
-
             # TODO, dry run commit (using commit message)
-            # Seems not easily possible with SVN
+            # Seems not easily possible with SVN, so we might just smartly use svn status
             result = local_client.run_command('status',
                 [local_client.info()['entry_path'], '--xml'],
                 combine=True)
+
+            # We parse the svn status xml output
+            root = xml.etree.ElementTree.fromstring(result)
+            
+            # Loop throught every entry reported by the svn status command
+            for e in root.iter('entry'):
+                file_path = e.attrib['path']
+                item_status = e.find('wc-status').attrib['item']
+
+                # We add each unversioned file to SVN
+                if item_status == 'unversioned':
+                    result = local_client.run_command('add',
+                        [file_path,])
 
             # Commit command
             result = local_client.run_command('commit',
                 [local_client.info()['entry_path'], '--message', arguments['message']],
                 combine=True)
 
-            print(result)
 
             return jsonify(message=result)
         else:

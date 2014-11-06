@@ -34,6 +34,7 @@ del os, sys, path
 
 
 def pack(blendfile_src, blendfile_dst, mode='FILE',
+         paths_remap_relbase=None,
          deps_remap=None, paths_remap=None, paths_uuid=None,
          # yield reports
          report=None):
@@ -166,11 +167,19 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
 
     # store path mapping {dst: src}
     if paths_remap is not None:
+
+        if paths_remap_relbase is not None:
+            relbase = lambda fn: os.path.relpath(fn, paths_remap_relbase)
+        else:
+            relbase = lambda fn: fn
+
         for src, dst in path_copy_files:
             # TODO. relative to project-basepath
-            paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = src.decode('utf-8')
+            paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = relbase(src).decode('utf-8')
         # main file XXX, should have better way!
-        paths_remap[os.path.basename(blendfile_src).decode('utf-8')] = blendfile_src.decode('utf-8')
+        paths_remap[os.path.basename(blendfile_src).decode('utf-8')] = relbase(blendfile_src).decode('utf-8')
+
+        del relbase
 
     if paths_uuid is not None:
         from bam_utils.system import sha1_from_file

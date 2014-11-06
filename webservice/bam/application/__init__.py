@@ -265,7 +265,7 @@ class FileAPI(Resource):
             return jsonify(message='File not allowed')
 
     @staticmethod
-    def pack_fn(filepath, filepath_zip, base_path, report):
+    def pack_fn(filepath, filepath_zip, paths_remap_relbase, report):
         import os
         assert(os.path.exists(filepath) and not os.path.isdir(filepath))
 
@@ -281,6 +281,7 @@ class FileAPI(Resource):
         try:
             yield from blendfile_pack.pack(
                     filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode='ZIP',
+                    paths_remap_relbase=paths_remap_relbase.encode('utf-8'),
                     # TODO(cam) this just means the json is written in the zip
                     deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
                     report=report)

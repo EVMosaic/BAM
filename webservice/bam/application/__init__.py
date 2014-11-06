@@ -86,27 +86,27 @@ class DirectoryAPI(Resource):
         if not path:
             path = ''
 
-        absolute_path_root = project.repository_path
+        path_root_abs = project.repository_path
         parent_path = ''
 
         if path != '':
-            absolute_path_root = os.path.join(absolute_path_root, path)
+            path_root_abs = os.path.join(path_root_abs, path)
             parent_path = os.pardir
 
 
-        if not os.path.isdir(absolute_path_root):
-            return jsonify(message="Path is not a directory %r" % absolute_path_root)
+        if not os.path.isdir(path_root_abs):
+            return jsonify(message="Path is not a directory %r" % path_root_abs)
 
         items_list = []
 
-        for f in os.listdir(absolute_path_root):
-            relative_path = os.path.join(path, f)
-            absolute_path = os.path.join(absolute_path_root, f)
+        for f in os.listdir(path_root_abs):
+            f_rel = os.path.join(path, f)
+            f_abs = os.path.join(path_root_abs, f)
 
-            if os.path.isdir(absolute_path):
-                items_list.append((f, relative_path, "dir"))
+            if os.path.isdir(f_abs):
+                items_list.append((f, f_rel, "dir"))
             else:
-                items_list.append((f, relative_path, "file"))
+                items_list.append((f, f_rel, "file"))
 
         project_files = {
             "parent_path": parent_path,

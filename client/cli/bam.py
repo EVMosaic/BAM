@@ -76,8 +76,15 @@ class bam_config:
         return None
 
     @staticmethod
-    def load(id_="config", cwd=None):
+    def load(id_="config", cwd=None, abort=False):
         filepath = bam_config.find_basedir(cwd=cwd, suffix=id_)
+        if abort is True:
+            if filepath is None:
+                import sys
+                sys.stderr.write(
+                        "fatal: Not a git repository "
+                        "(or any of the parent directories): .bam")
+                sys.exit(1)
 
         with open(filepath, 'r') as f:
             import json
@@ -146,7 +153,7 @@ class bam_utils:
         import requests
 
         # Load project configuration
-        cfg = bam_config.load()
+        cfg = bam_config.load(abort=True)
 
         # TODO(cam) multiple paths
         path = paths[0]
@@ -226,7 +233,7 @@ class bam_utils:
         from bam_utils.system import sha1_from_file
 
         # Load project configuration
-        cfg = bam_config.load()
+        cfg = bam_config.load(abort=True)
 
         # TODO(cam) ignore files
 
@@ -393,7 +400,7 @@ class bam_utils:
         import requests
 
         # Load project configuration
-        cfg = bam_config.load()
+        cfg = bam_config.load(abort=True)
 
         # TODO(cam) multiple paths
         path = paths[0]

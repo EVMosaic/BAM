@@ -82,7 +82,7 @@ class bam_config:
             if filepath is None:
                 import sys
                 sys.stderr.write(
-                        "fatal: Not a git repository "
+                        "fatal: Not a bam repository "
                         "(or any of the parent directories): .bam\n")
                 sys.exit(1)
 
@@ -416,7 +416,13 @@ class bam_utils:
                 stream=True,
                 )
 
-        items = r.json().get("items_list", ())
+        r_json = r.json()
+        items = r_json.get("items_list", None)
+        if items is None:
+            import sys
+            sys.stderr.write("fatal: %s\n" % r_json.get("message", "<empty>"))
+            sys.exit(1)
+
         items.sort()
 
         for (name_short, name_full, file_type) in items:

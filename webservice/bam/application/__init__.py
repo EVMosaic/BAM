@@ -93,6 +93,10 @@ class DirectoryAPI(Resource):
             absolute_path_root = os.path.join(absolute_path_root, path)
             parent_path = os.pardir
 
+
+        if not os.path.isdir(absolute_path_root):
+            return jsonify(message="Path is not a directory %r" % absolute_path_root)
+
         items_list = []
 
         for f in os.listdir(absolute_path_root):

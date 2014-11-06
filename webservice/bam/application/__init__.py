@@ -175,15 +175,21 @@ class FileAPI(Resource):
 
                 # pack the file!
                 import tempfile
+
+                # weak! (ignore original opened file)
                 filepath_zip = tempfile.mkstemp(suffix=".zip")
+                os.close(filepath_zip[0])
+                filepath_zip = filepath_zip[1]
+
                 yield from self.pack_fn(filepath, filepath_zip, report)
 
                 # TODO, handle fail
-                if not os.path.exists(filepath_zip[-1]):
+                if not os.path.exists(filepath_zip):
                     yield report("%s: %r\n" % (colorize("failed to extract", color='red'), filepath))
                     return
 
-                with open(filepath_zip[-1], 'rb') as f:
+
+                with open(filepath_zip, 'rb') as f:
                     f.seek(0, os.SEEK_END)
                     f_size = f.tell()
                     f.seek(0, os.SEEK_SET)
@@ -263,18 +269,47 @@ class FileAPI(Resource):
         print("  Source path:", filepath)
         print("  Zip path:", filepath_zip)
 
+        deps_remap = {}
+        paths_remap = {}
+        paths_uuid = {}
+
         try:
             yield from blendfile_pack.pack(
-                    filepath.encode('utf-8'), filepath_zip[-1].encode('utf-8'), mode='ZIP',
+                    filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode='ZIP',
                     # TODO(cam) this just means the json is written in the zip
-                    deps_remap={}, paths_remap={}, paths_uuid={},
+                    deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
                     report=report)
-            return filepath_zip[-1]
         except:
             import traceback
             traceback.print_exc()
+            return
 
-            return None
+        # TODO, avoid reopening zipfile
+        # append json info to zip
+        import zipfile
+        with zipfile.ZipFile(filepath_zip, 'a', zipfile.ZIP_DEFLATED) as zip_handle:
+            import json
+
+            def write_dict_as_json(fn, dct):
+                zip_handle.writestr(
+                        fn,
+                        json.dumps(dct,
+                        check_circular=False,
+                        # optional (pretty)
+                        sort_keys=True, indent=4, separators=(',', ': '),
+                        ).encode('utf-8'))
+
+            if deps_remap is not None:
+                write_dict_as_json(".bam_deps_remap.json", deps_remap)
+            if paths_remap is not None:
+                write_dict_as_json(".bam_paths_remap.json", paths_remap)
+            if paths_uuid is not None:
+                write_dict_as_json(".bam_paths_uuid.json", paths_uuid)
+
+            del write_dict_as_json
+        # done writing json!
+
+
 
     @staticmethod
     def allowed_file(filename):

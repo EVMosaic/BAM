@@ -65,9 +65,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
     SUBDIR = b'data'
     TEMP_SUFFIX = b'@'
 
-    # TODO, make configurable
-    WRITE_JSON_REMAP = True
-
     if report is None:
         report = lambda msg: msg
 
@@ -231,26 +228,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     zip_handle.write(src.decode('utf-8'),
                               arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
 
-            if WRITE_JSON_REMAP:
-                import json
-
-                def write_dict_as_json(fn, dct):
-                    zip_handle.writestr(
-                            fn,
-                            json.dumps(dct,
-                            check_circular=False,
-                            # optional (pretty)
-                            sort_keys=True, indent=4, separators=(',', ': '),
-                            ).encode('utf-8'))
-
-                if deps_remap is not None:
-                    write_dict_as_json(".bam_deps_remap.json", deps_remap)
-                if paths_remap is not None:
-                    write_dict_as_json(".bam_paths_remap.json", paths_remap)
-                if paths_uuid is not None:
-                    write_dict_as_json(".bam_paths_uuid.json", paths_uuid)
-
-                del write_dict_as_json
 
         yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
     else:

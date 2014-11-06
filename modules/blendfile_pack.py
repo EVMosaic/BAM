@@ -212,10 +212,10 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
 
     elif mode == 'ZIP':
         import zipfile
-        with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', zipfile.ZIP_DEFLATED) as zip:
+        with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', zipfile.ZIP_DEFLATED) as zip_handle:
             for fn in path_temp_files:
                 yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), fn))
-                zip.write(fn.decode('utf-8'),
+                zip_handle.write(fn.decode('utf-8'),
                           arcname=os.path.relpath(fn[:-1], base_dir_dst).decode('utf-8'))
                 os.remove(fn)
 
@@ -228,14 +228,14 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     yield report("  %s: %r\n" % (colorize("source missing", color='red'), src))
                 else:
                     yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), src))
-                    zip.write(src.decode('utf-8'),
+                    zip_handle.write(src.decode('utf-8'),
                               arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
 
             if WRITE_JSON_REMAP:
                 import json
 
                 def write_dict_as_json(fn, dct):
-                    zip.writestr(
+                    zip_handle.writestr(
                             fn,
                             json.dumps(dct,
                             check_circular=False,

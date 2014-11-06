@@ -242,9 +242,13 @@ class FileAPI(Resource):
             import shutil
             for src_file_path, dst_file_path in path_remap.items():
                 assert(os.path.exists(os.path.join(extract_tmp_dir, src_file_path)))
-                shutil.move(
-                        os.path.join(extract_tmp_dir, src_file_path),
-                        os.path.join(project.repository_path, dst_file_path))
+
+                src_file_path_abs = os.path.join(extract_tmp_dir, src_file_path)
+                dst_file_path_abs = os.path.join(project.repository_path, dst_file_path)
+
+                os.makedirs(os.path.dirname(dst_file_path_abs), exist_ok=True)
+
+                shutil.move(src_file_path_abs, dst_file_path_abs)
 
             # TODO, dry run commit (using commit message)
             # Seems not easily possible with SVN, so we might just smartly use svn status
@@ -254,7 +258,7 @@ class FileAPI(Resource):
 
             # We parse the svn status xml output
             root = xml.etree.ElementTree.fromstring(result)
-            
+
             # Loop throught every entry reported by the svn status command
             for e in root.iter('entry'):
                 file_path = e.attrib['path']

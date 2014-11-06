@@ -169,7 +169,7 @@ class bam_utils:
 
         # TODO(cam) we may want to checkout a single file? how to handle this?
         # we may want to checkout a dir too
-        dst_dir = os.path.basename(path)
+        dst_dir = os.path.splitext(os.path.basename(path))[0]
 
         payload = {
             "filepath": path,
@@ -256,10 +256,13 @@ class bam_utils:
         basedir_temp = os.path.join(basedir, "tmp")
 
         if os.path.isdir(basedir_temp):
-            print("Path found, "
-                  "another commit in progress, or remove with path, aborting! (%r)" %
+            fatal("Path found, "
+                  "another commit in progress, or remove with path! (%r)" %
                   basedir_temp)
-            sys.exit(1)
+
+        if not os.path.exists(os.path.join(path, ".bam_paths_uuid.json")):
+            fatal("Path not a project session, (%r)" %
+                  path)
 
         # make a zipfile from session
         import json
@@ -271,6 +274,7 @@ class bam_utils:
             deps_remap = json.load(f)
 
         paths_modified = {}
+        paths_remove = set()
         paths_remap_subset_add = {}
 
         # don't commit metadata
@@ -282,10 +286,10 @@ class bam_utils:
 
         for fn_rel, sha1 in paths_uuid.items():
             fn_abs = os.path.join(path, fn_rel)
-            if sha1_from_file(fn_abs) != sha1:
+            if os.path.exists(fn_abs):
+                if sha1_from_file(fn_abs) != sha1:
 
-                # we may want to be more clever here
-                if fn_rel.endswith(".blend"):
+                    # we may want to be more clever here
                     deps = deps_remap.get(fn_rel)
                     if deps:
                         # ----
@@ -304,9 +308,13 @@ class bam_utils:
                             fn_abs = fn_abs_remap
                         # ----
 
-                paths_modified[fn_rel] = fn_abs
+                    paths_modified[fn_rel] = fn_abs
 
-            paths_used.add(fn_abs)
+                paths_used.add(fn_abs)
+            else:
+                # TODO(cam) remove these from svn
+                print("  removing: %r" % fn_abs)
+                paths_remove.add(fn_abs)
 
         # ----
         # find new files
@@ -325,7 +333,6 @@ class bam_utils:
 
         print(path)
         for fn_abs in iter_files(path):
-            print(fn_abs)
             if fn_abs not in paths_used:
                 # we should be clever - add the file to a useful location based on some rules
                 # (category, filetype & tags?)
@@ -334,7 +341,7 @@ class bam_utils:
                 # TODO(cam)
                 # remap paths of added files
 
-                print("  adding new file:", fn_abs)
+                print("  adding new file: %r" % fn_abs)
                 paths_modified[fn_rel] = fn_abs
 
                 # TESTING ONLY
@@ -397,10 +404,15 @@ class bam_utils:
                 params=payload,
                 auth=(cfg['user'], cfg['password']),
                 files=files)
-        print("Return is:", r.text)
 
         files['file'].close()
         os.remove(temp_zip)
+
+        r_json = r.json()
+        print(r_json.get("message", "<empty>"))
+
+        # TODO(cam)
+        # if all goes well, rewrite sha1's
 
     @staticmethod
     def list_dir(paths):

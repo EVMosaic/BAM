@@ -104,9 +104,10 @@ class DirectoryAPI(Resource):
             else:
                 items_list.append((f, relative_path, "file"))
 
-        project_files = dict(
-            parent_path=parent_path,
-            items_list=items_list)
+        project_files = {
+            "parent_path": parent_path,
+            "items_list": items_list,
+            }
 
         return jsonify(project_files)
         #return {'message': 'Display files list'}

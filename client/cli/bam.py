@@ -128,14 +128,18 @@ class bam_utils:
 
         parsed_url = urllib.parse.urlsplit(url)
 
-        project_directory_name = os.path.basename(parsed_url.path)
+        proj_dirname = os.path.basename(parsed_url.path)
         if directory_name:
-            project_directory_name = directory_name
-        project_directory_path = os.path.join(os.getcwd(), project_directory_name)
+            proj_dirname = directory_name
+        proj_dirname_abs = os.path.join(os.getcwd(), proj_dirname)
+
+        if os.path.exists(proj_dirname_abs):
+            fatal("Cannot create project %r already exists" % proj_dirname_abs)
+
         # Create the project directory inside the current directory
-        os.mkdir(project_directory_path)
-        # Create the .bam folder
-        bam_basedir = os.path.join(project_directory_path, bam_config.CONFIG_DIR)
+        os.mkdir(proj_dirname_abs)
+        # Create the .bam directory
+        bam_basedir = os.path.join(proj_dirname_abs, bam_config.CONFIG_DIR)
         os.mkdir(bam_basedir)
 
         # Add a config file with project url, username and password
@@ -146,9 +150,9 @@ class bam_utils:
                     "password": "bam",
                     "config_version": 1
                     },
-                cwd=project_directory_path)
+                cwd=proj_dirname_abs)
 
-        print("Project %r initialized" % project_directory_name)
+        print("Project %r initialized" % proj_dirname)
 
     @staticmethod
     def checkout(paths):
@@ -370,7 +374,6 @@ class bam_utils:
             paths_remap_subset.update(paths_remap_subset_add)
             write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)
 
-
         if os.path.exists(basedir_temp):
             import shutil
             shutil.rmtree(basedir_temp)
@@ -421,7 +424,7 @@ class bam_utils:
                 )
 
         r_json = r.json()
-        items = r_json.get("items_list", None)
+        items = r_json.get("items_list")
         if items is None:
             fatal(r_json.get("message", "<empty>"))
 

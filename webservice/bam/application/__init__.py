@@ -282,11 +282,14 @@ class FileAPI(Resource):
 
     @staticmethod
     def pack_fn(filepath, filepath_zip, paths_remap_relbase, report):
+        """
+        'paths_remap_relbase' is the project path,
+        we want all paths to be relative to this so we don't get server path included.
+        """
         import os
-        assert(os.path.exists(filepath) and not os.path.isdir(filepath))
-
         import blendfile_pack
 
+        assert(os.path.exists(filepath) and not os.path.isdir(filepath))
         print("  Source path:", filepath)
         print("  Zip path:", filepath_zip)
 

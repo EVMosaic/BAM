@@ -256,6 +256,15 @@ class bam_utils:
             deps_remap = json.load(f)
 
         paths_modified = {}
+        paths_remap_subset_add = {}
+
+        # don't commit metadata
+        paths_used = {
+            os.path.join(path, ".bam_paths_uuid.json"),
+            os.path.join(path, ".bam_paths_remap.json"),
+            os.path.join(path, ".bam_deps_remap.json"),
+            }
+
         for fn_rel, sha1 in paths_uuid.items():
             fn_abs = os.path.join(path, fn_rel)
             if sha1_from_file(fn_abs) != sha1:
@@ -281,6 +290,43 @@ class bam_utils:
                         # ----
 
                 paths_modified[fn_rel] = fn_abs
+
+            paths_used.add(fn_abs)
+
+        # ----
+        # find new files
+        # TODO(cam) .bamignore
+        def iter_files(path, filename_check=None):
+            for dirpath, dirnames, filenames in os.walk(path):
+
+                # skip '.svn'
+                if dirpath.startswith(".") and dirpath != ".":
+                    continue
+
+                for filename in filenames:
+                    filepath = os.path.join(dirpath, filename)
+                    if filename_check is None or filename_check(filepath):
+                        yield filepath
+
+        print(path)
+        for fn_abs in iter_files(path):
+            print(fn_abs)
+            if fn_abs not in paths_used:
+                # we should be clever - add the file to a useful location based on some rules
+                # (category, filetype & tags?)
+                fn_rel = os.path.basename(fn_abs)
+
+                # TODO(cam)
+                # remap paths of added files
+
+                print("  adding new file:", fn_abs)
+                paths_modified[fn_rel] = fn_abs
+
+                # TESTING ONLY
+                fn_abs_remote = os.path.join("/shared/software/bam/storage/bam_test", fn_rel)
+                paths_remap_subset_add[fn_rel] = fn_abs_remote
+
+        del paths_used
 
         if not paths_modified:
             print("Nothing to commit!")
@@ -310,6 +356,7 @@ class bam_utils:
                 paths_remap = json.load(f)
 
             paths_remap_subset = {k: v for k, v in paths_remap.items() if k in paths_modified}
+            paths_remap_subset.update(paths_remap_subset_add)
             write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)
 
 

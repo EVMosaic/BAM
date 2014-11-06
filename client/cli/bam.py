@@ -323,7 +323,7 @@ class bam_utils:
                 paths_modified[fn_rel] = fn_abs
 
                 # TESTING ONLY
-                fn_abs_remote = os.path.join("/pro", fn_rel)
+                fn_abs_remote = os.path.join("pro", fn_rel)
                 paths_remap_subset_add[fn_rel] = fn_abs_remote
 
         del paths_used

@@ -37,6 +37,14 @@ del os, sys, path
 # --------
 
 
+def fatal(msg):
+    import sys
+    sys.stderr.write("fatal: ")
+    sys.stderr.write(msg)
+    sys.stderr.write("\n")
+    sys.exit(1)
+
+
 class bam_config:
     # fake module
     __slots__ = ()
@@ -80,11 +88,7 @@ class bam_config:
         filepath = bam_config.find_basedir(cwd=cwd, suffix=id_)
         if abort is True:
             if filepath is None:
-                import sys
-                sys.stderr.write(
-                        "fatal: Not a bam repository "
-                        "(or any of the parent directories): .bam\n")
-                sys.exit(1)
+                fatal("Not a bam repository (or any of the parent directories): .bam")
 
         with open(filepath, 'r') as f:
             import json
@@ -419,9 +423,7 @@ class bam_utils:
         r_json = r.json()
         items = r_json.get("items_list", None)
         if items is None:
-            import sys
-            sys.stderr.write("fatal: %s\n" % r_json.get("message", "<empty>"))
-            sys.exit(1)
+            fatal(r_json.get("message", "<empty>"))
 
         items.sort()
 

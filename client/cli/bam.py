@@ -83,7 +83,7 @@ class bam_config:
                 import sys
                 sys.stderr.write(
                         "fatal: Not a git repository "
-                        "(or any of the parent directories): .bam")
+                        "(or any of the parent directories): .bam\n")
                 sys.exit(1)
 
         with open(filepath, 'r') as f:

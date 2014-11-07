@@ -238,6 +238,9 @@ class bam_session:
 
 
 class bam_commands:
+    """
+    Sub-commands from the command-line map directly to these methods.
+    """
     # fake module
     __slots__ = ()
 
@@ -251,7 +254,7 @@ class bam_commands:
 
         if "@" in url:
             # first & last :)
-            username, url = url.rpartition('@')[0:3:2]
+            username, url = url.rpartition('@')[0::2]
         else:
             import getpass
             username = getpass.getuser()
@@ -449,7 +452,7 @@ class bam_commands:
             return
 
 
-        for fn_rel, fn_abs in paths_modified.items():
+        for fn_rel, fn_abs in list(paths_modified.items()):
             # we may want to be more clever here
             deps = deps_remap.get(fn_rel)
             if deps:
@@ -467,6 +470,8 @@ class bam_commands:
                         )
                 if os.path.exists(fn_abs_remap):
                     fn_abs = fn_abs_remap
+
+                    paths_modified[fn_rel] = fn_abs
 
         # -------------------------
         print("Now make a zipfile")
@@ -557,7 +562,6 @@ class bam_commands:
         for fn in sorted(paths_remove):
             print("  D: %s" % fn)
 
-
     @staticmethod
     def list_dir(paths):
         import requests
@@ -606,8 +610,6 @@ class bam_commands:
                     recursive=recursive,
                     ):
                 print("  %r -> %r" % (os.path.join(fp.basedir, fp_blend_basename), fp.filepath))
-
-
 
 
 def subcommand_init_cb(args):

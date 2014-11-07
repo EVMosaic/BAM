@@ -205,8 +205,11 @@ class FilePath:
                     id_name = block[b'id.name']
 
                     # if we touched this already, don't touch again
+                    # FIXME, works in some cases but not others
+                    '''
                     if id_name not in block_codes:
                         return False
+                    '''
 
                     len_prev = len(expand_codes)
                     expand_codes.add(id_name)

@@ -222,6 +222,8 @@ class FileAPI(Resource):
         file = request.files['file']
 
         if file and self.allowed_file(file.filename):
+            os.makedirs(project.upload_path, exist_ok=True)
+
             local_client = svn.local.LocalClient(project.repository_path)
             # TODO, add the merge operation to a queue. Later on, the request could stop here
             # and all the next steps could be done in another loop, or triggered again via

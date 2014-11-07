@@ -54,6 +54,9 @@ from application.modules.projects.model import Project, ProjectSetting
 
 @auth.get_password
 def get_password(username):
+    # Temporarily override API access
+    # TODO (fsiddi) check against users table
+    return ''
     if username == 'bam':
         return 'bam'
     return None
@@ -225,6 +228,9 @@ class FileAPI(Resource):
         svn_password = next((setting.value for setting in project.settings if setting.name == 'svn_password'))
         svn_default_user = next((setting.value for setting in project.settings if setting.name == 'svn_default_user'))
 
+        # We get the actual username from the http headers
+        svn_user = auth.username()
+
         # If the setting does not exist, stop here and prevent any other operation
         if not svn_password:
             return make_response(jsonify(
@@ -290,7 +296,7 @@ class FileAPI(Resource):
             result = local_client.run_command('commit',
                 [local_client.info()['entry_path'], 
                 '--message', arguments['message'],
-                '--username', svn_default_user,
+                '--username', svn_user,
                 '--password', svn_password],
                 combine=True)
 

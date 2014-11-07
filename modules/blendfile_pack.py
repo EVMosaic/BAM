@@ -189,6 +189,14 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         # XXX, better way to store temp target
         blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
         paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = sha1_from_file(blendfile_dst_tmp)
+
+        # blend libs
+        for dst in path_temp_files:
+            k = os.path.relpath(dst[:-len(TEMP_SUFFIX)], base_dir_dst).decode('utf-8')
+            if k not in paths_uuid:
+                paths_uuid[k] = sha1_from_file(dst)
+            del k
+
         del blendfile_dst_tmp
         del sha1_from_file
 
@@ -203,7 +211,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
 
         # strip TEMP_SUFFIX
         for fn in path_temp_files:
-            shutil.copyfile(fn, fn[:-1])
+            shutil.move(fn, fn[:-1])
 
         for src, dst in path_copy_files:
             assert(b'.blend' not in dst)

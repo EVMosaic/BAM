@@ -55,7 +55,7 @@ class bam_config:
     CONFIG_DIR = ".bam"
 
     @staticmethod
-    def find_basedir(cwd=None, suffix=None):
+    def find_basedir(cwd=None, suffix=None, abort=False):
         """
         Return the config path (or None when not found)
         Actually should raise an error?
@@ -81,7 +81,24 @@ class bam_config:
             parent_prev = parent
             parent = os.path.dirname(parent)
 
+
+        if abort is True:
+            fatal("Not a bam repository (or any of the parent directories): .bam")
+
         return None
+
+    @staticmethod
+    def find_rootdir(cwd=None, suffix=None, abort=False):
+        """
+        find_basedir(), without '.bam' suffix
+        """
+        path = bam_config.find_basedir(
+                cwd=cwd,
+                suffix=suffix,
+                abort=abort)
+
+        return path[:-(len(bam_config.CONFIG_DIR) + 1)]
+
 
     @staticmethod
     def load(id_="config", cwd=None, abort=False):
@@ -154,13 +171,39 @@ class bam_utils:
 
         print("Project %r initialized" % proj_dirname)
 
+
+    @staticmethod
+    def create(session_name):
+        import os
+
+        rootdir = bam_config.find_rootdir(abort=True)
+
+        session_dir = os.path.join(rootdir, session_name)
+
+        if os.path.exists(session_dir):
+            fatal("session path exists %r" % session_dir)
+        if rootdir != bam_config.find_rootdir(cwd=session_dir):
+            fatal("session is located outside %r" % rootdir)
+
+        def write_empty(fn, data):
+            with open(os.path.join(session_dir, fn), 'wb') as f:
+                f.write(data)
+
+        os.makedirs(session_dir)
+
+        write_empty(".bam_paths_uuid.json", b'{}')
+        write_empty(".bam_paths_remap.json", b'{}')
+        write_empty(".bam_deps_remap.json", b'{}')
+
+        print("Session %r created" % session_name)
+
+
     @staticmethod
     def checkout(paths):
         import sys
         import os
         import requests
 
-        # Load project configuration
         cfg = bam_config.load(abort=True)
 
         # TODO(cam) multiple paths
@@ -408,8 +451,11 @@ class bam_utils:
         files['file'].close()
         os.remove(temp_zip)
 
-        r_json = r.json()
-        print(r_json.get("message", "<empty>"))
+        try:
+            r_json = r.json()
+            print(r_json.get("message", "<empty>"))
+        except Exception:
+            print(r.text)
 
         # TODO(cam)
         # if all goes well, rewrite sha1's
@@ -468,6 +514,10 @@ def subcommand_init_cb(args):
     bam_utils.init(args.url, args.directory_name)
 
 
+def subcommand_create_cb(args):
+    bam_utils.create(args.session_name[0])
+
+
 def subcommand_checkout_cb(args):
     bam_utils.checkout(args.paths)
 
@@ -505,6 +555,18 @@ def create_argparse_init(subparsers):
             "directory_name", nargs="?", help="Directory name",
             )
     subparse.set_defaults(func=subcommand_init_cb)
+
+
+def create_argparse_create(subparsers):
+    subparse = subparsers.add_parser(
+            "create", aliases=("cr",),
+            help="Create a new empty session directory",
+            )
+    subparse.add_argument(
+            dest="session_name", nargs=1,
+            help="Name of session directory",
+            )
+    subparse.set_defaults(func=subcommand_create_cb)
 
 
 def create_argparse_checkout(subparsers):
@@ -611,6 +673,7 @@ def create_argparse():
             )
 
     create_argparse_init(subparsers)
+    create_argparse_create(subparsers)
     create_argparse_checkout(subparsers)
     create_argparse_commit(subparsers)
     create_argparse_update(subparsers)

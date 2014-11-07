@@ -242,6 +242,15 @@ class bam_commands:
         import os
         import urllib.parse
 
+        if "@" in url:
+            # first & last :)
+            username, url = url.rpartition('@')[0:3:2]
+        else:
+            import getpass
+            username = getpass.getuser()
+            print("Using username:", username)
+            del getpass
+
         parsed_url = urllib.parse.urlsplit(url)
 
         proj_dirname = os.path.basename(parsed_url.path)
@@ -262,8 +271,8 @@ class bam_commands:
         bam_config.write(
                 data={
                     "url": url,
-                    "user": "bam",
-                    "password": "bam",
+                    "user": username,
+                    "password": "",
                     "config_version": 1
                     },
                 cwd=proj_dirname_abs)

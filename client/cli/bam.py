@@ -549,10 +549,12 @@ def subcommand_deps_cb(args):
 def create_argparse_init(subparsers):
     subparse = subparsers.add_parser("init")
     subparse.add_argument(
-            "url", help="Project repository url",
+            dest="url",
+            help="Project repository url",
             )
     subparse.add_argument(
-            "directory_name", nargs="?", help="Directory name",
+            dest="directory_name", nargs="?",
+            help="Directory name",
             )
     subparse.set_defaults(func=subcommand_init_cb)
 
@@ -575,7 +577,8 @@ def create_argparse_checkout(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="+", help="Path(s) to operate on",
+            dest="paths", nargs="+",
+            help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_checkout_cb)
 
@@ -591,7 +594,8 @@ def create_argparse_commit(subparsers):
             help="Commit message",
             )
     subparse.add_argument(
-            "paths", nargs="*", help="paths to commit",
+            dest="paths", nargs="*",
+            help="paths to commit",
             )
 
     subparse.set_defaults(func=subcommand_commit_cb)
@@ -603,7 +607,8 @@ def create_argparse_update(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="+", help="Path(s) to operate on",
+            dest="paths", nargs="+",
+            help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_update_cb)
 
@@ -614,7 +619,8 @@ def create_argparse_revert(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="+", help="Path(s) to operate on",
+            dest="paths", nargs="+",
+            help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_revert_cb)
 
@@ -625,7 +631,8 @@ def create_argparse_status(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="+", help="Path(s) to operate on",
+            dest="paths", nargs="+",
+            help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_status_cb)
 
@@ -636,7 +643,8 @@ def create_argparse_list(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="*", help="Path(s) to operate on",
+            dest="paths", nargs="*",
+            help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_list_cb)
 
@@ -647,7 +655,8 @@ def create_argparse_deps(subparsers):
             help="",
             )
     subparse.add_argument(
-            "paths", nargs="*", help="Path(s) to operate on",
+            dest="paths", nargs="*",
+            help="Path(s) to operate on",
             )
     subparse.add_argument(
             "-r", "--recursive", dest="recursive", action='store_true',

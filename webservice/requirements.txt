@@ -1,5 +1,5 @@
 Flask==0.10.1
-Flask-Admin==1.0.8
+Flask-Admin==1.0.7
 Flask-HTTPAuth==2.3.0
 Flask-Login==0.2.11
 Flask-Mail==0.9.1
@@ -15,7 +15,7 @@ Mako==1.0.0
 MarkupSafe==0.23
 Pillow==2.6.1
 SQLAlchemy==0.9.8
-WTForms==2.0.1
+WTForms==1.0.5
 Werkzeug==0.9.6
 alembic==0.6.7
 aniso8601==0.83

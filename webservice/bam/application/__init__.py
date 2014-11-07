@@ -49,7 +49,7 @@ db = SQLAlchemy(app)
 from application.modules.admin import backend
 from application.modules.admin import settings
 from application.modules.projects import admin
-from application.modules.projects.model import Project
+from application.modules.projects.model import Project, ProjectSetting
 
 
 @auth.get_password
@@ -221,6 +221,15 @@ class FileAPI(Resource):
             arguments = json.loads(request.args['arguments'])
         file = request.files['file']
 
+        # Get the value of the first (and only) result for the specified project setting
+        svn_password = next((setting.value for setting in project.settings if setting.name == 'svn_password'))
+        svn_default_user = next((setting.value for setting in project.settings if setting.name == 'svn_default_user'))
+
+        # If the setting does not exist, stop here and prevent any other operation
+        if not svn_password:
+            return make_response(jsonify(
+                {'message': 'SVN missing password settings'}), 500)
+
         if file and self.allowed_file(file.filename):
             os.makedirs(project.upload_path, exist_ok=True)
 
@@ -276,9 +285,13 @@ class FileAPI(Resource):
                     result = local_client.run_command('add',
                         [file_path,])
 
+
             # Commit command
             result = local_client.run_command('commit',
-                [local_client.info()['entry_path'], '--message', arguments['message']],
+                [local_client.info()['entry_path'], 
+                '--message', arguments['message'],
+                '--username', svn_default_user,
+                '--password', svn_password],
                 combine=True)
 
 

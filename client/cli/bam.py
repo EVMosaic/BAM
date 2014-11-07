@@ -215,7 +215,14 @@ class bam_session:
                     if filename_check is None or filename_check(filepath):
                         yield filepath
 
-        for fn_abs in iter_files(session_rootdir):
+        def bamignore_check(fn):
+            # TODO(cam)
+            # .bamignore
+            if fn.endswith(".blend1"):
+                return False
+            return True
+
+        for fn_abs in iter_files(session_rootdir, bamignore_check):
             if fn_abs not in paths_used:
                 # we should be clever - add the file to a useful location based on some rules
                 # (category, filetype & tags?)

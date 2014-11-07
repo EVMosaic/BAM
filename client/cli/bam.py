@@ -53,9 +53,11 @@ class bam_config:
         raise RuntimeError("%s should not be instantiated" % cls)
 
     CONFIG_DIR = ".bam"
+    # can infact be any file in the session
+    SESSION_FILE = ".bam_paths_remap.json"
 
     @staticmethod
-    def find_basedir(cwd=None, suffix=None, abort=False):
+    def find_basedir(cwd=None, suffix=None, abort=False, test_subpath=CONFIG_DIR, descr="<unknown>"):
         """
         Return the config path (or None when not found)
         Actually should raise an error?
@@ -72,8 +74,8 @@ class bam_config:
         parent_prev = None
 
         while parent != parent_prev:
-            test_dir = os.path.join(parent, bam_config.CONFIG_DIR)
-            if os.path.isdir(test_dir):
+            test_dir = os.path.join(parent, test_subpath)
+            if os.path.exists(test_dir):
                 if suffix is not None:
                     test_dir = os.path.join(test_dir, suffix)
                 return test_dir
@@ -81,28 +83,46 @@ class bam_config:
             parent_prev = parent
             parent = os.path.dirname(parent)
 
-
         if abort is True:
-            fatal("Not a bam repository (or any of the parent directories): .bam")
+            fatal("Not a %s (or any of the parent directories): %s" % (descr, test_subpath))
 
         return None
 
     @staticmethod
-    def find_rootdir(cwd=None, suffix=None, abort=False):
+    def find_rootdir(cwd=None, suffix=None, abort=False, test_subpath=CONFIG_DIR, descr="<unknown>"):
         """
         find_basedir(), without '.bam' suffix
         """
         path = bam_config.find_basedir(
                 cwd=cwd,
                 suffix=suffix,
-                abort=abort)
+                abort=abort,
+                test_subpath=test_subpath,
+                )
 
-        return path[:-(len(bam_config.CONFIG_DIR) + 1)]
+        return path[:-(len(test_subpath) + 1)]
 
+    def find_sessiondir(cwd=None, abort=False):
+        """
+        from:  my_bam/my_session/some/subdir
+        to:    my_bam/my_session
+        where: my_bam/.bam/  (is the basedir)
+        """
+        session_rootdir = bam_config.find_basedir(
+                cwd=cwd,
+                test_subpath=bam_config.SESSION_FILE,
+                abort=abort,
+                descr="bam session"
+                )
+        return session_rootdir[:-len(bam_config.SESSION_FILE)]
 
     @staticmethod
     def load(id_="config", cwd=None, abort=False):
-        filepath = bam_config.find_basedir(cwd=cwd, suffix=id_)
+        filepath = bam_config.find_basedir(
+                cwd=cwd,
+                suffix=id_,
+                descr="bam repository",
+                )
         if abort is True:
             if filepath is None:
                 fatal("Not a bam repository (or any of the parent directories): .bam")
@@ -113,7 +133,11 @@ class bam_config:
 
     @staticmethod
     def write(id_="config", data=None, cwd=None):
-        filepath = bam_config.find_basedir(cwd=cwd, suffix=id_)
+        filepath = bam_config.find_basedir(
+                cwd=cwd,
+                suffix=id_,
+                descr="bam repository",
+                )
 
         with open(filepath, 'w') as f:
             import json
@@ -125,7 +149,7 @@ class bam_config:
                     )
 
 
-class bam_utils:
+class bam_session:
     # fake module
     __slots__ = ()
 
@@ -133,10 +157,85 @@ class bam_utils:
         raise RuntimeError("%s should not be instantiated" % cls)
 
     @staticmethod
-    def session_request_url(req_path):
+    def request_url(req_path):
         cfg = bam_config.load()
         result = "%s/%s" % (cfg['url'], req_path)
         return result
+
+    @staticmethod
+    def status(session_rootdir,
+               paths_add, paths_remove, paths_modified, paths_remap_subset_add):
+
+        assert(isinstance(paths_add, dict))
+        assert(isinstance(paths_remove, dict))
+        assert(isinstance(paths_modified, dict))
+        assert(isinstance(paths_remap_subset_add, dict))
+
+        import os
+        from bam_utils.system import sha1_from_file
+
+        # don't commit metadata
+        paths_used = {
+            os.path.join(session_rootdir, ".bam_paths_uuid.json"),
+            os.path.join(session_rootdir, ".bam_paths_remap.json"),
+            os.path.join(session_rootdir, ".bam_deps_remap.json"),
+            os.path.join(session_rootdir, ".bam_tmp.zip"),
+            }
+
+
+        with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
+            import json
+            paths_uuid = json.load(f)
+            del json
+
+        for fn_rel, sha1 in paths_uuid.items():
+            fn_abs = os.path.join(session_rootdir, fn_rel)
+            if os.path.exists(fn_abs):
+                if sha1_from_file(fn_abs) != sha1:
+                    paths_modified[fn_rel] = fn_abs
+
+                paths_used.add(fn_abs)
+            else:
+                # TODO(cam) remove these from svn
+                print("  removing: %r" % fn_abs)
+                paths_remove[fn_rel] = fn_abs
+
+        # ----
+        # find new files
+        # TODO(cam) .bamignore
+        def iter_files(path, filename_check=None):
+            for dirpath, dirnames, filenames in os.walk(path):
+
+                # skip '.svn'
+                if dirpath.startswith(".") and dirpath != ".":
+                    continue
+
+                for filename in filenames:
+                    filepath = os.path.join(dirpath, filename)
+                    if filename_check is None or filename_check(filepath):
+                        yield filepath
+
+        for fn_abs in iter_files(session_rootdir):
+            if fn_abs not in paths_used:
+                # we should be clever - add the file to a useful location based on some rules
+                # (category, filetype & tags?)
+                fn_rel = os.path.basename(fn_abs)
+
+                # TODO(cam)
+                # remap paths of added files
+                paths_add[fn_rel] = fn_abs
+
+                # TESTING ONLY
+                fn_abs_remote = os.path.join("pro", fn_rel)
+                paths_remap_subset_add[fn_rel] = fn_abs_remote
+
+
+class bam_commands:
+    # fake module
+    __slots__ = ()
+
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
 
     @staticmethod
     def init(url, directory_name=None):
@@ -178,18 +277,18 @@ class bam_utils:
 
         rootdir = bam_config.find_rootdir(abort=True)
 
-        session_dir = os.path.join(rootdir, session_name)
+        session_rootdir = os.path.join(rootdir, session_name)
 
-        if os.path.exists(session_dir):
-            fatal("session path exists %r" % session_dir)
-        if rootdir != bam_config.find_rootdir(cwd=session_dir):
+        if os.path.exists(session_rootdir):
+            fatal("session path exists %r" % session_rootdir)
+        if rootdir != bam_config.find_rootdir(cwd=session_rootdir):
             fatal("session is located outside %r" % rootdir)
 
         def write_empty(fn, data):
-            with open(os.path.join(session_dir, fn), 'wb') as f:
+            with open(os.path.join(session_rootdir, fn), 'wb') as f:
                 f.write(data)
 
-        os.makedirs(session_dir)
+        os.makedirs(session_rootdir)
 
         write_empty(".bam_paths_uuid.json", b'{}')
         write_empty(".bam_paths_remap.json", b'{}')
@@ -219,7 +318,7 @@ class bam_utils:
             "command": "checkout",
             }
         r = requests.get(
-                bam_utils.session_request_url("file"),
+                bam_session.request_url("file"),
                 params=payload,
                 auth=(cfg['user'], cfg['password']),
                 stream=True,
@@ -281,7 +380,6 @@ class bam_utils:
         import sys
         import os
         import requests
-        from bam_utils.system import sha1_from_file
 
         # Load project configuration
         cfg = bam_config.load(abort=True)
@@ -289,13 +387,16 @@ class bam_utils:
         # TODO(cam) ignore files
 
         # TODO(cam) multiple paths
-        path = paths[0]
+        session_rootdir = paths[0]
 
-        if not os.path.isdir(path):
-            print("Expected a directory (%r)" % path)
+        if not os.path.isdir(session_rootdir):
+            print("Expected a directory (%r)" % session_rootdir)
             sys.exit(1)
 
-        basedir = bam_config.find_basedir(cwd=path)
+        basedir = bam_config.find_basedir(
+                cwd=session_rootdir,
+                descr="bam repository",
+                )
         basedir_temp = os.path.join(basedir, "tmp")
 
         if os.path.isdir(basedir_temp):
@@ -303,108 +404,63 @@ class bam_utils:
                   "another commit in progress, or remove with path! (%r)" %
                   basedir_temp)
 
-        if not os.path.exists(os.path.join(path, ".bam_paths_uuid.json")):
+        if not os.path.exists(os.path.join(session_rootdir, ".bam_paths_uuid.json")):
             fatal("Path not a project session, (%r)" %
-                  path)
+                  session_rootdir)
 
         # make a zipfile from session
         import json
-        with open(os.path.join(path, ".bam_paths_uuid.json")) as f:
+        with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
             paths_uuid = json.load(f)
 
 
-        with open(os.path.join(path, ".bam_deps_remap.json")) as f:
+        with open(os.path.join(session_rootdir, ".bam_deps_remap.json")) as f:
             deps_remap = json.load(f)
 
+
+        paths_add = {}
         paths_modified = {}
-        paths_remove = set()
+        paths_remove = {}
         paths_remap_subset_add = {}
 
-        # don't commit metadata
-        paths_used = {
-            os.path.join(path, ".bam_paths_uuid.json"),
-            os.path.join(path, ".bam_paths_remap.json"),
-            os.path.join(path, ".bam_deps_remap.json"),
-            }
-
-        for fn_rel, sha1 in paths_uuid.items():
-            fn_abs = os.path.join(path, fn_rel)
-            if os.path.exists(fn_abs):
-                if sha1_from_file(fn_abs) != sha1:
-
-                    # we may want to be more clever here
-                    deps = deps_remap.get(fn_rel)
-                    if deps:
-                        # ----
-                        # Remap!
-                        fn_abs_remap = os.path.join(basedir_temp, fn_rel)
-                        dir_remap = os.path.dirname(fn_abs_remap)
-                        os.makedirs(dir_remap, exist_ok=True)
-
-                        import blendfile_pack_restore
-                        blendfile_pack_restore.blendfile_remap(
-                                fn_abs.encode('utf-8'),
-                                dir_remap.encode('utf-8'),
-                                deps,
-                                )
-                        if os.path.exists(fn_abs_remap):
-                            fn_abs = fn_abs_remap
-                        # ----
-
-                    paths_modified[fn_rel] = fn_abs
-
-                paths_used.add(fn_abs)
-            else:
-                # TODO(cam) remove these from svn
-                print("  removing: %r" % fn_abs)
-                paths_remove.add(fn_abs)
-
-        # ----
-        # find new files
-        # TODO(cam) .bamignore
-        def iter_files(path, filename_check=None):
-            for dirpath, dirnames, filenames in os.walk(path):
-
-                # skip '.svn'
-                if dirpath.startswith(".") and dirpath != ".":
-                    continue
-
-                for filename in filenames:
-                    filepath = os.path.join(dirpath, filename)
-                    if filename_check is None or filename_check(filepath):
-                        yield filepath
-
-        print(path)
-        for fn_abs in iter_files(path):
-            if fn_abs not in paths_used:
-                # we should be clever - add the file to a useful location based on some rules
-                # (category, filetype & tags?)
-                fn_rel = os.path.basename(fn_abs)
-
-                # TODO(cam)
-                # remap paths of added files
-
-                print("  adding new file: %r" % fn_abs)
-                paths_modified[fn_rel] = fn_abs
-
-                # TESTING ONLY
-                fn_abs_remote = os.path.join("pro", fn_rel)
-                paths_remap_subset_add[fn_rel] = fn_abs_remote
-
-        del paths_used
+        bam_session.status(
+                session_rootdir,
+                paths_add, paths_remove, paths_modified, paths_remap_subset_add,
+                )
 
         if not paths_modified:
             print("Nothing to commit!")
             return
 
+
+        for fn_rel, fn_abs in paths_modified.items():
+            # we may want to be more clever here
+            deps = deps_remap.get(fn_rel)
+            if deps:
+                # ----
+                # Remap!
+                fn_abs_remap = os.path.join(basedir_temp, fn_rel)
+                dir_remap = os.path.dirname(fn_abs_remap)
+                os.makedirs(dir_remap, exist_ok=True)
+
+                import blendfile_pack_restore
+                blendfile_pack_restore.blendfile_remap(
+                        fn_abs.encode('utf-8'),
+                        dir_remap.encode('utf-8'),
+                        deps,
+                        )
+                if os.path.exists(fn_abs_remap):
+                    fn_abs = fn_abs_remap
+
         # -------------------------
         print("Now make a zipfile")
         import zipfile
-        temp_zip = os.path.join(path, ".bam_tmp.zip")
+        temp_zip = os.path.join(session_rootdir, ".bam_tmp.zip")
         with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zip_handle:
-            for (fn_rel, fn_abs) in paths_modified.items():
-                print("  Archiving %r" % fn_abs)
-                zip_handle.write(fn_abs, arcname=fn_rel)
+            for paths_dict, op in ((paths_modified, 'M'), (paths_add, 'A')):
+                for (fn_rel, fn_abs) in paths_dict.items():
+                    print("  packing (%s): %r" % (op, fn_abs))
+                    zip_handle.write(fn_abs, arcname=fn_rel)
 
             # make a paths remap that only includes modified files
             # TODO(cam), from 'packer.py'
@@ -417,7 +473,7 @@ class bam_utils:
                         sort_keys=True, indent=4, separators=(',', ': '),
                         ).encode('utf-8'))
 
-            with open(os.path.join(path, ".bam_paths_remap.json")) as f:
+            with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as f:
                 paths_remap = json.load(f)
 
             paths_remap_subset = {k: v for k, v in paths_remap.items() if k in paths_modified}
@@ -443,7 +499,7 @@ class bam_utils:
             }
 
         r = requests.put(
-                bam_utils.session_request_url("file"),
+                bam_session.request_url("file"),
                 params=payload,
                 auth=(cfg['user'], cfg['password']),
                 files=files)
@@ -460,6 +516,32 @@ class bam_utils:
         # TODO(cam)
         # if all goes well, rewrite sha1's
 
+
+    @staticmethod
+    def status(paths):
+        # TODO(cam) multiple paths
+        path = paths[0]
+        del paths
+
+        session_rootdir = bam_config.find_sessiondir(path, abort=True)
+        print(session_rootdir)
+
+
+        paths_add = {}
+        paths_modified = {}
+        paths_remove = {}
+        paths_remap_subset_add = {}
+
+        bam_session.status(session_rootdir, paths_add, paths_remove, paths_modified, paths_remap_subset_add)
+
+        for fn in sorted(paths_add):
+            print("  A: %s" % fn)
+        for fn in sorted(paths_modified):
+            print("  M: %s" % fn)
+        for fn in sorted(paths_remove):
+            print("  D: %s" % fn)
+
+
     @staticmethod
     def list_dir(paths):
         import requests
@@ -475,7 +557,7 @@ class bam_utils:
             "path": path,
             }
         r = requests.get(
-                bam_utils.session_request_url("file_list"),
+                bam_session.request_url("file_list"),
                 params=payload,
                 auth=(cfg['user'], cfg['password']),
                 stream=True,
@@ -510,20 +592,22 @@ class bam_utils:
                 print("  %r -> %r" % (os.path.join(fp.basedir, fp_blend_basename), fp.filepath))
 
 
+
+
 def subcommand_init_cb(args):
-    bam_utils.init(args.url, args.directory_name)
+    bam_commands.init(args.url, args.directory_name)
 
 
 def subcommand_create_cb(args):
-    bam_utils.create(args.session_name[0])
+    bam_commands.create(args.session_name[0])
 
 
 def subcommand_checkout_cb(args):
-    bam_utils.checkout(args.paths)
+    bam_commands.checkout(args.paths)
 
 
 def subcommand_commit_cb(args):
-    bam_utils.commit(args.paths or ["."], args.message)
+    bam_commands.commit(args.paths or ["."], args.message)
 
 
 def subcommand_update_cb(args):
@@ -535,15 +619,15 @@ def subcommand_revert_cb(args):
 
 
 def subcommand_status_cb(args):
-    print(args)
+    bam_commands.status(args.paths or ["."])
 
 
 def subcommand_list_cb(args):
-    bam_utils.list_dir(args.paths or ["."])
+    bam_commands.list_dir(args.paths or ["."])
 
 
 def subcommand_deps_cb(args):
-    bam_utils.deps(args.paths or ["."], args.recursive)
+    bam_commands.deps(args.paths or ["."], args.recursive)
 
 
 def create_argparse_init(subparsers):
@@ -631,7 +715,7 @@ def create_argparse_status(subparsers):
             help="",
             )
     subparse.add_argument(
-            dest="paths", nargs="+",
+            dest="paths", nargs="*",
             help="Path(s) to operate on",
             )
     subparse.set_defaults(func=subcommand_status_cb)

@@ -196,13 +196,10 @@ class bam_session:
 
                 paths_used.add(fn_abs)
             else:
-                # TODO(cam) remove these from svn
-                print("  removing: %r" % fn_abs)
                 paths_remove[fn_rel] = fn_abs
 
         # ----
         # find new files
-        # TODO(cam) .bamignore
         def iter_files(path, filename_check=None):
             for dirpath, dirnames, filenames in os.walk(path):
 
@@ -500,6 +497,16 @@ class bam_commands:
             paths_remap_subset = {k: v for k, v in paths_remap.items() if k in paths_modified}
             paths_remap_subset.update(paths_remap_subset_add)
             write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)
+
+            # build a list of path manipulation operations
+            paths_ops = {}
+            # paths_remove ...
+            for fn_rel, fn_abs in paths_remove.items():
+                # TODO
+                fn_abs_remote = paths_remap[fn_rel]
+                paths_ops[fn_abs_remote] = 'D'
+
+            write_dict_as_json(".bam_paths_ops.json", paths_ops)
 
         if os.path.exists(basedir_temp):
             import shutil

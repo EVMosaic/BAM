@@ -23,9 +23,6 @@ Blender asset manager
 """
 
 
-if __name__ != "__main__":
-    raise Exception("must be imported directly")
-
 # ------------------
 # Ensure module path
 import os
@@ -38,11 +35,14 @@ del os, sys, path
 
 
 def fatal(msg):
-    import sys
-    sys.stderr.write("fatal: ")
-    sys.stderr.write(msg)
-    sys.stderr.write("\n")
-    sys.exit(1)
+    if __name__ == "__main__":
+        import sys
+        sys.stderr.write("fatal: ")
+        sys.stderr.write(msg)
+        sys.stderr.write("\n")
+        sys.exit(1)
+    else:
+        raise RuntimeError(msg)
 
 
 class bam_config:
@@ -570,7 +570,7 @@ class bam_commands:
             print("  D: %s" % fn)
 
     @staticmethod
-    def list_dir(paths):
+    def list_dir(paths, use_json=False):
         import requests
 
         # Load project configuration
@@ -597,12 +597,21 @@ class bam_commands:
 
         items.sort()
 
-        for (name_short, name_full, file_type) in items:
-            if file_type == "dir":
-                print("  %s/" % name_short)
-        for (name_short, name_full, file_type) in items:
-            if file_type != "dir":
-                print("  %s" % name_short)
+        if use_json:
+            ret = []
+            for (name_short, name_full, file_type) in items:
+                ret.append((name_short, file_type))
+
+            import json
+            print(json.dumps(ret))
+        else:
+            for (name_short, name_full, file_type) in items:
+                if file_type == "dir":
+                    print("  %s/" % name_short)
+            for (name_short, name_full, file_type) in items:
+                if file_type != "dir":
+                    print("  %s" % name_short)
+
 
     @staticmethod
     def deps(paths, recursive=False):
@@ -648,11 +657,18 @@ def subcommand_status_cb(args):
 
 
 def subcommand_list_cb(args):
-    bam_commands.list_dir(args.paths or ["."])
+    bam_commands.list_dir(args.paths or ["."], use_json=args.json)
 
 
 def subcommand_deps_cb(args):
     bam_commands.deps(args.paths or ["."], args.recursive)
+
+
+def generic_argument_json(subparse):
+    subparse.add_argument(
+            "-j", "--json", dest="json", action='store_true',
+            help="Generate JSON output",
+            )
 
 
 def create_argparse_init(subparsers):
@@ -755,6 +771,9 @@ def create_argparse_list(subparsers):
             dest="paths", nargs="*",
             help="Path(s) to operate on",
             )
+
+    generic_argument_json(subparse)
+
     subparse.set_defaults(func=subcommand_list_cb)
 
 
@@ -809,8 +828,8 @@ def main(argv=None):
         import sys
         argv = sys.argv
 
-    parser = create_argparse(argv)
-    args = parser.parse_args()
+    parser = create_argparse()
+    args = parser.parse_args(argv)
 
     # call subparser callback
     if not hasattr(args, "func"):

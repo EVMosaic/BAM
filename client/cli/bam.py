@@ -803,11 +803,14 @@ def create_argparse():
     return parser
 
 
-def main():
-    import sys
+def main(argv=None):
 
-    parser = create_argparse()
-    args = parser.parse_args(sys.argv[1:])
+    if argv is None:
+        import sys
+        argv = sys.argv
+
+    parser = create_argparse(argv)
+    args = parser.parse_args()
 
     # call subparser callback
     if not hasattr(args, "func"):

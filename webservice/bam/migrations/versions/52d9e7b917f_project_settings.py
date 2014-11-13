@@ -24,8 +24,7 @@ def upgrade():
     sa.Column('value', sa.String(length=100), nullable=False),
     sa.Column('data_type', sa.String(length=128), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['project.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
+    sa.PrimaryKeyConstraint('id')
     )
     ### end Alembic commands ###
 

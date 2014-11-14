@@ -101,8 +101,14 @@ class StdIO:
 def svn_repo_create(id_, dirname):
     run(["svnadmin", "create", id_], cwd=dirname)
 
-def svn_repo_checkout(path, dirname):
-    run(["svnadmin", "checkout", path, dirname])
+def svn_repo_checkout(path):
+    run(["svn", "checkout", path])
+
+def svn_repo_populate(path):
+    dummy_file = os.path.join(path, "file1")
+    run(["touch", dummy_file])
+    run(["svn", "add", dummy_file])
+    run(["svn", "commit", "-m", "First commit"])
 
 def bam_run(argv, cwd=None):
 
@@ -193,14 +199,18 @@ class BamSessionTestCase(unittest.TestCase):
         svn_repo_create(self.proj_name, path_svn_repo)
 
         # Check for SVN checkout
-        path_svn_checkout = os.path.join(self.path_remote_store, "svn_checkout")
+        path_svn_checkout = os.path.join(self.path_remote_store, "svn_checkout", self.proj_name)
         if not os.path.isdir(path_svn_checkout):
             os.makedirs(path_svn_checkout)
 
         # Create an SVN checkout of the freshly created repo
-        svn_repo_checkout(path_svn_checkout, self.proj_name)
+        svn_repo_checkout(path_svn_checkout)
+
+        # Pupulate the repo with an empty file
+        svn_repo_populate(path_svn_checkout)
 
     def tearDown(self):
+        #input('Wait:')
         shutil.rmtree(TEMP)
 
     def get_url(self):

@@ -175,6 +175,10 @@ class BamSessionTestCase(unittest.TestCase):
 
 
 class BamInitTest(BamSessionTestCase):
+    """Test the `bam init user@http://bamserver/projectname` command.
+    We verify that a project folder is created, and that it contains a .bam subfolder
+    with a config file, with the right url and user values (given in the command)
+    """
 
     def __init__(self, *args):
         self.init_defaults()
@@ -191,6 +195,9 @@ class BamInitTest(BamSessionTestCase):
 
 
 class BamListTest(BamSessionTestCase):
+    """Test for the `bam ls --json` command. We run it with --json for easier command
+    output parsing. 
+    """
 
     def __init__(self, *args):
         self.init_defaults()

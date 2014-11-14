@@ -130,7 +130,7 @@ def server(mode='testing', debug=False):
 
     def run_testing_server():
         from application import app
-        # If we run the server in testing mode (the default) we override sqlite database, 
+        # If we run the server in testing mode (the default) we override sqlite database,
         # with a testing, disposable one (create TMP dir)
         if mode == 'testing':
             from application import db
@@ -179,7 +179,7 @@ class BamSessionTestCase(unittest.TestCase):
         if not os.path.isdir(self.path_local_store):
             os.makedirs(self.path_local_store)
 
-        # Create remote storage (usually is on the server). 
+        # Create remote storage (usually is on the server).
         # SVN repo and SVN checkout will live here
         if not os.path.isdir(self.path_remote_store):
             os.makedirs(self.path_remote_store)
@@ -243,7 +243,7 @@ class BamInitTest(BamSessionTestCase):
 
 class BamListTest(BamSessionTestCase):
     """Test for the `bam ls --json` command. We run it with --json for easier command
-    output parsing. 
+    output parsing.
     """
 
     def __init__(self, *args):
@@ -254,7 +254,7 @@ class BamListTest(BamSessionTestCase):
         self.init_repo()
 
         d = os.path.join(self.path_local_store, self.proj_name)
-        
+
         stdout, stderr = bam_run(["ls", "--json"], d)
 
         self.assertEqual("", stderr)
@@ -267,5 +267,6 @@ if __name__ == '__main__':
     p = server()
     unittest.main(exit=False)
     p.terminate()
-    shutil.rmtree(TEMP_SERVER)
+
+    shutil.rmtree(TEMP_SERVER, ignore_errors=True)
 

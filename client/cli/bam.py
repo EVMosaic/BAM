@@ -444,7 +444,7 @@ class bam_commands:
                 paths_add, paths_remove, paths_modified, paths_remap_subset_add,
                 )
 
-        if not paths_modified:
+        if not paths_modified and not paths_add:
             print("Nothing to commit!")
             return
 

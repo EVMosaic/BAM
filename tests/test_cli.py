@@ -27,9 +27,6 @@ del os, sys, path
 # --------
 
 
-
-
-
 import os
 import sys
 import shutil
@@ -40,6 +37,7 @@ TEMP = "/tmp/bam_test"
 TEMP_SERVER = "/tmp/bam_test_server"
 PORT = 5555
 PROJECT_NAME = "test_project"
+
 
 def run(cmd, cwd=None):
     # print(">>> ", " ".join(cmd))
@@ -62,6 +60,7 @@ class CHDir:
         "dir_old",
         "dir_new",
         )
+
     def __init__(self, directory):
         self.dir_old = os.getcwd()
         self.dir_new = directory
@@ -78,6 +77,7 @@ class StdIO:
         "stdout",
         "stderr",
         )
+
     def __init__(self):
         self.stdout = sys.stdout
         self.stderr = sys.stderr
@@ -101,14 +101,17 @@ class StdIO:
 def svn_repo_create(id_, dirname):
     run(["svnadmin", "create", id_], cwd=dirname)
 
+
 def svn_repo_checkout(path):
     run(["svn", "checkout", path])
+
 
 def svn_repo_populate(path):
     dummy_file = os.path.join(path, "file1")
     run(["touch", dummy_file])
     run(["svn", "add", dummy_file])
     run(["svn", "commit", "-m", "First commit"])
+
 
 def bam_run(argv, cwd=None):
 
@@ -120,8 +123,8 @@ def bam_run(argv, cwd=None):
 
     return ret
 
-#if __name__ == "__main__":
-#    main()
+# if __name__ == "__main__":
+#     main()
 
 
 # ------------------------------------------------------------------------------
@@ -132,7 +135,6 @@ def server(mode='testing', debug=False):
     """Start development server via Flask app.run() in a separate thread. We need server
     to run in order to check most of the client commands.
     """
-    import threading
 
     def run_testing_server():
         from application import app
@@ -140,7 +142,7 @@ def server(mode='testing', debug=False):
         # with a testing, disposable one (create TMP dir)
         if mode == 'testing':
             from application import db
-            from application.modules.projects.model import Project, ProjectSetting
+            from application.modules.projects.model import Project
             # Override sqlite database
             if not os.path.isdir(TEMP_SERVER):
                 os.makedirs(TEMP_SERVER)
@@ -210,7 +212,7 @@ class BamSessionTestCase(unittest.TestCase):
         svn_repo_populate(path_svn_checkout)
 
     def tearDown(self):
-        #input('Wait:')
+        # input('Wait:')
         shutil.rmtree(TEMP)
 
     def get_url(self):
@@ -279,4 +281,3 @@ if __name__ == '__main__':
     p.terminate()
 
     shutil.rmtree(TEMP_SERVER, ignore_errors=True)
-

@@ -27,6 +27,51 @@ del os, sys, path
 # --------
 
 
+# -----------------------------------------
+# Ensure we get stdout & stderr on sys.exit
+if 1:
+    import sys
+
+    def exit(status):
+        import io
+        if isinstance(sys.stdout, io.StringIO):
+            globals().update(sys.exit.exit_data)
+            _stdout.write("\nsys.exit(%d) with message:\n" % status)
+
+            sys.stdout.seek(0)
+            sys.stderr.seek(0)
+            _stdout.write(sys.stdout.read())
+            _stderr.write(sys.stderr.read())
+
+            _stdout.write("\n")
+
+            _stdout.flush()
+            _stderr.flush()
+        _exit(status)
+
+    exit.exit_data = {
+        "_exit": sys.exit,
+        "_stdout": sys.stdout,
+        "_stderr": sys.stderr,
+        }
+    sys.exit = exit
+    del exit
+    del sys
+# --------
+
+# --------------------------------------------
+# Don't Exit when argparse fails to parse args
+import argparse
+def argparse_fake_exit(self, status, message):
+    sys.__stdout__.write(message)
+    raise Exception(message)
+
+argparse.ArgumentParser.exit = argparse_fake_exit
+del argparse_fake_exit
+del argparse
+# --------
+
+
 import os
 import sys
 import shutil
@@ -117,6 +162,14 @@ def bam_run(argv, cwd=None):
 
     with CHDir(cwd):
         import bam
+
+        if 1:
+            sys.stdout.write("  running:  ")
+            if cwd is not None:
+                sys.stdout.write("cd %r ; " % cwd)
+            sys.stdout.write("bam %s\n" % " ".join(argv))
+            # input('press_key!:')
+
         with StdIO() as fakeio:
             bam.main(argv)
             ret = fakeio.read()
@@ -268,6 +321,29 @@ class BamListTest(BamSessionTestCase):
         d = os.path.join(self.path_local_store, self.proj_name)
 
         stdout, stderr = bam_run(["ls", "--json"], d)
+
+        self.assertEqual("", stderr)
+
+        import json
+        ret = json.loads(stdout)
+
+
+class BamCommitTest(BamSessionTestCase):
+    """Test for the `bam create` command. We run it with --json for easier command
+    output parsing.
+    """
+
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
+    def test_ls(self):
+        self.init_repo()
+
+        d = os.path.join(self.path_local_store, self.proj_name)
+        co_id = "mysession"
+
+        stdout, stderr = bam_run(["create", "--json"], d)
 
         self.assertEqual("", stderr)
 

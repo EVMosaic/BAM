@@ -42,8 +42,9 @@ def open_blend(filename, access="rb"):
     Known issue: does not support packaged blend files
     """
     handle = open(filename, access)
-    magic = handle.read(7)
-    if magic == b"BLENDER":
+    magic_test = b"BLENDER"
+    magic = handle.read(len(magic_test))
+    if magic == magic_test:
         log.debug("normal blendfile detected")
         handle.seek(0, os.SEEK_SET)
         bfile = BlendFile(handle)
@@ -55,19 +56,23 @@ def open_blend(filename, access="rb"):
         handle.close()
         log.debug("decompressing started")
         fs = gzip.open(filename, "rb")
-        handle = tempfile.TemporaryFile()
         data = fs.read(FILE_BUFFER_SIZE)
-        while data:
-            handle.write(data)
-            data = fs.read(FILE_BUFFER_SIZE)
-        log.debug("decompressing finished")
-        fs.close()
-        log.debug("resetting decompressed file")
-        handle.seek(os.SEEK_SET, 0)
-        bfile = BlendFile(handle)
-        bfile.is_compressed = True
-        bfile.filepath_orig = filename
-        return bfile
+        magic = data[:len(magic_test)]
+        if magic == magic_test:
+            handle = tempfile.TemporaryFile()
+            while data:
+                handle.write(data)
+                data = fs.read(FILE_BUFFER_SIZE)
+            log.debug("decompressing finished")
+            fs.close()
+            log.debug("resetting decompressed file")
+            handle.seek(os.SEEK_SET, 0)
+            bfile = BlendFile(handle)
+            bfile.is_compressed = True
+            bfile.filepath_orig = filename
+            return bfile
+        else:
+            raise Exception("filetype inside gzip not a blend")
     else:
         raise Exception("filetype not a blend or a gzip blend")
 

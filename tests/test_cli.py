@@ -110,9 +110,13 @@ def run(cmd, cwd=None):
         kwargs["cwd"] = cwd
 
     proc = subprocess.Popen(cmd, **kwargs)
-    stderr, stdout = proc.communicate()
+    stdout, stderr = proc.communicate()
 
-    return stdout
+    if VERBOSE:
+        sys.stdout.write("   stdout:  %s\n" % stdout.strip())
+        sys.stdout.write("   stderr:  %s\n" % stderr.strip())
+
+    return stdout, stderr
 
 
 class CHDir:

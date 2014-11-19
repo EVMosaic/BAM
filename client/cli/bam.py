@@ -230,7 +230,7 @@ class bam_session:
                 paths_add[fn_rel] = fn_abs
 
                 # TESTING ONLY
-                fn_abs_remote = os.path.join("pro", fn_rel)
+                fn_abs_remote = fn_rel
                 paths_remap_subset_add[fn_rel] = fn_abs_remote
 
 
@@ -357,8 +357,7 @@ class bam_commands:
             ID_PAYLOAD = 2
             head = r.raw.read(4)
             if head != b'BAM\0':
-                print("Bad header...")
-                return
+                fatal("bad header from server")
 
             while True:
                 msg_type, msg_size = struct.unpack("<II", r.raw.read(8))
@@ -826,7 +825,7 @@ def main(argv=None):
 
     if argv is None:
         import sys
-        argv = sys.argv
+        argv = sys.argv[1:]
 
     parser = create_argparse()
     args = parser.parse_args(argv)

@@ -83,6 +83,9 @@ del argparse
 # --------
 
 
+# ----------------------------------------------------------------------------
+# Real beginning of code!
+
 import os
 import sys
 import shutil
@@ -151,6 +154,9 @@ class StdIO:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is not None:
+            self.stdout.write("\n".join(self.read()))
+
         sys.stdout = self.stdout
         sys.stderr = self.stderr
 
@@ -216,7 +222,7 @@ def file_quick_read(path, filepart=None, mode='rb'):
         path = os.path.join(path, filepart)
 
     with open(path, mode) as f:
-        return f.read(data)
+        return f.read()
 
 
 def wait_for_input():
@@ -291,6 +297,13 @@ def server(mode='testing', debug=False):
 
 
 def global_setup():
+
+    if VERBOSE:
+        # for server
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
+        del logging
+
     shutil.rmtree(TEMP_SERVER, ignore_errors=True)
     p = server()
     data = p
@@ -465,22 +478,14 @@ class BamCommitTest(BamSessionTestCase):
         # checkout the file again
         stdout, stderr = bam_run(["checkout", "testfile.txt"], proj_path)
         self.assertEqual("", stderr)
-        print(os.path.join(proj_path, "testfile.txt"))
-        return
-        wait_for_input()
-        self.assertEqual(True, os.path.exists(os.path.join(proj_path, "testfile.txt")))
+        # wait_for_input()
+        self.assertEqual(True, os.path.exists(os.path.join(proj_path, "testfile/testfile.txt")))
 
-        file_data_test = file_quick_read(os.path.join(proj_path, "testfile.txt"))
+        file_data_test = file_quick_read(os.path.join(proj_path, "testfile/testfile.txt"))
         self.assertEqual(file_data, file_data_test)
 
 
 if __name__ == '__main__':
-    if VERBOSE:
-        # for server
-        import logging
-        logging.basicConfig(level=logging.DEBUG)
-        del logging
-
     data = global_setup()
     unittest.main(exit=False)
     global_teardown(data)

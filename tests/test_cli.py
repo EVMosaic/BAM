@@ -13,7 +13,7 @@ Run a single test:
    python3 -m unittest test_cli.BamCommitTest.test_checkout
 """
 
-VERBOSE = 0
+VERBOSE = 1
 
 # ------------------
 # Ensure module path
@@ -97,6 +97,9 @@ TEMP_SERVER = "/tmp/bam_test_server"
 PORT = 5555
 PROJECT_NAME = "test_project"
 
+# running scripts next to this one!
+CURRENT_DIR = os.path.dirname(__file__)
+
 
 def run(cmd, cwd=None):
     if VERBOSE:
@@ -111,12 +114,14 @@ def run(cmd, cwd=None):
 
     proc = subprocess.Popen(cmd, **kwargs)
     stdout, stderr = proc.communicate()
+    returncode = proc.returncode
 
     if VERBOSE:
         sys.stdout.write("   stdout:  %s\n" % stdout.strip())
         sys.stdout.write("   stderr:  %s\n" % stderr.strip())
+        sys.stdout.write("   return:  %d\n" % returncode)
 
-    return stdout, stderr
+    return stdout, stderr, returncode
 
 
 class CHDir:
@@ -487,6 +492,58 @@ class BamCommitTest(BamSessionTestCase):
 
         file_data_test = file_quick_read(os.path.join(proj_path, "testfile/testfile.txt"))
         self.assertEqual(file_data, file_data_test)
+
+
+class BamBlendTest(BamSessionTestCase):
+
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
+    @staticmethod
+    def create_blend_id(blendfile, create_id, returncode_test):
+        os.makedirs(os.path.dirname(blendfile), exist_ok=True)
+        stdout, stderr, returncode = run(
+                ("blender",
+                 "--background",
+                 "--factory-startup",
+                 "-noaudio",
+                 "--python",
+                 os.path.join(CURRENT_DIR, "blendfile_templates.py"),
+                 "--",
+                 blendfile,
+                 create_id,
+                 str(returncode_test),
+                 ))
+        print("  stdout=%s" % stdout.decode())
+        print("  stderr=%s" % stderr.decode())
+        return stdout, stderr, returncode
+
+    def test_create_all(self):
+        """ This simply tests all the create functions run without error.
+        """
+        import blendfile_templates
+        returncode_test = 42
+        for create_id, create_fn in blendfile_templates.__dict__.items():
+            if create_id.startswith("create_"):
+                if create_fn.__class__.__name__ == "function":
+                    blendfile = os.path.join(TEMP, create_id + ".blend")
+
+                    stdout, stderr, returncode = self.create_blend_id(blendfile, create_id, returncode_test)
+
+                    self.assertEqual(b'', stderr)
+                    self.assertEqual(True, os.path.exists(blendfile))
+                    self.assertEqual(returncode, returncode_test)
+                    with open(blendfile, 'rb') as blendfile_handle:
+                        self.assertEqual(b'BLENDER', blendfile_handle.read(7))
+                    os.remove(blendfile)
+
+    def test_empty(self):
+        blendfile = os.path.join(TEMP, "test.blend")
+        returncode_test = 13
+        stdout, stderr, returncode = self.create_blend_id(blendfile, "create_blank", returncode_test)
+        self.assertEqual(True, os.path.exists(blendfile))
+        self.assertEqual(returncode_test, returncode)
 
 
 if __name__ == '__main__':

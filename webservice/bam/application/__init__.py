@@ -322,17 +322,31 @@ class FileAPI(Resource):
         paths_remap = {}
         paths_uuid = {}
 
-        try:
-            yield from blendfile_pack.pack(
-                    filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode='ZIP',
-                    paths_remap_relbase=paths_remap_relbase.encode('utf-8'),
-                    # TODO(cam) this just means the json is written in the zip
-                    deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
-                    report=report)
-        except:
-            import traceback
-            traceback.print_exc()
-            return
+        if filepath.endswith(".blend"):
+            try:
+                yield from blendfile_pack.pack(
+                        filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode='ZIP',
+                        paths_remap_relbase=paths_remap_relbase.encode('utf-8'),
+                        # TODO(cam) this just means the json is written in the zip
+                        deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
+                        report=report)
+            except:
+                import traceback
+                traceback.print_exc()
+                return
+        else:
+            # non blend-file
+            from bam_utils.system import sha1_from_file
+            paths_uuid[os.path.basename(filepath)] = sha1_from_file(filepath)
+            del sha1_from_file
+
+            import zipfile
+            with zipfile.ZipFile(filepath_zip, 'w', zipfile.ZIP_DEFLATED) as zip_handle:
+                zip_handle.write(
+                        filepath,
+                        arcname=os.path.basename(filepath),
+                        )
+            del zipfile
 
         # TODO, avoid reopening zipfile
         # append json info to zip

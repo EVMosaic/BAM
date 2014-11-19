@@ -50,7 +50,7 @@ def open_blend(filename, access="rb"):
         bfile.is_compressed = False
         bfile.filepath_orig = filename
         return bfile
-    else:
+    elif magic[:2] == b'\x1f\x8b':
         log.debug("gzip blendfile detected?")
         handle.close()
         log.debug("decompressing started")
@@ -68,6 +68,8 @@ def open_blend(filename, access="rb"):
         bfile.is_compressed = True
         bfile.filepath_orig = filename
         return bfile
+    else:
+        raise Exception("filetype not a blend or a gzip blend")
 
 
 def align(offset, by):

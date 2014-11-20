@@ -101,9 +101,16 @@ PROJECT_NAME = "test_project"
 CURRENT_DIR = os.path.dirname(__file__)
 
 
+def args_as_string(args):
+    """ Print args so we can paste them to run them again.
+    """
+    import shlex
+    return " ".join([shlex.quote(c) for c in args])
+
+
 def run(cmd, cwd=None):
     if VERBOSE:
-        print(">>> ", " ".join(cmd))
+        print(">>> ", args_as_string(cmd))
     import subprocess
     kwargs = dict(
         stderr=subprocess.PIPE,
@@ -131,7 +138,7 @@ def run_check(cmd, cwd=None, returncode_ok=(0,)):
 
     # verbose will have already printed
     if not VERBOSE:
-        print(">>> ", " ".join(cmd))
+        print(">>> ", args_as_string(cmd))
         sys.stdout.write("   stdout:  %s\n" % stdout.strip())
         sys.stdout.write("   stderr:  %s\n" % stderr.strip())
         sys.stdout.write("   return:  %d\n" % returncode)
@@ -218,7 +225,10 @@ def bam_run(argv, cwd=None):
             sys.stdout.write("\n  running:  ")
             if cwd is not None:
                 sys.stdout.write("cd %r ; " % cwd)
-            sys.stdout.write("bam %s\n" % " ".join(argv))
+            import shlex
+            sys.stdout.write("bam %s\n" % " ".join([shlex.quote(c) for c in argv]))
+
+
             # input('press_key!:')
 
         with StdIO() as fakeio:
@@ -617,7 +627,6 @@ class BamDeleteTest(BamSessionTestCase):
         new_session_path = os.path.join(proj_path, "testfile")
         run(["rm", os.path.join(new_session_path, "testfile.txt")])
         stdout, stderr = bam_run(["commit", "-m", "test deletion"], new_session_path)
-        wait_for_input()
         self.assertEqual("", stderr)
         # check if deletion of the file has happened
         d = os.path.join(self.path_local_store, "testfile")

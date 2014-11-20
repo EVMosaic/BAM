@@ -193,13 +193,18 @@ def svn_repo_checkout(repo, path):
 
 
 def svn_repo_populate(path):
-    dummy_file = os.path.join(path, "file1")
-    file_quick_touch(path)
+    if not os.path.exists(path):
+        os.makedirs(path)
 
-    if not run_check(["svn", "add", dummy_file]):
+    # TODO, we probably want to define files externally, for now this is just to see it works
+    dummy_file = os.path.join(path, "file1")
+    file_quick_touch(dummy_file)
+
+    # adds all files recursively
+    if not run_check(["svn", "add", path]):
         return False
 
-    if not run_check(["svn", "commit", "-m", "First commit"]):
+    if not run_check(["svn", "commit", "-m", "First commit"], path):
         return False
 
     return True
@@ -341,6 +346,7 @@ def global_setup():
         del logging
 
     shutil.rmtree(TEMP_SERVER, ignore_errors=True)
+    shutil.rmtree(TEMP, ignore_errors=True)
     p = server()
     data = p
     return data
@@ -349,7 +355,7 @@ def global_setup():
 def global_teardown(data):
     p = data
     p.terminate()
-    shutil.rmtree(TEMP_SERVER, ignore_errors=True)
+    shutil.rmtree(TEMP, ignore_errors=True)
 
 
 # ------------------------------------------------------------------------------

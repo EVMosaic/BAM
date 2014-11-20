@@ -365,6 +365,7 @@ def global_setup():
 def global_teardown(data):
     p = data
     p.terminate()
+    shutil.rmtree(TEMP_SERVER, ignore_errors=True)
     shutil.rmtree(TEMP, ignore_errors=True)
 
 
@@ -620,6 +621,10 @@ class BamDeleteTest(BamSessionTestCase):
 
          # remove the path
         shutil.rmtree(session_path)
+        del session_path
+
+        # -----------
+        # New Session
 
         # checkout the file again
         stdout, stderr = bam_run(["checkout", "testfile.blend"], proj_path)
@@ -627,13 +632,13 @@ class BamDeleteTest(BamSessionTestCase):
 
 
         # now delete the file we just checked out
-        new_session_path = os.path.join(proj_path, "testfile")
-        os.remove(os.path.join(new_session_path, "testfile.blend"))
-        stdout, stderr = bam_run(["commit", "-m", "test deletion"], new_session_path)
+        session_path = os.path.join(proj_path, "testfile")
+        os.remove(os.path.join(session_path, "testfile.blend"))
+        stdout, stderr = bam_run(["commit", "-m", "test deletion"], session_path)
         self.assertEqual("", stderr)
         # check if deletion of the file has happened
 
-        stdout, stderr = bam_run(["ls", "--json"], new_session_path)
+        stdout, stderr = bam_run(["ls", "--json"], session_path)
         # check for errors in the response
         self.assertEqual("", stderr)
 

@@ -309,7 +309,7 @@ class FileAPI(Resource):
 
             log.debug(path_ops)
             for file_path, operation in path_ops.items():
-
+                # TODO(fsiddi), collect all file paths and remove after
                 if operation == 'D':
                     file_path_abs = os.path.join(project.repository_path, file_path)
                     assert(os.path.exists(file_path_abs))
@@ -372,6 +372,9 @@ class FileAPI(Resource):
                         arcname=os.path.basename(filepath),
                         )
             del zipfile
+
+            # simple case
+            paths_remap[os.path.basename(filepath)] = os.path.basename(filepath)
 
         # TODO, avoid reopening zipfile
         # append json info to zip

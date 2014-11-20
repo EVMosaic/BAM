@@ -52,7 +52,7 @@ def open_blend(filename, access="rb"):
         bfile.filepath_orig = filename
         return bfile
     elif magic[:2] == b'\x1f\x8b':
-        log.debug("gzip blendfile detected?")
+        log.debug("gzip blendfile detected")
         handle.close()
         log.debug("decompressing started")
         fs = gzip.open(filename, "rb")

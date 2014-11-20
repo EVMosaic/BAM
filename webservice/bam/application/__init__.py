@@ -32,6 +32,7 @@ import json
 import svn.local
 import werkzeug
 import xml.etree.ElementTree
+import logging
 
 from flask import Flask, jsonify, abort, request, make_response, url_for, Response
 from flask.views import MethodView
@@ -50,6 +51,9 @@ from application.modules.admin import backend
 from application.modules.admin import settings
 from application.modules.projects import admin
 from application.modules.projects.model import Project, ProjectSetting
+
+log = logging.getLogger("webservice")
+logging.basicConfig(level=logging.DEBUG)
 
 
 @auth.get_password
@@ -289,6 +293,17 @@ class FileAPI(Resource):
                 # We add each unversioned file to SVN
                 if item_status == 'unversioned':
                     result = local_client.run_command('add',
+                        [file_path,])
+
+            with open(os.path.join(extract_tmp_dir, '.bam_paths_ops.json'), 'r') as path_ops:
+                path_ops = json.load(path_ops)
+
+            log.debug(path_ops)
+            for file_path, operation in path_ops.items():
+                assert(os.path.exists(file_path))
+
+                if operation == 'D':
+                    result = local_client.run_command('rm',
                         [file_path,])
 
 

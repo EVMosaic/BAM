@@ -575,6 +575,31 @@ class BamBlendTest(BamSessionTestCase):
         self.assertEqual(returncode_test, returncode)
 
 
+class BamDeleteTest(BamSessionTestCase):
+    """Test for the `bam commit` command when files are being deleted.
+    """
+
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
+    def test_delete(self):
+        self.init_repo()
+        file_data = b"hello world!\n"
+
+        proj_path = os.path.join(self.path_local_store, self.proj_name)
+        co_id = "mysession"
+        session_path = os.path.join(proj_path, co_id)
+
+        stdout, stderr = bam_run(["create", co_id], proj_path)
+        self.assertEqual("", stderr)
+
+        # now do a real commit
+        file_quick_write(session_path, "testfile.txt", file_data)
+        stdout, stderr = bam_run(["commit", "-m", "tests message"], session_path)
+        self.assertEqual("", stderr)
+
+
 if __name__ == '__main__':
     data = global_setup()
     unittest.main(exit=False)

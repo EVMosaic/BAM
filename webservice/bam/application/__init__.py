@@ -43,8 +43,17 @@ from flask.ext.sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 api = Api(app)
 auth = HTTPBasicAuth()
-import config
-app.config.from_object(config.Development)
+
+try:
+    import config
+except ImportError:
+    config = None
+
+if config is None:
+    app.config["ALLOWED_EXTENSIONS"] = {'txt', 'mp4', 'png', 'jpg', 'jpeg', 'gif', 'blend', 'zip'}
+else:
+    app.config.from_object(config.Development)
+
 db = SQLAlchemy(app)
 
 from application.modules.admin import backend

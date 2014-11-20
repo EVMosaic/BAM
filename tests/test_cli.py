@@ -185,23 +185,21 @@ class StdIO:
 
 
 def svn_repo_create(id_, dirname):
-    return run_check(["svnadmin", "create", id_], cwd=dirname)[2]
+    return run_check(["svnadmin", "create", id_], cwd=dirname)
 
 
 def svn_repo_checkout(repo, path):
-    return run_check(["svn", "checkout", repo, path])[2]
+    return run_check(["svn", "checkout", repo, path])
 
 
 def svn_repo_populate(path):
     dummy_file = os.path.join(path, "file1")
     file_quick_touch(path)
 
-    returncode = run(["svn", "add", dummy_file])[2]
-    if (returncode != 0):
+    if not run_check(["svn", "add", dummy_file]):
         return False
 
-    returncode = run(["svn", "commit", "-m", "First commit"])[2]
-    if (returncode != 0):
+    if not run_check(["svn", "commit", "-m", "First commit"]):
         return False
 
     return True
@@ -385,18 +383,20 @@ class BamSessionTestCase(unittest.TestCase):
             os.makedirs(path_svn_repo)
 
         # Create a fresh SVN repository
-        svn_repo_create(self.proj_name, path_svn_repo)
+        if not svn_repo_create(self.proj_name, path_svn_repo):
+            self.fail("svn_repo: create")
 
         # Check for SVN checkout
         path_svn_checkout = os.path.join(self.path_remote_store, "svn_checkout")
 
         # Create an SVN checkout of the freshly created repo
-        if not svn_repo_checkout("file://%s" % os.path.join(path_svn_repo, self.proj_name), path_svn_checkout):
-            self.fail()
+        path_svn_repo_url = "file://%s" % os.path.join(path_svn_repo, self.proj_name)
+        if not svn_repo_checkout(path_svn_repo_url, path_svn_checkout):
+            self.fail("svn_repo: checkout %r" % path_svn_repo_url)
 
         # Populate the repo with an empty file
         if not svn_repo_populate(os.path.join(path_svn_checkout, self.proj_name)):
-            self.fail()
+            self.fail("svn_repo: populate")
 
     def tearDown(self):
         # input('Wait:')

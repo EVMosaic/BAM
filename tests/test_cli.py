@@ -124,6 +124,20 @@ def run(cmd, cwd=None):
     return stdout, stderr, returncode
 
 
+def run_check(cmd, cwd=None, returncode_ok=(0,)):
+    stdout, stderr, returncode = run(cmd, cwd)
+    if returncode in returncode_ok:
+        return True
+
+    # verbose will have already printed
+    if not VERBOSE:
+        print(">>> ", " ".join(cmd))
+        sys.stdout.write("   stdout:  %s\n" % stdout.strip())
+        sys.stdout.write("   stderr:  %s\n" % stderr.strip())
+        sys.stdout.write("   return:  %d\n" % returncode)
+    return False
+
+
 class CHDir:
     __slots__ = (
         "dir_old",
@@ -171,18 +185,26 @@ class StdIO:
 
 
 def svn_repo_create(id_, dirname):
-    run(["svnadmin", "create", id_], cwd=dirname)
+    return run_check(["svnadmin", "create", id_], cwd=dirname)[2]
 
 
 def svn_repo_checkout(repo, path):
-    run(["svn", "checkout", repo, path])
+    return run_check(["svn", "checkout", repo, path])[2]
 
 
 def svn_repo_populate(path):
     dummy_file = os.path.join(path, "file1")
-    run(["touch", dummy_file])
-    run(["svn", "add", dummy_file])
-    run(["svn", "commit", "-m", "First commit"])
+    file_quick_touch(path)
+
+    returncode = run(["svn", "add", dummy_file])[2]
+    if (returncode != 0):
+        return False
+
+    returncode = run(["svn", "commit", "-m", "First commit"])[2]
+    if (returncode != 0):
+        return False
+
+    return True
 
 
 def bam_run(argv, cwd=None):
@@ -232,6 +254,13 @@ def file_quick_read(path, filepart=None, mode='rb'):
 
     with open(path, mode) as f:
         return f.read()
+
+
+def file_quick_touch(path, filepart=None, times=None):
+    if filepart is not None:
+        path = os.path.join(path, filepart)
+    with open(path, 'a'):
+        os.utime(path, times)
 
 
 def wait_for_input():
@@ -362,10 +391,12 @@ class BamSessionTestCase(unittest.TestCase):
         path_svn_checkout = os.path.join(self.path_remote_store, "svn_checkout")
 
         # Create an SVN checkout of the freshly created repo
-        svn_repo_checkout("file://%s" % os.path.join(path_svn_repo, self.proj_name), path_svn_checkout)
+        if not svn_repo_checkout("file://%s" % os.path.join(path_svn_repo, self.proj_name), path_svn_checkout):
+            self.fail()
 
-        # Pupulate the repo with an empty file
-        svn_repo_populate(os.path.join(path_svn_checkout, self.proj_name))
+        # Populate the repo with an empty file
+        if not svn_repo_populate(os.path.join(path_svn_checkout, self.proj_name)):
+            self.fail()
 
     def tearDown(self):
         # input('Wait:')
@@ -515,8 +546,6 @@ class BamBlendTest(BamSessionTestCase):
                  create_id,
                  str(returncode_test),
                  ))
-        print("  stdout=%s" % stdout.decode())
-        print("  stderr=%s" % stderr.decode())
         return stdout, stderr, returncode
 
     def test_create_all(self):

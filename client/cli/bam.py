@@ -33,6 +33,10 @@ if path not in sys.path:
 del os, sys, path
 # --------
 
+import logging
+log = logging.getLogger("bam_cli")
+logging.basicConfig(level=logging.DEBUG)
+
 
 def fatal(msg):
     if __name__ == "__main__":
@@ -506,6 +510,7 @@ class bam_commands:
                 paths_ops[fn_abs_remote] = 'D'
 
             write_dict_as_json(".bam_paths_ops.json", paths_ops)
+            og.debug(paths_ops)
 
         if os.path.exists(basedir_temp):
             import shutil

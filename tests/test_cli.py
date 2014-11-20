@@ -605,6 +605,34 @@ class BamDeleteTest(BamSessionTestCase):
         stdout, stderr = bam_run(["commit", "-m", "tests message"], session_path)
         self.assertEqual("", stderr)
 
+         # remove the path
+        shutil.rmtree(session_path)
+
+        # checkout the file again
+        stdout, stderr = bam_run(["checkout", "testfile.txt"], proj_path)
+        self.assertEqual("", stderr)
+
+
+        # now delete the file we just checked out
+        new_session_path = os.path.join(proj_path, "testfile")
+        run(["rm", os.path.join(new_session_path, "testfile.txt")])
+        stdout, stderr = bam_run(["commit", "-m", "test deletion"], new_session_path)
+        wait_for_input()
+        self.assertEqual("", stderr)
+        # check if deletion of the file has happened
+        d = os.path.join(self.path_local_store, "testfile")
+
+        stdout, stderr = bam_run(["ls", "--json"], d)
+        # check for errors in the response
+        self.assertEqual("", stderr)
+
+        # parse the response searching for the file. If it fails it means the file has
+        # not been removed
+        listing = json.loads(stdout)
+        print(listing)
+        for e in listing:
+            self.assertNotEqual(e[0], "testfile.txt")
+
 
 if __name__ == '__main__':
     data = global_setup()

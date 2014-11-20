@@ -510,7 +510,7 @@ class bam_commands:
                 paths_ops[fn_abs_remote] = 'D'
 
             write_dict_as_json(".bam_paths_ops.json", paths_ops)
-            og.debug(paths_ops)
+            log.debug(paths_ops)
 
         if os.path.exists(basedir_temp):
             import shutil

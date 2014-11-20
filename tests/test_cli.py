@@ -611,7 +611,10 @@ class BamDeleteTest(BamSessionTestCase):
         self.assertEqual("", stderr)
 
         # now do a real commit
-        file_quick_write(session_path, "testfile.txt", file_data)
+        returncode_test = 42
+        blendfile = os.path.join(session_path, "testfile.blend")
+        stdout, stderr, returncode = BamBlendTest.create_blend_id(blendfile, "create_blank", returncode_test)
+
         stdout, stderr = bam_run(["commit", "-m", "tests message"], session_path)
         self.assertEqual("", stderr)
 
@@ -619,19 +622,18 @@ class BamDeleteTest(BamSessionTestCase):
         shutil.rmtree(session_path)
 
         # checkout the file again
-        stdout, stderr = bam_run(["checkout", "testfile.txt"], proj_path)
+        stdout, stderr = bam_run(["checkout", "testfile.blend"], proj_path)
         self.assertEqual("", stderr)
 
 
         # now delete the file we just checked out
         new_session_path = os.path.join(proj_path, "testfile")
-        run(["rm", os.path.join(new_session_path, "testfile.txt")])
+        os.remove(os.path.join(new_session_path, "testfile.blend"))
         stdout, stderr = bam_run(["commit", "-m", "test deletion"], new_session_path)
         self.assertEqual("", stderr)
         # check if deletion of the file has happened
-        d = os.path.join(self.path_local_store, "testfile")
 
-        stdout, stderr = bam_run(["ls", "--json"], d)
+        stdout, stderr = bam_run(["ls", "--json"], new_session_path)
         # check for errors in the response
         self.assertEqual("", stderr)
 

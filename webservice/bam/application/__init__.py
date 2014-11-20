@@ -309,11 +309,12 @@ class FileAPI(Resource):
 
             log.debug(path_ops)
             for file_path, operation in path_ops.items():
-                assert(os.path.exists(file_path))
 
                 if operation == 'D':
+                    file_path_abs = os.path.join(project.repository_path, file_path)
+                    assert(os.path.exists(file_path_abs))
                     result = local_client.run_command('rm',
-                        [file_path,])
+                        [file_path_abs,])
 
 
             # Commit command

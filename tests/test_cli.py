@@ -642,7 +642,7 @@ class BamBlendTest(BamSimpleTestCase):
 
                 os.makedirs(TEMP_SESSION)
 
-                blendfile = os.path.join(TEMP, create_id + ".blend")
+                blendfile = os.path.join(TEMP_SESSION, create_id + ".blend")
                 deps = []
 
                 if not blendfile_template_create(blendfile, create_id, deps):

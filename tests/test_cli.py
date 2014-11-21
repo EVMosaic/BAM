@@ -363,28 +363,28 @@ def server(mode='testing', debug=False):
             # TODO(fsiddi): turn these values in variables
             project = Project(
                 name=PROJECT_NAME,
-                repository_path="/tmp/bam_test/remote_store/svn_checkout",
-                upload_path="/tmp/bam_test/remote_store/upload",
+                repository_path=os.path.join(TEMP_LOCAL, "remote_store/svn_checkout"),
+                upload_path=os.path.join(TEMP_LOCAL, "remote_store/upload"),
                 status="active",
                 )
             db.session.add(project)
             db.session.commit()
 
             setting = ProjectSetting(
-                project_id=project.id,
-                name="svn_password",
-                value="my_password",
-                data_type="str",
-                )
+                    project_id=project.id,
+                    name="svn_password",
+                    value="my_password",
+                    data_type="str",
+                    )
             db.session.add(setting)
             db.session.commit()
 
             setting = ProjectSetting(
-                project_id=project.id,
-                name="svn_default_user",
-                value="my_user",
-                data_type="str",
-                )
+                    project_id=project.id,
+                    name="svn_default_user",
+                    value="my_user",
+                    data_type="str",
+                    )
             db.session.add(setting)
             db.session.commit()
 
@@ -732,7 +732,6 @@ class BamDeleteTest(BamSessionTestCase):
         # parse the response searching for the file. If it fails it means the file has
         # not been removed
         listing = json.loads(stdout)
-        print(listing)
         for e in listing:
             self.assertNotEqual(e[0], file_name)
 

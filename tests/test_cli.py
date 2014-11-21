@@ -39,6 +39,13 @@ del os, sys, path
 
 # -----------------------------------------
 # Ensure we get stdout & stderr on sys.exit
+#
+# We have this because we override the standard output,
+# _AND_ during this state a command may call `sys.exit`
+# In this case, we the output is hidden which is very annoying.
+#
+# So override `sys.exit` with one that prints to the original
+# stdout/stderr on exit.
 if 1:
     import sys
 
@@ -72,6 +79,13 @@ if 1:
 
 # --------------------------------------------
 # Don't Exit when argparse fails to parse args
+#
+# Argparse can call `sys.exit` if the wrong args are given.
+# This messes with testing, which we want to keep the process running.
+#
+# This monkey-patches in an exist function which simply raises an exception.
+# We could do something a bit nicer here,
+# but for now just use a basic exception.
 import argparse
 def argparse_fake_exit(self, status, message):
     sys.__stdout__.write(message)
@@ -276,6 +290,44 @@ def file_quick_touch(path, filepart=None, times=None):
         os.utime(path, times)
 
 
+def blendfile_template_create(blendfile, create_id, deps):
+    returncode_test = 123
+    blendfile_deps_json = os.path.join(TEMP, "blend_template_deps.json")
+    os.makedirs(os.path.dirname(blendfile), exist_ok=True)
+    stdout, stderr, returncode = run(
+            ("blender",
+             "--background",
+             "--factory-startup",
+             "-noaudio",
+             "--python",
+             os.path.join(CURRENT_DIR, "blendfile_templates.py"),
+             "--",
+             blendfile,
+             blendfile_deps_json,
+             create_id,
+             str(returncode_test),
+             ))
+
+    if os.path.exists(blendfile_deps_json):
+        import json
+        with open(blendfile_deps_json, 'r') as f:
+            deps[:] = json.load(f)
+        os.remove(blendfile_deps_json)
+    else:
+        deps.clear()
+
+    if returncode != returncode_test:
+        # verbose will have already printed
+        if not VERBOSE:
+            print(">>> ", args_as_string(cmd))
+            sys.stdout.write("   stdout:  %s\n" % stdout.strip())
+            sys.stdout.write("   stderr:  %s\n" % stderr.strip())
+            sys.stdout.write("   return:  %d\n" % returncode)
+        return False
+    else:
+        return True
+
+
 def wait_for_input():
     """for debugging,
     so we can inspect the state of the system before the test finished.
@@ -347,7 +399,8 @@ def server(mode='testing', debug=False):
     return p
 
 
-def global_setup():
+def global_setup(use_server=True):
+    data = []
 
     if VERBOSE:
         # for server
@@ -357,14 +410,20 @@ def global_setup():
 
     shutil.rmtree(TEMP_SERVER, ignore_errors=True)
     shutil.rmtree(TEMP, ignore_errors=True)
-    p = server()
-    data = p
+
+    if use_server:
+        p = server()
+        data.append(p)
+
     return data
 
 
-def global_teardown(data):
-    p = data
-    p.terminate()
+def global_teardown(data, use_server=True):
+
+    if use_server:
+        p = data.pop(0)
+        p.terminate()
+
     shutil.rmtree(TEMP_SERVER, ignore_errors=True)
     shutil.rmtree(TEMP, ignore_errors=True)
 
@@ -373,6 +432,27 @@ def global_teardown(data):
 # Unit Tests
 
 import unittest
+
+
+class BamSimpleTestCase(unittest.TestCase):
+    """ Basic testcase, only make temp dirs.
+    """
+    def setUp(self):
+
+        # for running single tests
+        if __name__ != "__main__":
+            self._data = global_setup(use_server=False)
+
+        if not os.path.isdir(TEMP):
+            os.makedirs(TEMP)
+
+    def tearDown(self):
+        # input('Wait:')
+        shutil.rmtree(TEMP)
+
+        # for running single tests
+        if __name__ != "__main__":
+            global_teardown(self._data, use_server=False)
 
 
 class BamSessionTestCase(unittest.TestCase):
@@ -536,60 +616,63 @@ class BamCommitTest(BamSessionTestCase):
         stdout, stderr = bam_run(["checkout", "testfile.txt"], proj_path)
         self.assertEqual("", stderr)
         # wait_for_input()
-        self.assertEqual(True, os.path.exists(os.path.join(proj_path, "testfile/testfile.txt")))
+        self.assertTrue(os.path.exists(os.path.join(proj_path, "testfile/testfile.txt")))
 
         file_data_test = file_quick_read(os.path.join(proj_path, "testfile/testfile.txt"))
         self.assertEqual(file_data, file_data_test)
 
 
-class BamBlendTest(BamSessionTestCase):
-
-    def __init__(self, *args):
-        self.init_defaults()
-        super().__init__(*args)
-
-    @staticmethod
-    def create_blend_id(blendfile, create_id, returncode_test):
-        os.makedirs(os.path.dirname(blendfile), exist_ok=True)
-        stdout, stderr, returncode = run(
-                ("blender",
-                 "--background",
-                 "--factory-startup",
-                 "-noaudio",
-                 "--python",
-                 os.path.join(CURRENT_DIR, "blendfile_templates.py"),
-                 "--",
-                 blendfile,
-                 create_id,
-                 str(returncode_test),
-                 ))
-        return stdout, stderr, returncode
+class BamBlendTest(BamSimpleTestCase):
 
     def test_create_all(self):
         """ This simply tests all the create functions run without error.
         """
         import blendfile_templates
-        returncode_test = 42
+        TEMP_SESSION = os.path.join(TEMP, "blend_file_template")
+
+        def iter_files_session():
+            for dirpath, dirnames, filenames in os.walk(TEMP_SESSION):
+                for filename in filenames:
+                    filepath = os.path.join(dirpath, filename)
+                    yield filepath
+
         for create_id, create_fn in blendfile_templates.__dict__.items():
-            if create_id.startswith("create_"):
-                if create_fn.__class__.__name__ == "function":
-                    blendfile = os.path.join(TEMP, create_id + ".blend")
+            if     (create_id.startswith("create_") and
+                    create_fn.__class__.__name__ == "function"):
 
-                    stdout, stderr, returncode = self.create_blend_id(blendfile, create_id, returncode_test)
+                os.makedirs(TEMP_SESSION)
 
-                    self.assertEqual(b'', stderr)
-                    self.assertEqual(True, os.path.exists(blendfile))
-                    self.assertEqual(returncode, returncode_test)
-                    with open(blendfile, 'rb') as blendfile_handle:
-                        self.assertEqual(b'BLENDER', blendfile_handle.read(7))
-                    os.remove(blendfile)
+                blendfile = os.path.join(TEMP, create_id + ".blend")
+                deps = []
+
+                if not blendfile_template_create(blendfile, create_id, deps):
+                    # self.fail("blend file couldn't be create")
+                    # ... we want to keep running
+                    self.assertTrue(False, True)  # GRR, a better way?
+                    shutil.rmtree(TEMP_SESSION)
+                    continue
+
+                self.assertTrue(os.path.exists(blendfile))
+                with open(blendfile, 'rb') as blendfile_handle:
+                    self.assertEqual(b'BLENDER', blendfile_handle.read(7))
+                os.remove(blendfile)
+
+                # check all deps are accounted for
+                for f in deps:
+                    self.assertTrue(os.path.exists(f))
+                for f in iter_files_session():
+                    self.assertIn(f, deps)
+
+                shutil.rmtree(TEMP_SESSION)
 
     def test_empty(self):
         blendfile = os.path.join(TEMP, "test.blend")
-        returncode_test = 13
-        stdout, stderr, returncode = self.create_blend_id(blendfile, "create_blank", returncode_test)
-        self.assertEqual(True, os.path.exists(blendfile))
-        self.assertEqual(returncode_test, returncode)
+        if not blendfile_template_create(blendfile, "create_blank", []):
+            self.fail("blend file couldn't be created")
+            return
+
+        self.assertTrue(os.path.exists(blendfile))
+
 
 
 class BamDeleteTest(BamSessionTestCase):
@@ -614,7 +697,9 @@ class BamDeleteTest(BamSessionTestCase):
         # now do a real commit
         returncode_test = 42
         blendfile = os.path.join(session_path, "testfile.blend")
-        stdout, stderr, returncode = BamBlendTest.create_blend_id(blendfile, "create_blank", returncode_test)
+        if not blendfile_template_create(blendfile, "create_blank", []):
+            self.fail("blend file couldn't be created")
+            return
 
         stdout, stderr = bam_run(["commit", "-m", "tests message"], session_path)
         self.assertEqual("", stderr)

@@ -23,22 +23,26 @@ def _clear_blend():
             bpy_data_iter.remove(id_data)
 
 
-def create_blank():
-    pass
+def create_blank(deps):
+    assert(isinstance(deps, list))
 
 
-def create_image_single():
+def create_image_single(deps):
     import bpy
+
+    path = "//my_image.png"
     image = bpy.data.images.new(name="MyImage", width=512, height=512)
-    image.filepath_raw = "//my_image.png"
+    image.filepath_raw = path
+    deps.append(bpy.path.abspath(path))
     image.file_format = 'PNG'
     image.use_fake_user = True
     image.save()
 
 
+
 if __name__ == "__main__":
     import sys
-    blendfile, create_id, returncode = sys.argv[-3:]
+    blendfile, blendfile_deps_json, create_id, returncode = sys.argv[-4:]
     returncode = int(returncode)
     create_fn = globals()[create_id]
 
@@ -53,7 +57,18 @@ if __name__ == "__main__":
     # ----
 
     _clear_blend()
-    create_fn()
+    deps = []
+    create_fn(deps)
+    if deps:
+        with open(blendfile_deps_json, 'w') as f:
+            import json
+            json.dump(
+                    deps, f, ensure_ascii=False,
+                    check_circular=False,
+                    # optional (pretty)
+                    sort_keys=True, indent=4, separators=(',', ': '),
+                    )
+            del json
 
     import bpy
     bpy.ops.wm.save_mainfile('EXEC_DEFAULT', filepath=blendfile)

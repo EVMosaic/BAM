@@ -17,6 +17,12 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
+"""
+Environment vars:
+- BAM_VERBOSE, set to get debug logging.
+"""
+
+
 # ------------------
 # Ensure module path
 import os
@@ -62,7 +68,9 @@ from application.modules.projects import admin
 from application.modules.projects.model import Project, ProjectSetting
 
 log = logging.getLogger("webservice")
-logging.basicConfig(level=logging.DEBUG)
+
+if os.environ.get("BAM_VERBOSE"):
+    logging.basicConfig(level=logging.DEBUG)
 
 
 @auth.get_password
@@ -340,8 +348,8 @@ class FileAPI(Resource):
         import blendfile_pack
 
         assert(os.path.exists(filepath) and not os.path.isdir(filepath))
-        print("  Source path:", filepath)
-        print("  Zip path:", filepath_zip)
+        log.info("  Source path: %r" % filepath)
+        log.info("  Zip path: %r" % filepath_zip)
 
         deps_remap = {}
         paths_remap = {}
@@ -356,8 +364,7 @@ class FileAPI(Resource):
                         deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
                         report=report)
             except:
-                import traceback
-                traceback.print_exc()
+                log.exception("Error packing the blend file")
                 return
         else:
             # non blend-file

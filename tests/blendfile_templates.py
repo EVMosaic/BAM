@@ -58,6 +58,7 @@ def create_from_files(deps):
             f_rel = bpy.path.relpath(f_abs)
             image = bpy.data.images.load(f)
             image.use_fake_user = True
+            deps.append(f_abs)
 
 
 if __name__ == "__main__":

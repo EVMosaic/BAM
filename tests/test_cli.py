@@ -13,7 +13,12 @@ Run a single test:
    python3 -m unittest test_cli.BamCommitTest.test_checkout
 """
 
-VERBOSE = 1
+import os
+VERBOSE = os.environ.get("VERBOSE", False)
+if VERBOSE:
+    # for the server subprocess
+    os.environ["BAM_VERBOSE"] = "1"
+
 
 # ------------------
 # Ensure module path

@@ -9,7 +9,7 @@ class Project(db.Model):
     upload_path = db.Column(db.Text, nullable=False)
     picture = db.Column(db.String(80))
     creation_date = db.Column(db.DateTime(), default=datetime.datetime.now)
-    status = db.Column(db.String(80)) #active #inactive
+    status = db.Column(db.String(80))  # active #inactive
 
     settings = db.relationship('ProjectSetting', backref='project')
 

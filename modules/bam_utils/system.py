@@ -55,4 +55,3 @@ def sha1_from_file(fn, block_size=1 << 20):
                 break
             sha1.update(data)
         return sha1.hexdigest()
-

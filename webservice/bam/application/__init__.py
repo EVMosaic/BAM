@@ -117,7 +117,6 @@ class DirectoryAPI(Resource):
             path_root_abs = os.path.join(path_root_abs, path)
             parent_path = os.pardir
 
-
         if not os.path.isdir(path_root_abs):
             return jsonify(message="Path is not a directory %r" % path_root_abs)
 
@@ -138,7 +137,7 @@ class DirectoryAPI(Resource):
             }
 
         return jsonify(project_files)
-        #return {'message': 'Display files list'}
+        # return {'message': 'Display files list'}
 
 
 class FileAPI(Resource):
@@ -218,7 +217,6 @@ class FileAPI(Resource):
                     yield report("%s: %r\n" % (colorize("failed to extract", color='red'), filepath))
                     return
 
-
                 with open(filepath_zip, 'rb') as f:
                     f.seek(0, os.SEEK_END)
                     f_size = f.tell()
@@ -246,8 +244,12 @@ class FileAPI(Resource):
         file = request.files['file']
 
         # Get the value of the first (and only) result for the specified project setting
-        svn_password = next((setting.value for setting in project.settings if setting.name == 'svn_password'))
-        svn_default_user = next((setting.value for setting in project.settings if setting.name == 'svn_default_user'))
+        svn_password = next((setting.value
+            for setting in project.settings
+            if setting.name == 'svn_password'))
+        svn_default_user = next((setting.value
+            for setting in project.settings
+            if setting.name == 'svn_default_user'))
 
         # We get the actual username from the http headers
         svn_user = auth.username()
@@ -310,7 +312,7 @@ class FileAPI(Resource):
                 # We add each unversioned file to SVN
                 if item_status == 'unversioned':
                     result = local_client.run_command('add',
-                        [file_path,])
+                        [file_path, ])
 
             with open(os.path.join(extract_tmp_dir, '.bam_paths_ops.json'), 'r') as path_ops:
                 path_ops = json.load(path_ops)
@@ -322,17 +324,15 @@ class FileAPI(Resource):
                     file_path_abs = os.path.join(project.repository_path, file_path)
                     assert(os.path.exists(file_path_abs))
                     result = local_client.run_command('rm',
-                        [file_path_abs,])
-
+                        [file_path_abs, ])
 
             # Commit command
             result = local_client.run_command('commit',
-                [local_client.info()['entry_path'], 
+                [local_client.info()['entry_path'],
                 '--message', arguments['message'],
                 '--username', svn_user,
                 '--password', svn_password],
                 combine=True)
-
 
             return jsonify(message=result)
         else:
@@ -405,8 +405,6 @@ class FileAPI(Resource):
             del write_dict_as_json
         # done writing json!
 
-
-
     @staticmethod
     def allowed_file(filename):
         return '.' in filename and \
@@ -415,4 +413,3 @@ class FileAPI(Resource):
 
 api.add_resource(DirectoryAPI, '/<project_name>/file_list', endpoint='file_list')
 api.add_resource(FileAPI, '/<project_name>/file', endpoint='file')
-

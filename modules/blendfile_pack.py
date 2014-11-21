@@ -245,7 +245,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     zip_handle.write(src.decode('utf-8'),
                               arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
 
-
         yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
     else:
         raise Exception("%s not a known mode" % mode)
@@ -331,4 +330,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

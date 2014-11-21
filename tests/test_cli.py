@@ -247,7 +247,6 @@ def bam_run(argv, cwd=None):
             import shlex
             sys.stdout.write("bam %s\n" % " ".join([shlex.quote(c) for c in argv]))
 
-
             # input('press_key!:')
 
         with StdIO() as fakeio:
@@ -299,19 +298,20 @@ def blendfile_template_create(blendfile, create_id, deps):
     returncode_test = 123
     blendfile_deps_json = os.path.join(TEMP_LOCAL, "blend_template_deps.json")
     os.makedirs(os.path.dirname(blendfile), exist_ok=True)
-    stdout, stderr, returncode = run(
-            ("blender",
-             "--background",
-             "--factory-startup",
-             "-noaudio",
-             "--python",
-             os.path.join(CURRENT_DIR, "blendfile_templates.py"),
-             "--",
-             blendfile,
-             blendfile_deps_json,
-             create_id,
-             str(returncode_test),
-             ))
+    cmd = (
+        "blender",
+        "--background",
+        "--factory-startup",
+        "-noaudio",
+        "--python",
+        os.path.join(CURRENT_DIR, "blendfile_templates.py"),
+        "--",
+        blendfile,
+        blendfile_deps_json,
+        create_id,
+        str(returncode_test),
+        )
+    stdout, stderr, returncode = run(cmd)
 
     if os.path.exists(blendfile_deps_json):
         import json
@@ -577,6 +577,7 @@ class BamListTest(BamSessionTestCase):
 
         import json
         ret = json.loads(stdout)
+        self.assertEqual(2, len(ret))
 
 
 class BamCommitTest(BamSessionTestCase):
@@ -645,8 +646,7 @@ class BamBlendTest(BamSimpleTestCase):
                     yield filepath
 
         for create_id, create_fn in blendfile_templates.__dict__.items():
-            if     (create_id.startswith("create_") and
-                    create_fn.__class__.__name__ == "function"):
+            if (create_id.startswith("create_") and create_fn.__class__.__name__ == "function"):
 
                 os.makedirs(TEMP_SESSION)
 
@@ -694,7 +694,6 @@ class BamDeleteTest(BamSessionTestCase):
     def test_delete(self):
         session_name = "mysession"
         file_name = "testfile.blend"
-        file_data = b"hello world!\n"
         proj_path, session_path = self.init_session(session_name)
 
         # now do a real commit
@@ -706,7 +705,7 @@ class BamDeleteTest(BamSessionTestCase):
         stdout, stderr = bam_run(["commit", "-m", "tests message"], session_path)
         self.assertEqual("", stderr)
 
-         # remove the path
+        # remove the path
         shutil.rmtree(session_path)
         del session_path
 
@@ -716,7 +715,6 @@ class BamDeleteTest(BamSessionTestCase):
         # checkout the file again
         stdout, stderr = bam_run(["checkout", file_name, "--output", "new_out"], proj_path)
         self.assertEqual("", stderr)
-
 
         # now delete the file we just checked out
         session_path = os.path.join(proj_path, "new_out")
@@ -740,4 +738,3 @@ if __name__ == '__main__':
     data = global_setup()
     unittest.main(exit=False)
     global_teardown(data)
-

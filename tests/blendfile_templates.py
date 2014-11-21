@@ -56,7 +56,7 @@ def create_from_files(deps):
     for f_abs in iter_files_blend(dirname):
         if f_abs.endswith(".png"):
             f_rel = bpy.path.relpath(f_abs)
-            image = bpy.data.images.load(f)
+            image = bpy.data.images.load(f_rel)
             image.use_fake_user = True
             deps.append(f_abs)
 
@@ -96,4 +96,3 @@ if __name__ == "__main__":
 
     import sys
     sys.exit(returncode)
-

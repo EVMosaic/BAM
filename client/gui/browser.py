@@ -184,7 +184,8 @@ class Application(tk.Frame):
                 but.grid(row=row, column=0)
                 self.grid_members.append(but)
 
-                def fn(idname=name_short, but_path=but_path): exec_path_dir(idname, but_path)
+                def fn(idname=name_short, but_path=but_path):
+                    exec_path_dir(idname, but_path)
 
                 but = tk.Button(self.frame, text=name_short + "/", fg="green", command=fn)
                 but.grid(row=row, column=1, sticky="nw")
@@ -213,7 +214,9 @@ class Application(tk.Frame):
             if item_type == "file":
                 but = tk.Label(self.frame, text="(b)", width=3, borderwidth="1", relief="solid")
                 but.grid(row=row, column=0)
-                def fn(idname=name_short): exec_path_blendfile(idname)
+
+                def fn(idname=name_short):
+                    exec_path_blendfile(idname)
                 self.grid_members.append(but)
 
                 but = tk.Button(self.frame, text=name_short, fg="blue", command=fn)
@@ -231,4 +234,3 @@ root = tk.Tk()
 app = Application(root).pack(side="top", fill="both", expand=True)
 root.title("BAM")
 root.mainloop()
-

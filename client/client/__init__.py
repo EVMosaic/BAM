@@ -7,7 +7,6 @@ import os
 MODULE_DIR = os.path.dirname(__file__)
 
 with open(os.path.join(MODULE_DIR, 'config.json'), 'r') as config:
-    import json
     config = json.load(config)
 
 
@@ -29,7 +28,7 @@ def request_url(path):
 
 # print (r.json())
 # with open(local_filename, 'wb') as f:
-#     for chunk in r.iter_content(chunk_size=1024): 
+#     for chunk in r.iter_content(chunk_size=1024):
 #         if chunk: # filter out keep-alive new chunks
 #             f.write(chunk)
 #             f.flush()
@@ -39,7 +38,7 @@ def request_url(path):
 # with open(filepath) as fh:
 #     mydata = fh.read()
 #     response = requests.put('https://api.elasticemail.com/attachments/upload',
-#                data=mydata,                         
+#                data=mydata,
 #                auth=('omer', 'b01ad0ce'),
 #                headers={'content-type':'text/plain'},
 #                params={'file': filepath}
@@ -55,12 +54,11 @@ payload = {
 }
 
 files = {'file': open('buck.mp4', 'rb')}
-#files = {'name': ('filename', (open('mytest.txt', 'rb')))}
+# files = {'name': ('filename', (open('mytest.txt', 'rb')))}
 
-r = requests.put(request_url('/file'), 
+r = requests.put(request_url('/file'),
     params=payload,
     auth=('bam', 'bam'),
     files=files)
 
 print(r.text)
-

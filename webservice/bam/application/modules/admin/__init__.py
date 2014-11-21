@@ -27,15 +27,15 @@ def _list_items(view, context, model, name):
     return Markup(
         '<div class="select2-container-multi">'
             '<ul class="select2-choices" style="border:0;cursor:default;background:none;">%s</ul></div>' % (
-                ''.join( ['<li class="select2-search-choice" style="padding:3px 5px;">'
-                            '<div>'+item.name+'</div></li>' for item in getattr(model,name)] )))
+                ''.join(['<li class="select2-search-choice" style="padding:3px 5px;">'
+                            '<div>' + item.name + '</div></li>' for item in getattr(model, name)] )))
 
 
 def _list_thumbnail(view, context, model, name):
-    if not getattr(model,name):  #model.name only does not work because name is a string
+    if not getattr(model,name):  # model.name only does not work because name is a string
         return ''
     return ''
-    # return Markup('<img src="%s">' % url_for('static', 
+    # return Markup('<img src="%s">' % url_for('static',
     #     filename=thumb.thumbnail(getattr(model,name), '50x50', crop='fit')))
 
 # Create directory for file fields to use
@@ -81,19 +81,20 @@ class CKTextAreaField(fields.TextAreaField):
 class CustomModelView(ModelView):
     def is_accessible(self):
         return True
-        #return login.current_user.has_role('admin')
+        # return login.current_user.has_role('admin')
+
 
 class CustomBaseView(BaseView):
     def is_accessible(self):
         return True
-        #return login.current_user.has_role('admin')
+        # return login.current_user.has_role('admin')
 
 
 # Create customized index view class that handles login & registration
 class CustomAdminIndexView(admin.AdminIndexView):
     def is_accessible(self):
         return True
-        #return login.current_user.has_role('admin')
+        # return login.current_user.has_role('admin')
 
     @expose('/')
     def index(self):
@@ -107,9 +108,8 @@ class CustomAdminIndexView(admin.AdminIndexView):
 
 # Create admin
 backend = Admin(
-    app, 
-    'BAM', 
-    index_view=CustomAdminIndexView(), 
-    base_template='admin/layout_admin.html'
-)
-
+        app,
+        "BAM",
+        index_view=CustomAdminIndexView(),
+        base_template="admin/layout_admin.html"
+        )

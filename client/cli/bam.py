@@ -189,7 +189,6 @@ class bam_session:
             os.path.join(session_rootdir, ".bam_tmp.zip"),
             }
 
-
         with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
             import json
             paths_uuid = json.load(f)
@@ -293,7 +292,6 @@ class bam_commands:
 
         print("Project %r initialized" % proj_dirname)
 
-
     @staticmethod
     def create(session_name):
         import os
@@ -382,7 +380,7 @@ class bam_commands:
 
             tot_size = 0
             for chunk in r.iter_content(chunk_size=1024):
-                if chunk: # filter out keep-alive new chunks
+                if chunk:  # filter out keep-alive new chunks
                     tot_size += len(chunk)
                     f.write(chunk)
                     f.flush()
@@ -404,7 +402,6 @@ class bam_commands:
 
     @staticmethod
     def commit(paths, message):
-        import sys
         import os
         import requests
 
@@ -439,10 +436,8 @@ class bam_commands:
         with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
             paths_uuid = json.load(f)
 
-
         with open(os.path.join(session_rootdir, ".bam_deps_remap.json")) as f:
             deps_remap = json.load(f)
-
 
         paths_add = {}
         paths_modified = {}
@@ -457,7 +452,6 @@ class bam_commands:
         if not any((paths_add, paths_modified, paths_remove)):
             print("Nothing to commit!")
             return
-
 
         for fn_rel, fn_abs in list(paths_modified.items()):
             # we may want to be more clever here
@@ -555,7 +549,6 @@ class bam_commands:
         # TODO(cam)
         # if all goes well, rewrite sha1's
 
-
     @staticmethod
     def status(paths):
         # TODO(cam) multiple paths
@@ -564,7 +557,6 @@ class bam_commands:
 
         session_rootdir = bam_config.find_sessiondir(path, abort=True)
         print(session_rootdir)
-
 
         paths_add = {}
         paths_modified = {}
@@ -622,7 +614,6 @@ class bam_commands:
             for (name_short, name_full, file_type) in items:
                 if file_type != "dir":
                     print("  %s" % name_short)
-
 
     @staticmethod
     def deps(paths, recursive=False):
@@ -717,7 +708,7 @@ def create_argparse_checkout(subparsers):
             help="Path to checkout on the server",
             )
     subparse.add_argument(
-            "-o", "--output",dest="output", type=str, metavar='DIRNAME',
+            "-o", "--output", dest="output", type=str, metavar='DIRNAME',
             help="Local name to checkout the session into (optional, falls back to path name)",
             )
     subparse.set_defaults(func=subcommand_checkout_cb)

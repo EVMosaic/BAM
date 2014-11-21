@@ -518,8 +518,21 @@ class BamSessionTestCase(unittest.TestCase):
 
     def init_repo(self):
         url_full, user_name, url = self.get_url()
-        bam_run(["init", url_full], self.path_local_store)
+        stdout, stderr = bam_run(["init", url_full], self.path_local_store)
+        self.assertEqual("", stderr)
+        proj_path = os.path.join(self.path_local_store, self.proj_name)
+        return proj_path
 
+    def init_session(self, session_name):
+        """ Initialize the project and create a new session.
+        """
+
+        proj_path = self.init_repo()
+        session_path = os.path.join(proj_path, session_name)
+
+        stdout, stderr = bam_run(["create", session_name], proj_path)
+        self.assertEqual("", stderr)
+        return proj_path, session_path
 
 class BamInitTest(BamSessionTestCase):
     """Test the `bam init user@http://bamserver/projectname` command.
@@ -551,11 +564,9 @@ class BamListTest(BamSessionTestCase):
         super().__init__(*args)
 
     def test_ls(self):
-        self.init_repo()
+        proj_path = self.init_repo()
 
-        d = os.path.join(self.path_local_store, self.proj_name)
-
-        stdout, stderr = bam_run(["ls", "--json"], d)
+        stdout, stderr = bam_run(["ls", "--json"], proj_path)
 
         self.assertEqual("", stderr)
 
@@ -573,16 +584,11 @@ class BamCommitTest(BamSessionTestCase):
         super().__init__(*args)
 
     def test_commit(self):
-        self.init_repo()
+        session_name = "mysession"
         file_name = "testfile.txt"
         file_data = b"hello world!\n"
 
-        proj_path = os.path.join(self.path_local_store, self.proj_name)
-        co_id = "mysession"
-        session_path = os.path.join(proj_path, co_id)
-
-        stdout, stderr = bam_run(["create", co_id], proj_path)
-        self.assertEqual("", stderr)
+        proj_path, session_path = self.init_session(session_name)
 
         # check an empty commit fails gracefully
         stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
@@ -595,16 +601,11 @@ class BamCommitTest(BamSessionTestCase):
         self.assertEqual("", stderr)
 
     def test_checkout(self):
-        self.init_repo()
-        file_data = b"yo world!\n"
+        session_name = "mysession"
         file_name = "other_file.txt"
+        file_data = b"yo world!\n"
 
-        proj_path = os.path.join(self.path_local_store, self.proj_name)
-        co_id = "mysession"
-        session_path = os.path.join(proj_path, co_id)
-
-        stdout, stderr = bam_run(["create", co_id], proj_path)
-        self.assertEqual("", stderr)
+        proj_path, session_path = self.init_session(session_name)
 
         # now do a real commit
         file_quick_write(session_path, file_name, file_data)
@@ -686,16 +687,10 @@ class BamDeleteTest(BamSessionTestCase):
         super().__init__(*args)
 
     def test_delete(self):
-        self.init_repo()
+        session_name = "mysession"
         file_name = "testfile.blend"
         file_data = b"hello world!\n"
-
-        proj_path = os.path.join(self.path_local_store, self.proj_name)
-        co_id = "mysession"
-        session_path = os.path.join(proj_path, co_id)
-
-        stdout, stderr = bam_run(["create", co_id], proj_path)
-        self.assertEqual("", stderr)
+        proj_path, session_path = self.init_session(session_name)
 
         # now do a real commit
         blendfile = os.path.join(session_path, file_name)

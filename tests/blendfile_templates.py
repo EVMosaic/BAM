@@ -39,6 +39,27 @@ def create_image_single(deps):
     image.save()
 
 
+def create_from_files(deps):
+    """Create a blend file which users all sub-directories.
+    (currently images only)
+    """
+    import os
+    import bpy
+
+    def iter_files_blend(path):
+        for dirpath, dirnames, filenames in os.walk(path):
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                yield filepath
+
+    dirname = os.path.dirname(bpy.data.filepath)
+    for f_abs in iter_files_blend(dirname):
+        if f_abs.endswith(".png"):
+            f_rel = bpy.path.relpath(f_abs)
+            image = bpy.data.images.load(f)
+            image.use_fake_user = True
+
+
 if __name__ == "__main__":
     import sys
     blendfile, blendfile_deps_json, create_id, returncode = sys.argv[-4:]

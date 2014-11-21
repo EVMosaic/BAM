@@ -105,7 +105,7 @@ import sys
 import shutil
 import json
 
-TEMP = "/tmp/bam_test"
+TEMP_LOCAL = "/tmp/bam_test"
 # Separate tmp folder for server, since we don't reset the server at every test
 TEMP_SERVER = "/tmp/bam_test_server"
 PORT = 5555
@@ -292,7 +292,7 @@ def file_quick_touch(path, filepart=None, times=None):
 
 def blendfile_template_create(blendfile, create_id, deps):
     returncode_test = 123
-    blendfile_deps_json = os.path.join(TEMP, "blend_template_deps.json")
+    blendfile_deps_json = os.path.join(TEMP_LOCAL, "blend_template_deps.json")
     os.makedirs(os.path.dirname(blendfile), exist_ok=True)
     stdout, stderr, returncode = run(
             ("blender",
@@ -409,7 +409,7 @@ def global_setup(use_server=True):
         del logging
 
     shutil.rmtree(TEMP_SERVER, ignore_errors=True)
-    shutil.rmtree(TEMP, ignore_errors=True)
+    shutil.rmtree(TEMP_LOCAL, ignore_errors=True)
 
     if use_server:
         p = server()
@@ -425,7 +425,7 @@ def global_teardown(data, use_server=True):
         p.terminate()
 
     shutil.rmtree(TEMP_SERVER, ignore_errors=True)
-    shutil.rmtree(TEMP, ignore_errors=True)
+    shutil.rmtree(TEMP_LOCAL, ignore_errors=True)
 
 
 # ------------------------------------------------------------------------------
@@ -443,12 +443,12 @@ class BamSimpleTestCase(unittest.TestCase):
         if __name__ != "__main__":
             self._data = global_setup(use_server=False)
 
-        if not os.path.isdir(TEMP):
-            os.makedirs(TEMP)
+        if not os.path.isdir(TEMP_LOCAL):
+            os.makedirs(TEMP_LOCAL)
 
     def tearDown(self):
         # input('Wait:')
-        shutil.rmtree(TEMP)
+        shutil.rmtree(TEMP_LOCAL)
 
         # for running single tests
         if __name__ != "__main__":
@@ -463,8 +463,8 @@ class BamSessionTestCase(unittest.TestCase):
         if __name__ != "__main__":
             self._data = global_setup()
 
-        if not os.path.isdir(TEMP):
-            os.makedirs(TEMP)
+        if not os.path.isdir(TEMP_LOCAL):
+            os.makedirs(TEMP_LOCAL)
         # Create local storage folder
         if not os.path.isdir(self.path_local_store):
             os.makedirs(self.path_local_store)
@@ -497,7 +497,7 @@ class BamSessionTestCase(unittest.TestCase):
 
     def tearDown(self):
         # input('Wait:')
-        shutil.rmtree(TEMP)
+        shutil.rmtree(TEMP_LOCAL)
 
         # for running single tests
         if __name__ != "__main__":
@@ -509,8 +509,8 @@ class BamSessionTestCase(unittest.TestCase):
         return url_full, user_name, url
 
     def init_defaults(self):
-        self.path_local_store = os.path.join(TEMP, "local_store")
-        self.path_remote_store = os.path.join(TEMP, "remote_store")
+        self.path_local_store = os.path.join(TEMP_LOCAL, "local_store")
+        self.path_remote_store = os.path.join(TEMP_LOCAL, "remote_store")
 
         self.proj_name = PROJECT_NAME
         self.user_name = "user"
@@ -630,7 +630,7 @@ class BamBlendTest(BamSimpleTestCase):
         """ This simply tests all the create functions run without error.
         """
         import blendfile_templates
-        TEMP_SESSION = os.path.join(TEMP, "blend_file_template")
+        TEMP_SESSION = os.path.join(TEMP_LOCAL, "blend_file_template")
 
         def iter_files_session():
             for dirpath, dirnames, filenames in os.walk(TEMP_SESSION):
@@ -669,7 +669,7 @@ class BamBlendTest(BamSimpleTestCase):
 
     def test_empty(self):
         file_name = "testfile.blend"
-        blendfile = os.path.join(TEMP, file_name)
+        blendfile = os.path.join(TEMP_LOCAL, file_name)
         if not blendfile_template_create(blendfile, "create_blank", []):
             self.fail("blend file couldn't be created")
             return

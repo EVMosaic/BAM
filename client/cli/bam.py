@@ -316,22 +316,27 @@ class bam_commands:
 
         print("Session %r created" % session_name)
 
-
     @staticmethod
-    def checkout(paths):
+    def checkout(path, output_dir=None):
         import sys
         import os
         import requests
 
         cfg = bam_config.load(abort=True)
 
-        # TODO(cam) multiple paths
-        path = paths[0]
-        del paths
-
-        # TODO(cam) we may want to checkout a single file? how to handle this?
-        # we may want to checkout a dir too
-        dst_dir = os.path.splitext(os.path.basename(path))[0]
+        if output_dir is None:
+            # fallback to the basename
+            dst_dir = os.path.splitext(os.path.basename(path))[0]
+        else:
+            if os.sep in output_dir.rstrip(os.sep):
+                # are we a subdirectory?
+                # (we know this exists, since we have config already)
+                rootdir = bam_config.find_rootdir(abort=True)
+                if ".." in os.path.relpath(output_dir, rootdir).split(os.sep):
+                    fatal("Output %r is outside the project path %r" % (output_dir, rootdir))
+                del rootdir
+            dst_dir = output_dir
+        del output_dir
 
         payload = {
             "filepath": path,
@@ -409,8 +414,7 @@ class bam_commands:
         session_rootdir = paths[0]
 
         if not os.path.isdir(session_rootdir):
-            print("Expected a directory (%r)" % session_rootdir)
-            sys.exit(1)
+            fatal("Expected a directory (%r)" % session_rootdir)
 
         basedir = bam_config.find_basedir(
                 cwd=session_rootdir,
@@ -641,7 +645,7 @@ def subcommand_create_cb(args):
 
 
 def subcommand_checkout_cb(args):
-    bam_commands.checkout(args.paths)
+    bam_commands.checkout(args.path, args.output)
 
 
 def subcommand_commit_cb(args):
@@ -706,8 +710,12 @@ def create_argparse_checkout(subparsers):
             help="",
             )
     subparse.add_argument(
-            dest="paths", nargs="+",
-            help="Path(s) to operate on",
+            dest="path", type=str, metavar='REMOTE_PATH',
+            help="Path to checkout on the server",
+            )
+    subparse.add_argument(
+            "-o", "--output",dest="output", type=str, metavar='DIRNAME',
+            help="Local name to checkout the session into (optional, falls back to path name)",
             )
     subparse.set_defaults(func=subcommand_checkout_cb)
 

@@ -39,7 +39,6 @@ def create_image_single(deps):
     image.save()
 
 
-
 if __name__ == "__main__":
     import sys
     blendfile, blendfile_deps_json, create_id, returncode = sys.argv[-4:]

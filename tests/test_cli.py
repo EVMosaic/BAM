@@ -574,6 +574,7 @@ class BamCommitTest(BamSessionTestCase):
 
     def test_commit(self):
         self.init_repo()
+        file_name = "testfile.txt"
         file_data = b"hello world!\n"
 
         proj_path = os.path.join(self.path_local_store, self.proj_name)
@@ -589,13 +590,14 @@ class BamCommitTest(BamSessionTestCase):
         self.assertEqual("Nothing to commit!\n", stdout)
 
         # now do a real commit
-        file_quick_write(session_path, "testfile.txt", file_data)
+        file_quick_write(session_path, file_name, file_data)
         stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
         self.assertEqual("", stderr)
 
     def test_checkout(self):
         self.init_repo()
-        file_data = b"hello world!\n"
+        file_data = b"yo world!\n"
+        file_name = "other_file.txt"
 
         proj_path = os.path.join(self.path_local_store, self.proj_name)
         co_id = "mysession"
@@ -605,7 +607,7 @@ class BamCommitTest(BamSessionTestCase):
         self.assertEqual("", stderr)
 
         # now do a real commit
-        file_quick_write(session_path, "testfile.txt", file_data)
+        file_quick_write(session_path, file_name, file_data)
         stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
         self.assertEqual("", stderr)
 
@@ -613,12 +615,12 @@ class BamCommitTest(BamSessionTestCase):
         shutil.rmtree(session_path)
 
         # checkout the file again
-        stdout, stderr = bam_run(["checkout", "testfile.txt"], proj_path)
+        stdout, stderr = bam_run(["checkout", file_name, "--output", session_path], proj_path)
         self.assertEqual("", stderr)
         # wait_for_input()
-        self.assertTrue(os.path.exists(os.path.join(proj_path, "testfile/testfile.txt")))
+        self.assertTrue(os.path.exists(os.path.join(session_path, file_name)))
 
-        file_data_test = file_quick_read(os.path.join(proj_path, "testfile/testfile.txt"))
+        file_data_test = file_quick_read(os.path.join(session_path, file_name))
         self.assertEqual(file_data, file_data_test)
 
 
@@ -666,13 +668,13 @@ class BamBlendTest(BamSimpleTestCase):
                 shutil.rmtree(TEMP_SESSION)
 
     def test_empty(self):
-        blendfile = os.path.join(TEMP, "test.blend")
+        file_name = "testfile.blend"
+        blendfile = os.path.join(TEMP, file_name)
         if not blendfile_template_create(blendfile, "create_blank", []):
             self.fail("blend file couldn't be created")
             return
 
         self.assertTrue(os.path.exists(blendfile))
-
 
 
 class BamDeleteTest(BamSessionTestCase):
@@ -685,6 +687,7 @@ class BamDeleteTest(BamSessionTestCase):
 
     def test_delete(self):
         self.init_repo()
+        file_name = "testfile.blend"
         file_data = b"hello world!\n"
 
         proj_path = os.path.join(self.path_local_store, self.proj_name)
@@ -695,8 +698,7 @@ class BamDeleteTest(BamSessionTestCase):
         self.assertEqual("", stderr)
 
         # now do a real commit
-        returncode_test = 42
-        blendfile = os.path.join(session_path, "testfile.blend")
+        blendfile = os.path.join(session_path, file_name)
         if not blendfile_template_create(blendfile, "create_blank", []):
             self.fail("blend file couldn't be created")
             return
@@ -712,13 +714,13 @@ class BamDeleteTest(BamSessionTestCase):
         # New Session
 
         # checkout the file again
-        stdout, stderr = bam_run(["checkout", "testfile.blend"], proj_path)
+        stdout, stderr = bam_run(["checkout", file_name, "--output", "new_out"], proj_path)
         self.assertEqual("", stderr)
 
 
         # now delete the file we just checked out
-        session_path = os.path.join(proj_path, "testfile")
-        os.remove(os.path.join(session_path, "testfile.blend"))
+        session_path = os.path.join(proj_path, "new_out")
+        os.remove(os.path.join(session_path, file_name))
         stdout, stderr = bam_run(["commit", "-m", "test deletion"], session_path)
         self.assertEqual("", stderr)
         # check if deletion of the file has happened
@@ -732,7 +734,7 @@ class BamDeleteTest(BamSessionTestCase):
         listing = json.loads(stdout)
         print(listing)
         for e in listing:
-            self.assertNotEqual(e[0], "testfile.txt")
+            self.assertNotEqual(e[0], file_name)
 
 
 if __name__ == '__main__':

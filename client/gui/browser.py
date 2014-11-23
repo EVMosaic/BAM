@@ -87,7 +87,7 @@ class PathHandle:
 
         with open(local_filename, 'wb') as f:
             for chunk in r.iter_content(chunk_size=1024):
-                if chunk: # filter out keep-alive new chunks
+                if chunk:  # filter out keep-alive new chunks
                     f.write(chunk)
                     f.flush()
         print(local_filename)
@@ -137,7 +137,7 @@ class Application(tk.Frame):
         pass
         """
         for row in range(100):
-            tk.Label(self.frame, text="%s" % row, width=3, borderwidth="1", 
+            tk.Label(self.frame, text="%s" % row, width=3, borderwidth="1",
                      relief="solid").grid(row=row, column=0)
             t="this is the second colum for row %s" %row
             tk.Label(self.frame, text=t).grid(row=row, column=1)

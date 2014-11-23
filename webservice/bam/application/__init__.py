@@ -97,7 +97,7 @@ class DirectoryAPI(Resource):
 
     def __init__(self):
         parser = reqparse.RequestParser()
-        #parser.add_argument('rate', type=int, help='Rate cannot be converted')
+        # parser.add_argument('rate', type=int, help='Rate cannot be converted')
         parser.add_argument('path', type=str)
         args = parser.parse_args()
         super(DirectoryAPI, self).__init__()

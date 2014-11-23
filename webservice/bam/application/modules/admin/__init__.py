@@ -28,11 +28,11 @@ def _list_items(view, context, model, name):
         '<div class="select2-container-multi">'
             '<ul class="select2-choices" style="border:0;cursor:default;background:none;">%s</ul></div>' % (
                 ''.join(['<li class="select2-search-choice" style="padding:3px 5px;">'
-                            '<div>' + item.name + '</div></li>' for item in getattr(model, name)] )))
+                         '<div>' + item.name + '</div></li>' for item in getattr(model, name)])))
 
 
 def _list_thumbnail(view, context, model, name):
-    if not getattr(model,name):  # model.name only does not work because name is a string
+    if not getattr(model, name):  # model.name only does not work because name is a string
         return ''
     return ''
     # return Markup('<img src="%s">' % url_for('static',

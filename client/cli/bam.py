@@ -630,41 +630,8 @@ class bam_commands:
                 print("  %r -> %r" % (os.path.join(fp.basedir, fp_blend_basename), fp.filepath))
 
 
-def subcommand_init_cb(args):
-    bam_commands.init(args.url, args.directory_name)
-
-
-def subcommand_create_cb(args):
-    bam_commands.create(args.session_name[0])
-
-
-def subcommand_checkout_cb(args):
-    bam_commands.checkout(args.path, args.output)
-
-
-def subcommand_commit_cb(args):
-    bam_commands.commit(args.paths or ["."], args.message)
-
-
-def subcommand_update_cb(args):
-    print(args)
-
-
-def subcommand_revert_cb(args):
-    print(args)
-
-
-def subcommand_status_cb(args):
-    bam_commands.status(args.paths or ["."])
-
-
-def subcommand_list_cb(args):
-    bam_commands.list_dir(args.paths or ["."], use_json=args.json)
-
-
-def subcommand_deps_cb(args):
-    bam_commands.deps(args.paths or ["."], args.recursive)
-
+# -----------------------------------------------------------------------------
+# Argument Parser
 
 def generic_argument_json(subparse):
     subparse.add_argument(
@@ -683,7 +650,10 @@ def create_argparse_init(subparsers):
             dest="directory_name", nargs="?",
             help="Directory name",
             )
-    subparse.set_defaults(func=subcommand_init_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.init(args.url, args.directory_name),
+            )
 
 
 def create_argparse_create(subparsers):
@@ -695,7 +665,10 @@ def create_argparse_create(subparsers):
             dest="session_name", nargs=1,
             help="Name of session directory",
             )
-    subparse.set_defaults(func=subcommand_create_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.create(args.session_name[0]),
+            )
 
 
 def create_argparse_checkout(subparsers):
@@ -711,7 +684,10 @@ def create_argparse_checkout(subparsers):
             "-o", "--output", dest="output", type=str, metavar='DIRNAME',
             help="Local name to checkout the session into (optional, falls back to path name)",
             )
-    subparse.set_defaults(func=subcommand_checkout_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.checkout(args.path, args.output),
+            )
 
 
 def create_argparse_commit(subparsers):
@@ -728,8 +704,10 @@ def create_argparse_commit(subparsers):
             dest="paths", nargs="*",
             help="paths to commit",
             )
-
-    subparse.set_defaults(func=subcommand_commit_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.commit(args.paths or ["."], args.message),
+            )
 
 
 def create_argparse_update(subparsers):
@@ -741,7 +719,11 @@ def create_argparse_update(subparsers):
             dest="paths", nargs="+",
             help="Path(s) to operate on",
             )
-    subparse.set_defaults(func=subcommand_update_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            # TODO
+            print(args),
+            )
 
 
 def create_argparse_revert(subparsers):
@@ -753,7 +735,11 @@ def create_argparse_revert(subparsers):
             dest="paths", nargs="+",
             help="Path(s) to operate on",
             )
-    subparse.set_defaults(func=subcommand_revert_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            # TODO
+            print(args)
+            )
 
 
 def create_argparse_status(subparsers):
@@ -765,7 +751,10 @@ def create_argparse_status(subparsers):
             dest="paths", nargs="*",
             help="Path(s) to operate on",
             )
-    subparse.set_defaults(func=subcommand_status_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.status(args.paths or ["."]),
+            )
 
 
 def create_argparse_list(subparsers):
@@ -780,7 +769,10 @@ def create_argparse_list(subparsers):
 
     generic_argument_json(subparse)
 
-    subparse.set_defaults(func=subcommand_list_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.list_dir(args.paths or ["."], use_json=args.json),
+            )
 
 
 def create_argparse_deps(subparsers):
@@ -796,7 +788,10 @@ def create_argparse_deps(subparsers):
             "-r", "--recursive", dest="recursive", action='store_true',
             help="Scan dependencies recursively",
             )
-    subparse.set_defaults(func=subcommand_deps_cb)
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.deps(args.paths or ["."], args.recursive)
+            )
 
 
 def create_argparse():

@@ -181,6 +181,8 @@ class bam_session:
         import os
         from bam_utils.system import sha1_from_file
 
+        session_rootdir = os.path.abspath(session_rootdir)
+
         # don't commit metadata
         paths_used = {
             os.path.join(session_rootdir, ".bam_paths_uuid.json"),
@@ -229,7 +231,9 @@ class bam_session:
             if fn_abs not in paths_used:
                 # we should be clever - add the file to a useful location based on some rules
                 # (category, filetype & tags?)
-                fn_rel = os.path.basename(fn_abs)
+
+                # XXX, remap!
+                fn_rel = os.path.relpath(fn_abs, session_rootdir)
 
                 # TODO(cam)
                 # remap paths of added files
@@ -616,19 +620,28 @@ class bam_commands:
                     print("  %s" % name_short)
 
     @staticmethod
-    def deps(paths, recursive=False):
-        import blendfile_path_walker
+    def deps(paths, recursive=False, use_json=False):
         import os
-        # TODO(cam) multiple paths
-        for blendfile_src in paths:
-            blendfile_src = blendfile_src.encode('utf-8')
-            for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
-                    blendfile_src,
-                    readonly=True,
-                    recursive=recursive,
-                    ):
-                print("  %r -> %r" % (os.path.join(fp.basedir, fp_blend_basename), fp.filepath))
 
+        def deps_path_walker():
+            import blendfile_path_walker
+            for blendfile_src in paths:
+                blendfile_src = blendfile_src.encode('utf-8')
+                yield from blendfile_path_walker.FilePath.visit_from_blend(
+                        blendfile_src,
+                        readonly=True,
+                        recursive=recursive,
+                        )
+
+        if use_json:
+            ret = []
+            import json
+            for fp, (rootdir, fp_blend_basename) in deps_path_walker():
+                ret.append((os.path.join(fp.basedir, fp_blend_basename).decode('utf-8'), fp.filepath.decode('utf-8')))
+            print(json.dumps(ret))
+        else:
+            for fp, (rootdir, fp_blend_basename) in deps_path_walker():
+                print("  %r -> %r" % (os.path.join(fp.basedir, fp_blend_basename), fp.filepath))
 
 # -----------------------------------------------------------------------------
 # Argument Parser
@@ -771,8 +784,10 @@ def create_argparse_list(subparsers):
 
     subparse.set_defaults(
             func=lambda args:
-            bam_commands.list_dir(args.paths or ["."], use_json=args.json),
-            )
+            bam_commands.list_dir(
+                    args.paths or ["."],
+                    use_json=args.json),
+                    )
 
 
 def create_argparse_deps(subparsers):
@@ -788,10 +803,15 @@ def create_argparse_deps(subparsers):
             "-r", "--recursive", dest="recursive", action='store_true',
             help="Scan dependencies recursively",
             )
+
+    generic_argument_json(subparse)
+
     subparse.set_defaults(
             func=lambda args:
-            bam_commands.deps(args.paths or ["."], args.recursive)
-            )
+            bam_commands.deps(
+                    args.paths or ["."], args.recursive,
+                    use_json=args.json),
+                    )
 
 
 def create_argparse():

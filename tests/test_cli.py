@@ -294,7 +294,34 @@ def file_quick_touch(path, filepart=None, times=None):
         os.utime(path, times)
 
 
-def blendfile_template_create(blendfile, create_id, deps):
+def file_quick_image(path, filepart=None):
+    def write_png(buf, width, height):
+        """ buf: must be bytes or a bytearray in py3, a regular string in py2. formatted RGBARGBA... """
+        import zlib, struct
+
+        width_byte_4 = width * 4
+        raw_data = b''.join(b'\x00' + buf[span:span + width_byte_4]
+                            for span in range((height - 1) * width * 4, -1, - width_byte_4))
+
+        def png_pack(png_tag, data):
+            chunk_head = png_tag + data
+            return (struct.pack("!I", len(data)) +
+                    chunk_head +
+                    struct.pack("!I", 0xFFFFFFFF & zlib.crc32(chunk_head)))
+
+        return b''.join([
+            b'\x89PNG\r\n\x1a\n',
+            png_pack(b'IHDR', struct.pack("!2I5B", width, height, 8, 6, 0, 0, 0)),
+            png_pack(b'IDAT', zlib.compress(raw_data, 9)),
+            png_pack(b'IEND', b'')])
+
+    if filepart is not None:
+        path = os.path.join(path, filepart)
+    with open(path, 'wb') as f:
+        f.write(write_png(b'0000' * 4, 2, 2))
+
+
+def blendfile_template_create(blendfile, blendfile_root, create_id, deps):
     returncode_test = 123
     blendfile_deps_json = os.path.join(TEMP_LOCAL, "blend_template_deps.json")
     os.makedirs(os.path.dirname(blendfile), exist_ok=True)
@@ -307,6 +334,7 @@ def blendfile_template_create(blendfile, create_id, deps):
         os.path.join(CURRENT_DIR, "blendfile_templates.py"),
         "--",
         blendfile,
+        blendfile_root,
         blendfile_deps_json,
         create_id,
         str(returncode_test),
@@ -653,7 +681,7 @@ class BamBlendTest(BamSimpleTestCase):
                 blendfile = os.path.join(TEMP_SESSION, create_id + ".blend")
                 deps = []
 
-                if not blendfile_template_create(blendfile, create_id, deps):
+                if not blendfile_template_create(blendfile, TEMP_SESSION, create_id, deps):
                     # self.fail("blend file couldn't be create")
                     # ... we want to keep running
                     self.assertTrue(False, True)  # GRR, a better way?
@@ -676,7 +704,7 @@ class BamBlendTest(BamSimpleTestCase):
     def test_empty(self):
         file_name = "testfile.blend"
         blendfile = os.path.join(TEMP_LOCAL, file_name)
-        if not blendfile_template_create(blendfile, "create_blank", []):
+        if not blendfile_template_create(blendfile, TEMP_LOCAL, "create_blank", []):
             self.fail("blend file couldn't be created")
             return
 
@@ -698,7 +726,7 @@ class BamDeleteTest(BamSessionTestCase):
 
         # now do a real commit
         blendfile = os.path.join(session_path, file_name)
-        if not blendfile_template_create(blendfile, "create_blank", []):
+        if not blendfile_template_create(blendfile, session_path, "create_blank", []):
             self.fail("blend file couldn't be created")
             return
 
@@ -732,6 +760,92 @@ class BamDeleteTest(BamSessionTestCase):
         listing = json.loads(stdout)
         for e in listing:
             self.assertNotEqual(e[0], file_name)
+
+
+class BamRelativeAbsoluteTest(BamSessionTestCase):
+    """Create a checkout and commit it into the repository,
+    using both absolute & relative paths.
+    """
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
+    @staticmethod
+    def _test_blend_and_images(proj_path, session_path, blendfile, images):
+
+        for f_proj, f_local in images:
+            f_abs = os.path.join(session_path, f_proj)
+            os.makedirs(os.path.dirname(f_abs))
+            file_quick_image(f_abs)
+
+        blendfile_abs = os.path.join(session_path, blendfile[0])
+        deps = []
+        blendfile_template_create(blendfile_abs, session_path, "create_from_files", deps)
+
+        # not essential but we need to be sure what we made has correct deps
+        # otherwise further tests will fail
+        stdout, stderr = bam_run(["deps", blendfile_abs, "--json"], proj_path)
+
+        import json
+        ret = json.loads(stdout)
+        # not real test since we don't use static method,
+        # just check we at least account for all deps
+        assert(len(ret) == len(images))
+
+    def _test_absolute_relative_mix(self):
+        """
+        Layout is as follows.
+
+         - ./shots/01/shot_01.blend
+         - ./shots/01/maps/special.png
+         - ./maps/generic.png
+
+        Maps to...
+         - ./shot_01.blend
+         - ./_maps/special.png
+         - ./maps/generic.png
+        """
+
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+
+        # absolute path: (project relative) -->
+        # checkout path: (relative to blend)
+        blendfile = ("shots/01/shot_01.blend", "shot_01.blend")
+        images = (
+            ("shots/01/maps/special.png", "_maps/special.png"),
+            ("maps/generic.png", "maps/generic.png"),
+            )
+
+        # create the image files we need
+        self._test_blend_and_images(proj_path, session_path, blendfile, images)
+
+        # now commit the files
+        stdout, stderr = bam_run(["commit", "-m", "commit shot_01"], session_path)
+        self.assertEqual("", stderr)
+
+        # remove the path
+        shutil.rmtree(session_path)
+        del session_path
+
+        # -----------
+        # New Session
+
+        # checkout the file again
+        stdout, stderr = bam_run(["checkout", blendfile[0], "--output", "new_out"], proj_path)
+        self.assertEqual("", stderr)
+
+        # now delete the file we just checked out
+        session_path = os.path.join(proj_path, "new_out")
+        # print(run(["find"], proj_path)[0].decode('utf-8'))
+
+        # Now check if all the paths we expected are found!
+        for f_proj, f_local in images:
+            f_abs = os.path.join(session_path, f_local)
+            # assert message isn't so useful
+            if VERBOSE:
+                print("Exists?", f_abs)
+            self.assertTrue(os.path.exists(f_abs))
 
 
 if __name__ == '__main__':

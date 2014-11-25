@@ -23,11 +23,11 @@ def _clear_blend():
             bpy_data_iter.remove(id_data)
 
 
-def create_blank(deps):
+def create_blank(blendfile_root, deps):
     assert(isinstance(deps, list))
 
 
-def create_image_single(deps):
+def create_image_single(blendfile_root, deps):
     import bpy
 
     path = "//my_image.png"
@@ -39,7 +39,7 @@ def create_image_single(deps):
     image.save()
 
 
-def create_from_files(deps):
+def create_from_files(blendfile_root, deps):
     """Create a blend file which users all sub-directories.
     (currently images only)
     """
@@ -52,7 +52,8 @@ def create_from_files(deps):
                 filepath = os.path.join(dirpath, filename)
                 yield filepath
 
-    dirname = os.path.dirname(bpy.data.filepath)
+    # dirname = os.path.dirname(bpy.data.filepath)
+    dirname = blendfile_root
     for f_abs in iter_files_blend(dirname):
         if f_abs.endswith(".png"):
             f_rel = bpy.path.relpath(f_abs)
@@ -63,7 +64,7 @@ def create_from_files(deps):
 
 if __name__ == "__main__":
     import sys
-    blendfile, blendfile_deps_json, create_id, returncode = sys.argv[-4:]
+    blendfile, blendfile_root, blendfile_deps_json, create_id, returncode = sys.argv[-5:]
     returncode = int(returncode)
     create_fn = globals()[create_id]
 
@@ -79,7 +80,9 @@ if __name__ == "__main__":
 
     _clear_blend()
     deps = []
-    create_fn(deps)
+
+    create_fn(blendfile_root, deps)
+
     if deps:
         with open(blendfile_deps_json, 'w') as f:
             import json

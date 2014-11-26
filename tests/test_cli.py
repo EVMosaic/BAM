@@ -42,6 +42,15 @@ del os, sys, path
 # --------
 
 
+# -------------------------
+# Quiet the werkzeug logger
+if not VERBOSE:
+    import werkzeug
+    import werkzeug._internal
+    werkzeug._internal._log = lambda *a, **b: None
+    del werkzeug
+
+
 # -----------------------------------------
 # Ensure we get stdout & stderr on sys.exit
 #
@@ -359,6 +368,29 @@ def blendfile_template_create(blendfile, blendfile_root, create_id, deps):
         return False
     else:
         return True
+
+
+def blendfile_template_create_from_files(proj_path, session_path, blendfile, images):
+
+    for f_proj, f_local in images:
+        f_abs = os.path.join(session_path, f_proj)
+        os.makedirs(os.path.dirname(f_abs))
+        file_quick_image(f_abs)
+
+    blendfile_abs = os.path.join(session_path, blendfile[0])
+    deps = []
+    blendfile_template_create(blendfile_abs, session_path, "create_from_files", deps)
+
+    # not essential but we need to be sure what we made has correct deps
+    # otherwise further tests will fail
+    stdout, stderr = bam_run(["deps", blendfile_abs, "--json"], proj_path)
+
+    import json
+    ret = json.loads(stdout)
+    # not real test since we don't use static method,
+    # just check we at least account for all deps
+    assert(len(ret) == len(images))
+
 
 
 def wait_for_input():
@@ -770,55 +802,14 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         self.init_defaults()
         super().__init__(*args)
 
-    @staticmethod
-    def _test_blend_and_images(proj_path, session_path, blendfile, images):
-
-        for f_proj, f_local in images:
-            f_abs = os.path.join(session_path, f_proj)
-            os.makedirs(os.path.dirname(f_abs))
-            file_quick_image(f_abs)
-
-        blendfile_abs = os.path.join(session_path, blendfile[0])
-        deps = []
-        blendfile_template_create(blendfile_abs, session_path, "create_from_files", deps)
-
-        # not essential but we need to be sure what we made has correct deps
-        # otherwise further tests will fail
-        stdout, stderr = bam_run(["deps", blendfile_abs, "--json"], proj_path)
-
-        import json
-        ret = json.loads(stdout)
-        # not real test since we don't use static method,
-        # just check we at least account for all deps
-        assert(len(ret) == len(images))
-
-    def _test_absolute_relative_mix(self):
+    def _test_from_files(self, blendfile, images):
         """
-        Layout is as follows.
-
-         - ./shots/01/shot_01.blend
-         - ./shots/01/maps/special.png
-         - ./maps/generic.png
-
-        Maps to...
-         - ./shot_01.blend
-         - ./_maps/special.png
-         - ./maps/generic.png
         """
-
         session_name = "mysession"
         proj_path, session_path = self.init_session(session_name)
 
-        # absolute path: (project relative) -->
-        # checkout path: (relative to blend)
-        blendfile = ("shots/01/shot_01.blend", "shot_01.blend")
-        images = (
-            ("shots/01/maps/special.png", "_maps/special.png"),
-            ("maps/generic.png", "maps/generic.png"),
-            )
-
         # create the image files we need
-        self._test_blend_and_images(proj_path, session_path, blendfile, images)
+        blendfile_template_create_from_files(proj_path, session_path, blendfile, images)
 
         # now commit the files
         stdout, stderr = bam_run(["commit", "-m", "commit shot_01"], session_path)
@@ -846,6 +837,30 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
             if VERBOSE:
                 print("Exists?", f_abs)
             self.assertTrue(os.path.exists(f_abs))
+
+    def _test_absolute_relative_mix(self):
+        """
+        Layout is as follows.
+
+         - ./shots/01/shot_01.blend
+         - ./shots/01/maps/special.png
+         - ./maps/generic.png
+
+        Maps to...
+         - ./shot_01.blend
+         - ./_maps/special.png
+         - ./maps/generic.png
+        """
+
+        # absolute path: (project relative) -->
+        # checkout path: (relative to blend)
+        blendfile = ("shots/01/shot_01.blend", "shot_01.blend")
+        images = (
+            ("shots/01/maps/special.png", "_maps/special.png"),
+            ("maps/generic.png", "maps/generic.png"),
+            )
+
+        self._test_from_files(blendfile, images)
 
 
 if __name__ == '__main__':

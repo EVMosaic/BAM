@@ -269,7 +269,7 @@ class FilePath:
                     return blend.find_blocks_from_code(b'LI')
 
         if temp_remap_cb is not None:
-            filepath_tmp = temp_remap_cb(filepath, level)
+            filepath_tmp = temp_remap_cb(filepath, rootdir)
         else:
             filepath_tmp = filepath
 

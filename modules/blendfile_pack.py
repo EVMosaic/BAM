@@ -33,11 +33,80 @@ del os, sys, path
 # --------
 
 
-def pack(blendfile_src, blendfile_dst, mode='FILE',
-         paths_remap_relbase=None,
-         deps_remap=None, paths_remap=None, paths_uuid=None,
-         # yield reports
-         report=None):
+# ----------------------
+# debug low level output
+#
+# ... when internals _really_ fail & we want to know why
+def _dbg(text):
+    import sys
+    from bam_utils.system import colorize
+    if type(text) is bytes:
+        text = text.decode('utf-8')
+    sys.__stdout__.write(colorize(text, color='red') + "\n")
+    sys.__stdout__.flush()
+
+
+def _relpath_remap(
+        path_src,
+        base_dir_src,
+        fp_basedir,
+        blendfile_src_dir_fakeroot,
+        ):
+
+    import os
+
+    path_dst = os.path.relpath(path_src, base_dir_src)
+
+    if blendfile_src_dir_fakeroot is None:
+        # /foo/../bar.png --> /foo/__/bar.png
+        path_dst = path_dst.replace(b'..', b'__')
+        path_dst_final = os.path.relpath(path_dst, fp_basedir)
+    else:
+        if b'..' in path_dst:
+            # remap, relative to project root
+
+            # paths
+            path_dst = os.path.join(blendfile_src_dir_fakeroot, path_dst)
+            path_dst = os.path.normpath(path_dst)
+            # if there are paths outside the root still...
+            # This means they are outside the project directory, We dont support this,
+            # so name accordingly
+            if b'..' in path_dst:
+                # SHOULD NEVER HAPPEN
+                path_dst = path_dst.replace(b'..', b'__nonproject__')
+            path_dst = os.path.normpath(path_dst)
+        else:
+            path_dst = b'_' + path_dst
+
+        path_dst_final = os.path.join(os.path.relpath(fp_basedir, base_dir_src), path_dst)
+        path_dst_final = os.path.normpath(path_dst_final)
+
+    return path_dst, path_dst_final
+
+
+def pack(
+        # store the blendfile relative to this directory, can be:
+        #    os.path.dirname(blendfile_src)
+        # but in some cases we wan't to use a path higher up.
+        # base_dir_src,
+        blendfile_src, blendfile_dst, mode='FILE',
+        paths_remap_relbase=None,
+        deps_remap=None, paths_remap=None, paths_uuid=None,
+        # yield reports
+        report=None,
+
+        # The project path, eg:
+        # /home/me/myproject/mysession/path/to/blend/file.blend
+        # the path would be:         b'path/to/blend'
+        #
+        # This is needed so we can choose to store paths
+        # relative to project or relative to the current file.
+        #
+        # When None, map _all_ paths are relative to the current blend.
+        # converting:  '../../bar' --> '__/__/bar'
+        # so all paths are nested and not moved outside the session path.
+        blendfile_src_dir_fakeroot=None,
+        ):
     """
     :param deps_remap: Store path deps_remap info as follows.
        {"file.blend": {"path_new": "path_old", ...}, ...}
@@ -63,7 +132,6 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
     path_temp_files = set()
     path_copy_files = set()
 
-    SUBDIR = b'data'
     TEMP_SUFFIX = b'@'
 
     if report is None:
@@ -75,31 +143,38 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         import time
         t = time.time()
 
-    def temp_remap_cb(filepath, level):
+    base_dir_src = os.path.dirname(blendfile_src)
+    base_dir_dst = os.path.dirname(blendfile_dst)
+    _dbg(blendfile_src)
+    _dbg(blendfile_dst)
+
+    if mode == 'ZIP':
+        base_dir_dst_temp = os.path.join(base_dir_dst, b'__blendfile_temp__')
+    else:
+        base_dir_dst_temp = os.path.join(base_dir_dst, b'__blendfile_pack__')
+
+    def temp_remap_cb(filepath, rootdir):
         """
         Create temp files in the destination path.
         """
         filepath = blendfile_path_walker.utils.compatpath(filepath)
+        print(repr((os.path.join(rootdir, b'dummy'), base_dir_src, base_dir_src, blendfile_src_dir_fakeroot)))
 
-        if level == 0:
-            filepath_tmp = os.path.join(base_dir_dst, os.path.basename(filepath)) + TEMP_SUFFIX
-        else:
-            filepath_tmp = os.path.join(base_dir_dst, SUBDIR, os.path.basename(filepath)) + TEMP_SUFFIX
+        # first remap this blend file to the location it will end up (so we can get images relative to _that_)
+        # TODO(cam) cache the results
+        fp_basedir_conv = _relpath_remap(os.path.join(rootdir, b'dummy'), base_dir_src, base_dir_src, blendfile_src_dir_fakeroot)[0]
+        fp_basedir_conv = os.path.join(base_dir_src, os.path.dirname(fp_basedir_conv))
 
-        filepath_tmp = os.path.normpath(filepath_tmp)
+        # then get the file relative to the new location
+        filepath_tmp = _relpath_remap(filepath, base_dir_src, fp_basedir_conv, blendfile_src_dir_fakeroot)[0]
+        filepath_tmp = os.path.normpath(os.path.join(base_dir_dst_temp, filepath_tmp)) + TEMP_SUFFIX
 
         # only overwrite once (so we can write into a path already containing files)
         if filepath_tmp not in path_temp_files:
+            os.makedirs(os.path.dirname(filepath_tmp), exist_ok=True)
             shutil.copy(filepath, filepath_tmp)
             path_temp_files.add(filepath_tmp)
         return filepath_tmp
-
-    # base_dir_src = os.path.dirname(blendfile_src)
-    base_dir_dst = os.path.dirname(blendfile_dst)
-
-    base_dir_dst_subdir = os.path.join(base_dir_dst, SUBDIR)
-    if not os.path.exists(base_dir_dst_subdir):
-        os.makedirs(base_dir_dst_subdir)
 
     lib_visit = {}
     fp_blend_basename_last = b''
@@ -122,17 +197,23 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         # assume the path might be relative
         path_src_orig = fp.filepath
         path_rel = blendfile_path_walker.utils.compatpath(path_src_orig)
-        path_base = path_rel.split(os.sep.encode('ascii'))[-1]
         path_src = blendfile_path_walker.utils.abspath(path_rel, fp.basedir)
 
-        # rename in the blend
-        path_dst = os.path.join(base_dir_dst_subdir, path_base)
+        # destination path realtive to the root
+        # assert(b'..' not in path_src)
+        assert(b'..' not in base_dir_src)
 
-        if fp.level == 0:
-            path_dst_final = b"//" + os.path.join(SUBDIR, path_base)
-        else:
-            path_dst_final = b'//' + path_base
+        # first remap this blend file to the location it will end up (so we can get images relative to _that_)
+        # TODO(cam) cache the results
+        fp_basedir_conv = _relpath_remap(fp_blend, base_dir_src, base_dir_src, blendfile_src_dir_fakeroot)[0]
+        fp_basedir_conv = os.path.join(base_dir_src, os.path.dirname(fp_basedir_conv))
 
+        # then get the file relative to the new location
+        path_dst, path_dst_final = _relpath_remap(path_src, base_dir_src, fp_basedir_conv, blendfile_src_dir_fakeroot)
+
+        path_dst = os.path.join(base_dir_dst, path_dst)
+
+        path_dst_final = b'//' + path_dst_final
         fp.filepath = path_dst_final
 
         # add to copy-list
@@ -187,12 +268,12 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         for src, dst in path_copy_files:
             paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = sha1_from_file(src)
         # XXX, better way to store temp target
-        blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
+        blendfile_dst_tmp = temp_remap_cb(blendfile_src, base_dir_src)
         paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = sha1_from_file(blendfile_dst_tmp)
 
         # blend libs
         for dst in path_temp_files:
-            k = os.path.relpath(dst[:-len(TEMP_SUFFIX)], base_dir_dst).decode('utf-8')
+            k = os.path.relpath(dst[:-len(TEMP_SUFFIX)], base_dir_dst_temp).decode('utf-8')
             if k not in paths_uuid:
                 paths_uuid[k] = sha1_from_file(dst)
             del k
@@ -204,7 +285,7 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
     # Handle File Copy/Zip
 
     if mode == 'FILE':
-        blendfile_dst_tmp = temp_remap_cb(blendfile_src, 0)
+        blendfile_dst_tmp = temp_remap_cb(blendfile_src, base_dir_src)
 
         shutil.move(blendfile_dst_tmp, blendfile_dst)
         path_temp_files.remove(blendfile_dst_tmp)
@@ -229,11 +310,12 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
         with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', zipfile.ZIP_DEFLATED) as zip_handle:
             for fn in path_temp_files:
                 yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), fn))
-                zip_handle.write(fn.decode('utf-8'),
-                          arcname=os.path.relpath(fn[:-1], base_dir_dst).decode('utf-8'))
+                zip_handle.write(
+                        fn.decode('utf-8'),
+                        arcname=os.path.relpath(fn[:-1], base_dir_dst_temp).decode('utf-8'))
                 os.remove(fn)
 
-            shutil.rmtree(base_dir_dst_subdir)
+            shutil.rmtree(base_dir_dst_temp)
 
             for src, dst in path_copy_files:
                 assert(b'.blend' not in dst)
@@ -244,6 +326,12 @@ def pack(blendfile_src, blendfile_dst, mode='FILE',
                     yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), src))
                     zip_handle.write(src.decode('utf-8'),
                               arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
+
+                    """
+                    _dbg(b"")
+                    _dbg(b"REAL_FILE:     " + dst)
+                    _dbg(b"RELATIVE_FILE: " + os.path.relpath(dst, base_dir_dst))
+                    """
 
         yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
     else:

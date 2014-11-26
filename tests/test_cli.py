@@ -49,6 +49,7 @@ if not VERBOSE:
     import werkzeug._internal
     werkzeug._internal._log = lambda *a, **b: None
     del werkzeug
+# --------
 
 
 # -----------------------------------------
@@ -328,6 +329,12 @@ def file_quick_image(path, filepart=None):
         path = os.path.join(path, filepart)
     with open(path, 'wb') as f:
         f.write(write_png(b'0000' * 4, 2, 2))
+
+
+def _dbg_dump_path(path):
+    stdout, stderr, returncode = run(["find", path], path)
+    print("Contents of: %r" % path)
+    print("\n".join(sorted(stdout.decode('utf-8').split("\n"))))
 
 
 def blendfile_template_create(blendfile, blendfile_root, create_id, deps):
@@ -838,7 +845,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
                 print("Exists?", f_abs)
             self.assertTrue(os.path.exists(f_abs))
 
-    def _test_absolute_relative_mix(self):
+    def test_absolute_relative_mix(self):
         """
         Layout is as follows.
 
@@ -855,10 +862,16 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         # absolute path: (project relative) -->
         # checkout path: (relative to blend)
         blendfile = ("shots/01/shot_01.blend", "shot_01.blend")
-        images = (
-            ("shots/01/maps/special.png", "_maps/special.png"),
-            ("maps/generic.png", "maps/generic.png"),
-            )
+        if 1:
+            images = (
+                ("shots/01/maps/special.png", "_maps/special.png"),
+                ("maps/generic.png", "maps/generic.png"),
+                )
+        else:
+            images = (
+                ("shots/01/maps/special.png", "maps/special.png"),
+                ("maps/generic.png", "__/__/maps/generic.png"),
+                )
 
         self._test_from_files(blendfile, images)
 

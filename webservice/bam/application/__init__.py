@@ -356,13 +356,19 @@ class FileAPI(Resource):
         paths_uuid = {}
 
         if filepath.endswith(".blend"):
+
+            # find the path relative to the project's root
+            blendfile_src_dir_fakeroot = os.path.dirname(os.path.relpath(filepath, paths_remap_relbase))
+
             try:
                 yield from blendfile_pack.pack(
                         filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode='ZIP',
                         paths_remap_relbase=paths_remap_relbase.encode('utf-8'),
                         # TODO(cam) this just means the json is written in the zip
                         deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
-                        report=report)
+                        report=report,
+                        blendfile_src_dir_fakeroot=blendfile_src_dir_fakeroot.encode('utf-8'),
+                        )
             except:
                 log.exception("Error packing the blend file")
                 return

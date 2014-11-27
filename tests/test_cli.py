@@ -288,6 +288,7 @@ def file_quick_write(path, filepart=None, data=None):
     with open(path, mode) as f:
         f.write(data)
 
+
 def file_quick_read(path, filepart=None, mode='rb'):
 
     if filepart is not None:
@@ -357,8 +358,9 @@ def blendfile_template_create(blendfile, blendfile_root, create_id, create_data,
     else:
         blendfile_create_data_json = None
 
+    blender = os.getenv('BLENDER_BIN', "blender")
     cmd = (
-        "blender",
+        blender,
         "--background",
         "--factory-startup",
         "-noaudio",
@@ -625,6 +627,7 @@ class BamSessionTestCase(unittest.TestCase):
         stdout, stderr = bam_run(["create", session_name], proj_path)
         self.assertEqual("", stderr)
         return proj_path, session_path
+
 
 class BamInitTest(BamSessionTestCase):
     """Test the `bam init user@http://bamserver/projectname` command.

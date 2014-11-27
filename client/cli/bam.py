@@ -333,6 +333,7 @@ class bam_commands:
             # fallback to the basename
             dst_dir = os.path.splitext(os.path.basename(path))[0]
         else:
+            output_dir = os.path.realpath(output_dir)
             if os.sep in output_dir.rstrip(os.sep):
                 # are we a subdirectory?
                 # (we know this exists, since we have config already)

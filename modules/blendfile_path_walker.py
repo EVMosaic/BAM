@@ -622,6 +622,29 @@ class ExpandID:
         for item in bf_utils.iter_ListBase(block.get_pointer(b'base.first')):
             yield item.get_pointer(b'object', sdna_index_refine=sdna_index_Base)
 
+
+        block_ed = block.get_pointer(b'ed')
+        if block_ed is not None:
+            sdna_index_Sequence = block.file.sdna_index_from_id[b'Sequence']
+
+            def seqbase(someseq):
+                for item in someseq:
+                    item_type = item.get(b'type', sdna_index_refine=sdna_index_Sequence)
+
+                    if item_type >= C_defs.SEQ_TYPE_EFFECT:
+                        pass
+                    elif item_type == C_defs.SEQ_TYPE_META:
+                        yield from seqbase(bf_utils.iter_ListBase(item.get_pointer(b'seqbase.first', sdna_index_refine=sdna_index_Sequence)))
+                    else:
+                        if item_type == C_defs.SEQ_TYPE_SCENE:
+                            yield item.get_pointer(b'scene')
+                        elif item_type == C_defs.SEQ_TYPE_MOVIECLIP:
+                            yield item.get_pointer(b'clip')
+                        elif item_type == C_defs.SEQ_TYPE_MASK:
+                            yield item.get_pointer(b'mask')
+
+            yield from seqbase(bf_utils.iter_ListBase(block_ed.get_pointer(b'seqbase.first')))
+
     @staticmethod
     def expand_GR(block):  # 'Group'
         sdna_index_GroupObject = block.file.sdna_index_from_id[b'GroupObject']

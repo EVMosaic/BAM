@@ -20,7 +20,7 @@
 
 import blendfile_path_walker
 
-TIMEIT = True
+TIMEIT = False
 
 # ------------------
 # Ensure module path
@@ -75,7 +75,6 @@ def _relpath_remap(
                 # SHOULD NEVER HAPPEN
                 path_dst = path_dst.replace(b'..', b'__nonproject__')
             path_dst = os.path.normpath(path_dst)
-        else:
             path_dst = b'_' + path_dst
 
         path_dst_final = os.path.join(os.path.relpath(fp_basedir, base_dir_src), path_dst)
@@ -129,6 +128,12 @@ def pack(
 
     from bam_utils.system import colorize
 
+    # first check args are OK
+    # fakeroot _cant_ start with a separator, since we prepend chars to it.
+    assert((blendfile_src_dir_fakeroot is None) or
+           (not blendfile_src_dir_fakeroot.startswith(os.sep.encode('ascii'))))
+
+
     path_temp_files = set()
     path_copy_files = set()
 
@@ -145,8 +150,8 @@ def pack(
 
     base_dir_src = os.path.dirname(blendfile_src)
     base_dir_dst = os.path.dirname(blendfile_dst)
-    _dbg(blendfile_src)
-    _dbg(blendfile_dst)
+    # _dbg(blendfile_src)
+    # _dbg(blendfile_dst)
 
     if mode == 'ZIP':
         base_dir_dst_temp = os.path.join(base_dir_dst, b'__blendfile_temp__')
@@ -158,7 +163,6 @@ def pack(
         Create temp files in the destination path.
         """
         filepath = blendfile_path_walker.utils.compatpath(filepath)
-        print(repr((os.path.join(rootdir, b'dummy'), base_dir_src, base_dir_src, blendfile_src_dir_fakeroot)))
 
         # first remap this blend file to the location it will end up (so we can get images relative to _that_)
         # TODO(cam) cache the results

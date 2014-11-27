@@ -835,7 +835,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
 
         # now delete the file we just checked out
         session_path = os.path.join(proj_path, "new_out")
-        # print(run(["find"], proj_path)[0].decode('utf-8'))
+        # _dbg_dump_path(session_path)
 
         # Now check if all the paths we expected are found!
         for f_proj, f_local in images:
@@ -864,8 +864,8 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         blendfile = ("shots/01/shot_01.blend", "shot_01.blend")
         if 1:
             images = (
-                ("shots/01/maps/special.png", "_maps/special.png"),
-                ("maps/generic.png", "maps/generic.png"),
+                ("shots/01/maps/special.png", "maps/special.png"),
+                ("maps/generic.png", "_maps/generic.png"),
                 )
         else:
             images = (

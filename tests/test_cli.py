@@ -337,10 +337,25 @@ def _dbg_dump_path(path):
     print("\n".join(sorted(stdout.decode('utf-8').split("\n"))))
 
 
-def blendfile_template_create(blendfile, blendfile_root, create_id, deps):
+def blendfile_template_create(blendfile, blendfile_root, create_id, create_data, deps):
     returncode_test = 123
     blendfile_deps_json = os.path.join(TEMP_LOCAL, "blend_template_deps.json")
     os.makedirs(os.path.dirname(blendfile), exist_ok=True)
+
+    if create_data is not None:
+        blendfile_create_data_json = os.path.join(TEMP_LOCAL, "blendfile_create_data.json")
+        with open(blendfile_create_data_json, 'w') as f:
+            import json
+            json.dump(
+                    create_data, f, ensure_ascii=False,
+                    check_circular=False,
+                    # optional (pretty)
+                    sort_keys=True, indent=4, separators=(',', ': '),
+                    )
+            del json
+    else:
+        blendfile_create_data_json = None
+
     cmd = (
         "blender",
         "--background",
@@ -353,17 +368,22 @@ def blendfile_template_create(blendfile, blendfile_root, create_id, deps):
         blendfile_root,
         blendfile_deps_json,
         create_id,
+        "NONE" if blendfile_create_data_json is None else blendfile_create_data_json,
         str(returncode_test),
         )
     stdout, stderr, returncode = run(cmd)
 
     if os.path.exists(blendfile_deps_json):
-        import json
         with open(blendfile_deps_json, 'r') as f:
+            import json
             deps[:] = json.load(f)
+            del json
         os.remove(blendfile_deps_json)
     else:
         deps.clear()
+
+    if blendfile_create_data_json is not None:
+        os.remove(blendfile_create_data_json)
 
     if returncode != returncode_test:
         # verbose will have already printed
@@ -386,7 +406,7 @@ def blendfile_template_create_from_files(proj_path, session_path, blendfile, ima
 
     blendfile_abs = os.path.join(session_path, blendfile[0])
     deps = []
-    blendfile_template_create(blendfile_abs, session_path, "create_from_files", deps)
+    blendfile_template_create(blendfile_abs, session_path, "create_from_files", None, deps)
 
     # not essential but we need to be sure what we made has correct deps
     # otherwise further tests will fail
@@ -720,7 +740,7 @@ class BamBlendTest(BamSimpleTestCase):
                 blendfile = os.path.join(TEMP_SESSION, create_id + ".blend")
                 deps = []
 
-                if not blendfile_template_create(blendfile, TEMP_SESSION, create_id, deps):
+                if not blendfile_template_create(blendfile, TEMP_SESSION, create_id, None, deps):
                     # self.fail("blend file couldn't be create")
                     # ... we want to keep running
                     self.assertTrue(False, True)  # GRR, a better way?
@@ -743,7 +763,7 @@ class BamBlendTest(BamSimpleTestCase):
     def test_empty(self):
         file_name = "testfile.blend"
         blendfile = os.path.join(TEMP_LOCAL, file_name)
-        if not blendfile_template_create(blendfile, TEMP_LOCAL, "create_blank", []):
+        if not blendfile_template_create(blendfile, TEMP_LOCAL, "create_blank", None, []):
             self.fail("blend file couldn't be created")
             return
 
@@ -765,7 +785,7 @@ class BamDeleteTest(BamSessionTestCase):
 
         # now do a real commit
         blendfile = os.path.join(session_path, file_name)
-        if not blendfile_template_create(blendfile, session_path, "create_blank", []):
+        if not blendfile_template_create(blendfile, session_path, "create_blank", None, []):
             self.fail("blend file couldn't be created")
             return
 

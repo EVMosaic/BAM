@@ -133,7 +133,6 @@ def pack(
     assert((blendfile_src_dir_fakeroot is None) or
            (not blendfile_src_dir_fakeroot.startswith(os.sep.encode('ascii'))))
 
-
     path_temp_files = set()
     path_copy_files = set()
 

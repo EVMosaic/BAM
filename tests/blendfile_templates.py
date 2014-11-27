@@ -62,8 +62,6 @@ def create_from_files(blendfile_root, _create_data, deps):
             deps.append(f_abs)
 
 
-
-
 if __name__ == "__main__":
     import sys
     blendfile, blendfile_root, blendfile_deps_json, create_id, create_data, returncode = sys.argv[-6:]

@@ -307,7 +307,8 @@ def file_quick_touch(path, filepart=None, times=None):
 def file_quick_image(path, filepart=None):
     def write_png(buf, width, height):
         """ buf: must be bytes or a bytearray in py3, a regular string in py2. formatted RGBARGBA... """
-        import zlib, struct
+        import zlib
+        import struct
 
         width_byte_4 = width * 4
         raw_data = b''.join(b'\x00' + buf[span:span + width_byte_4]
@@ -417,7 +418,6 @@ def blendfile_template_create_from_files(proj_path, session_path, blendfile, ima
     # not real test since we don't use static method,
     # just check we at least account for all deps
     assert(len(ret) == len(images))
-
 
 
 def wait_for_input():

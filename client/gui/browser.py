@@ -29,16 +29,17 @@ class PathHandle:
         "json",
         "path",
         )
+
     def __init__(self):
         self.json = None
         # list of strings
         self.path = []
 
-        #self.filepath_set("gui.json")
+        # self.filepath_set("gui.json")
         self.refresh()
 
     def refresh(self):
-        import json
+        # import json
         # self.json = json.load(fp)
         self.json = self.json_from_server(self.path)
         print(self.json)

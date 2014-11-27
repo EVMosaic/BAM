@@ -62,6 +62,69 @@ def create_from_files(blendfile_root, _create_data, deps):
             deps.append(f_abs)
 
 
+def create_from_file_liblinks(blendfile_root, create_data, deps):
+    # _clear_blend()
+    # create_data is a list of string pairs:
+    # [(blend_file, data_id, links_to)]
+    import os
+    import bpy
+
+    def savefile(f):
+        bpy.ops.wm.save_mainfile('EXEC_DEFAULT', filepath=f)
+
+    def newfile(f):
+        bpy.ops.wm.read_factory_settings()
+        _clear_blend()
+        savefile(f)
+
+    # NOTE: no attempt has been made to optimize loop below
+    # we rely on this being < 10 items to not be completely slow!
+    print(create_data)
+    data_id_map = {f: f_id for (f, f_id, f_link) in create_data}
+    done = {bpy.data.filepath}
+
+    # simplifies logic below
+    os.remove(bpy.data.filepath)
+
+    ok = True
+    while ok:
+        ok = False
+        for f, f_id, f_links in create_data:
+            if not os.path.exists(f):
+                print(f_links)
+                if not f_links or all(os.path.exists(l) for l in f_links):
+                    if f != bpy.data.filepath:
+                        newfile(f)
+
+                    scene = bpy.context.scene
+
+                    # we have a path with an existing link!
+                    ok = True
+                    for i, l_abs in enumerate(f_links):
+                        l_rel = bpy.path.relpath(l_abs)
+                        with bpy.data.libraries.load(l_rel, link=True) as (data_src, data_dst):
+                            data_dst.scenes = [data_id_map[l_abs]]
+
+                        scene_link = bpy.data.scenes[data_id_map[l_abs]]
+                        edit = scene.sequence_editor_create()
+                        edit.sequences.new_scene(
+                                name=scene_link.name,
+                                scene=scene_link,
+                                frame_start=1,
+                                channel=i,
+                                )
+
+                    # save the file with a new scene name
+                    scene.name = f_id
+                    bpy.ops.wm.save_mainfile('EXEC_DEFAULT', filepath=f)
+                    done.add(f)
+
+    if len(create_data) != len(done):
+        raise Exception(
+                "Paths could not be resolved (cyclic deps) %r!" %
+                tuple(sorted({f for f, f_id, f_links in create_data} - done)))
+
+
 if __name__ == "__main__":
     import sys
     blendfile, blendfile_root, blendfile_deps_json, create_id, create_data, returncode = sys.argv[-6:]

@@ -400,16 +400,17 @@ def blendfile_template_create(blendfile, blendfile_root, create_id, create_data,
         return True
 
 
-def blendfile_template_create_from_files(proj_path, session_path, blendfile, images):
+def blendfile_template_create_from_files(proj_path, session_path, blendfile_pair, images):
 
     for f_proj, f_local in images:
         f_abs = os.path.join(session_path, f_proj)
         os.makedirs(os.path.dirname(f_abs))
         file_quick_image(f_abs)
 
-    blendfile_abs = os.path.join(session_path, blendfile[0])
+    blendfile_abs = os.path.join(session_path, blendfile_pair[0])
     deps = []
-    blendfile_template_create(blendfile_abs, session_path, "create_from_files", None, deps)
+    if not blendfile_template_create(blendfile_abs, session_path, "create_from_files", None, deps):
+        return False
 
     # not essential but we need to be sure what we made has correct deps
     # otherwise further tests will fail
@@ -420,6 +421,37 @@ def blendfile_template_create_from_files(proj_path, session_path, blendfile, ima
     # not real test since we don't use static method,
     # just check we at least account for all deps
     assert(len(ret) == len(images))
+
+
+def blendfile_template_create_from_file_liblinks(proj_path, session_path, blendfile, links):
+
+    blendfile_abs = os.path.join(session_path, blendfile)
+    deps = []
+
+    links_abs = []
+    for f, f_id, f_links in links:
+        f_abs = os.path.join(session_path, f)
+        f_abs_dir = os.path.dirname(f_abs)
+        os.makedirs(f_abs_dir, exist_ok=True)
+        links_abs.append((
+                f_abs,
+                f_id,
+                [os.path.join(session_path, l) for l in f_links],
+                ))
+
+    if not blendfile_template_create(blendfile_abs, session_path, "create_from_file_liblinks", links_abs, deps):
+        return False
+
+    # not essential but we need to be sure what we made has correct deps
+    # otherwise further tests will fail
+    stdout, stderr = bam_run(["deps", blendfile_abs, "--json"], proj_path)
+
+    import json
+    ret = json.loads(stdout)
+    # not real test since we don't use static method,
+    # just check we at least account for all deps
+    # assert(len(ret) == len(links))
+    return True
 
 
 def wait_for_input():
@@ -738,6 +770,10 @@ class BamBlendTest(BamSimpleTestCase):
         for create_id, create_fn in blendfile_templates.__dict__.items():
             if (create_id.startswith("create_") and create_fn.__class__.__name__ == "function"):
 
+                # ignore create functions which need data
+                if create_id in {"create_from_file_liblinks"}:
+                    continue
+
                 os.makedirs(TEMP_SESSION)
 
                 blendfile = os.path.join(TEMP_SESSION, create_id + ".blend")
@@ -832,14 +868,14 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         self.init_defaults()
         super().__init__(*args)
 
-    def _test_from_files(self, blendfile, images):
+    def helper_test_from_files(self, blendfile_pair, images):
         """
         """
         session_name = "mysession"
         proj_path, session_path = self.init_session(session_name)
 
         # create the image files we need
-        blendfile_template_create_from_files(proj_path, session_path, blendfile, images)
+        blendfile_template_create_from_files(proj_path, session_path, blendfile_pair, images)
 
         # now commit the files
         stdout, stderr = bam_run(["commit", "-m", "commit shot_01"], session_path)
@@ -853,7 +889,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         # New Session
 
         # checkout the file again
-        stdout, stderr = bam_run(["checkout", blendfile[0], "--output", "new_out"], proj_path)
+        stdout, stderr = bam_run(["checkout", blendfile_pair[0], "--output", "new_out"], proj_path)
         self.assertEqual("", stderr)
 
         # now delete the file we just checked out
@@ -868,7 +904,42 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
                 print("Exists?", f_abs)
             self.assertTrue(os.path.exists(f_abs))
 
-    def test_absolute_relative_mix(self):
+    def helper_test_from_liblinks(self, blendfile, liblinks_src, liblinks_dst):
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+
+        # create the image files we need
+        blendfile_template_create_from_file_liblinks(proj_path, session_path, blendfile, liblinks_src)
+
+        # now commit the files
+        stdout, stderr = bam_run(["commit", "-m", "commit shot_01"], session_path)
+        self.assertEqual("", stderr)
+
+        # remove the path
+        shutil.rmtree(session_path)
+        del session_path
+
+        # -----------
+        # New Session
+
+        # checkout the file again
+        stdout, stderr = bam_run(["checkout", blendfile, "--output", "new_out"], proj_path)
+        self.assertEqual("", stderr)
+
+        # now delete the file we just checked out
+        session_path = os.path.join(proj_path, "new_out")
+
+        # _dbg_dump_path(session_path)
+
+        # Now check if all the paths we expected are found!
+        for f_rel in liblinks_dst:
+            f_abs = os.path.join(session_path, f_rel)
+            # assert message isn't so useful
+            if VERBOSE:
+                print("Exists?", f_abs)
+            self.assertTrue(os.path.exists(f_abs))
+
+    def test_absolute_relative_images(self):
         """
         Layout is as follows.
 
@@ -884,7 +955,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
 
         # absolute path: (project relative) -->
         # checkout path: (relative to blend)
-        blendfile = ("shots/01/shot_01.blend", "shot_01.blend")
+        blendfile_pair = ("shots/01/shot_01.blend", "shot_01.blend")
         if 1:
             images = (
                 ("shots/01/maps/special.png", "maps/special.png"),
@@ -896,7 +967,42 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
                 ("maps/generic.png", "__/__/maps/generic.png"),
                 )
 
-        self._test_from_files(blendfile, images)
+        self.helper_test_from_files(blendfile_pair, images)
+
+    def test_absolute_relative_liblinks(self):
+        """
+        Layout is as follows.
+
+         - ./shots/01/shot_01.blend
+         - ./shots/01/maps/special.blend
+         - ./maps/generic.blend
+
+        Maps to...
+         - ./shot_01.blend
+         - ./_maps/special.blend
+         - ./maps/generic.blend
+        """
+
+        blendfile = "shots/01/shot_01.blend"
+
+        blend_shot = "shots/01/shot_01.blend"
+        blend_special = "shots/01/maps/special.blend"
+        blend_generic = "maps/generic.blend"
+
+        # absolute path: (project relative) -->
+        # checkout path: (relative to blend)
+        liblinks_src = (
+            (blend_shot, "Scene10", (blend_special,)),
+            (blend_special, "MySpecial", (blend_generic,)),
+            (blend_generic, "MyGeneric", ()),
+            )
+        liblinks_dst = (
+            "shot_01.blend",
+            "maps/special.blend",
+            "_maps/generic.blend",
+            )
+
+        self.helper_test_from_liblinks(blendfile, liblinks_src, liblinks_dst)
 
 
 if __name__ == '__main__':

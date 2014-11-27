@@ -18,8 +18,9 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-VERBOSE = True
-TIMEIT = True
+import os
+VERBOSE = os.environ.get('BAM_VERBOSE', False)
+TIMEIT = False
 
 
 class C_defs:

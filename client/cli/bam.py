@@ -694,15 +694,37 @@ class bam_commands:
                         recursive=recursive,
                         )
 
+        def deps_status(f):
+            if os.path.exists(f):
+                return "OK"
+            else:
+                return "MISSING FILE"
+
+        def status_walker():
+            for fp, (rootdir, fp_blend_basename) in deps_path_walker():
+                f_rel = fp.filepath
+                f_abs = fp.filepath_absolute
+
+                yield (
+                    # blendfile-src
+                    os.path.join(fp.basedir, fp_blend_basename).decode('utf-8'),
+                    # fillepath-dst
+                    f_rel.decode('utf-8'),
+                    f_abs.decode('utf-8'),
+                    # filepath-status
+                    "OK" if os.path.exists(f_abs) else "MISSING FILE",
+                    )
+
         if use_json:
-            ret = []
             import json
-            for fp, (rootdir, fp_blend_basename) in deps_path_walker():
-                ret.append((os.path.join(fp.basedir, fp_blend_basename).decode('utf-8'), fp.filepath.decode('utf-8')))
-            print(json.dumps(ret))
+            # print in parts, so we don't block the output
+            print("[")
+            for f_src, f_dst, f_dst_abs, f_status in status_walker():
+                print(json.dumps((f_src, f_dst, f_dst_abs, f_status)), end=",\n")
+            print("]")
         else:
-            for fp, (rootdir, fp_blend_basename) in deps_path_walker():
-                print("  %r -> %r" % (os.path.join(fp.basedir, fp_blend_basename), fp.filepath))
+            for f_src, f_dst, f_dst_abs, f_status in status_walker():
+                print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))
 
 # -----------------------------------------------------------------------------
 # Argument Parser

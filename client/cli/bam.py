@@ -555,7 +555,7 @@ class bam_commands:
         # if all goes well, rewrite sha1's
 
     @staticmethod
-    def status(paths):
+    def status(paths, use_json=False):
         # TODO(cam) multiple paths
         path = paths[0]
         del paths
@@ -570,12 +570,24 @@ class bam_commands:
 
         bam_session.status(session_rootdir, paths_add, paths_remove, paths_modified, paths_remap_subset_add)
 
-        for fn in sorted(paths_add):
-            print("  A: %s" % fn)
-        for fn in sorted(paths_modified):
-            print("  M: %s" % fn)
-        for fn in sorted(paths_remove):
-            print("  D: %s" % fn)
+        if use_json:
+            for fn in sorted(paths_add):
+                print("  A: %s" % fn)
+            for fn in sorted(paths_modified):
+                print("  M: %s" % fn)
+            for fn in sorted(paths_remove):
+                print("  D: %s" % fn)
+        else:
+            ret = []
+            for fn in sorted(paths_add):
+                ret.append(("A", fn))
+            for fn in sorted(paths_modified):
+                ret.append(("M", fn))
+            for fn in sorted(paths_remove):
+                ret.append(("D", fn))
+
+            import json
+            print(json.dumps(ret))
 
     @staticmethod
     def list_dir(paths, use_json=False):
@@ -765,6 +777,9 @@ def create_argparse_status(subparsers):
             dest="paths", nargs="*",
             help="Path(s) to operate on",
             )
+
+    generic_argument_json(subparse)
+
     subparse.set_defaults(
             func=lambda args:
             bam_commands.status(args.paths or ["."]),

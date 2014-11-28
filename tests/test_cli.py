@@ -1075,13 +1075,15 @@ class BamIgnoreTest(BamSessionTestCase):
         file_data = b"hello world!\n"
 
         # Regular expressions for smart people
-        file_data_bamignore = r""".*\.txt$
-.*/subfolder/.*"""
+        file_data_bamignore = (
+            r".*\.txt$",
+            r".*/subfolder/.*",
+            )
 
         proj_path, session_path = self.init_session(session_name)
 
         # write the .bamignore in the session root
-        file_quick_write(proj_path, ".bamignore", file_data_bamignore)
+        file_quick_write(proj_path, ".bamignore", "\n".join(file_data_bamignore))
 
         # create some files
         file_quick_write(session_path, file_name, file_data)
@@ -1107,12 +1109,15 @@ class BamIgnoreTest(BamSessionTestCase):
         file_data = b"hello world!\n"
 
         # A failing regex that breaks syntax highlight as nice side effect
-        file_data_bamignore = r"""("""
+        file_data_bamignore = (
+            r".*\.txt$",
+            r".*\.($",  # invalid!
+            )
 
         proj_path, session_path = self.init_session(session_name)
 
         # write the .bamignore in the session root
-        file_quick_write(proj_path, ".bamignore", file_data_bamignore)
+        file_quick_write(proj_path, ".bamignore", "\n".join(file_data_bamignore))
 
         # create some files
         file_quick_write(session_path, file_name, file_data)

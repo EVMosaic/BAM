@@ -95,6 +95,17 @@ class FPElem:
     def filepath(self, filepath):
         self._set_cb(filepath)
 
+    @property
+    def filepath_absolute(self):
+        filepath = self.filepath
+        if filepath.startswith(b'//'):
+            return os.path.join(
+                    self.basedir,
+                    utils.compatpath(filepath[2:]),
+                    )
+        else:
+            return utils.compatpath(filepath)
+
 
 class FPElem_block_path(FPElem):
     """
@@ -409,7 +420,8 @@ class FilePath:
     def _from_block_VF(block, basedir, extra_info, level):
         if block[b'packedfile']:
             return
-        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
+        if block[b'name'] != b'<builtin>':  # builtin font
+            yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
 
     @staticmethod
     def _from_block_SO(block, basedir, extra_info, level):

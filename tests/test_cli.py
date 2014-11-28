@@ -15,6 +15,8 @@ Run a single test:
 
 import os
 VERBOSE = os.environ.get("VERBOSE", False)
+if VERBOSE == "0":
+    VERBOSE = None
 if VERBOSE:
     # for the server subprocess
     os.environ["BAM_VERBOSE"] = "1"
@@ -742,6 +744,48 @@ class BamCommitTest(BamSessionTestCase):
         file_quick_write(session_path, file_name, file_data)
         stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
         self.assertEqual("", stderr)
+
+    def test_commit_partial(self):
+        """Checks the commit is only writing the modified files,
+        across multiple commits and changes.
+        """
+        session_name = "mysession"
+        files = (
+            "a.data",
+            os.path.join("b_dir", "b.data"),
+            os.path.join("c_dir", "c_subdir", "c.data"),
+            os.path.join("d_dir", "d_subdir", "d_nested", "d.data"),
+            )
+        proj_path, session_path = self.init_session(session_name)
+
+        # ------
+        # Commit
+        # arbitrary data so this is seen as binary data
+        file_binary_chunk = b'\x89'
+        for f in files:
+            file_quick_write(session_path, f, file_binary_chunk + f.encode('ascii'))
+
+        stdout, stderr = bam_run(["commit", "-m", "test 1"], session_path)
+        self.assertEqual("", stderr)
+
+        # now check that status reads there are no changes
+        ret = bam_run_as_json(["status", "--json"], session_path)
+        self.assertEqual([], ret)
+
+        # ------
+        # Modify
+        # check the status now shows modified
+        for f in files:
+            file_quick_write(session_path, f, b'_foo', append=True)
+
+        ret = bam_run_as_json(["status", "--json"], session_path)
+        ret.sort()
+        self.assertEqual(
+                [["M", "a.data"],
+                 ["M", "b_dir/b.data"],
+                 ["M", "c_dir/c_subdir/c.data"],
+                 ["M", "d_dir/d_subdir/d_nested/d.data"],
+                 ], ret)
 
     def test_checkout(self):
         session_name = "mysession"

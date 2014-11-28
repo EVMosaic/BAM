@@ -203,7 +203,8 @@ class bam_session:
 
     @staticmethod
     def status(session_rootdir,
-               paths_add, paths_remove, paths_modified, paths_remap_subset_add):
+               paths_add, paths_remove, paths_modified, paths_remap_subset_add,
+               paths_uuid_update=None):
 
         assert(isinstance(paths_add, dict))
         assert(isinstance(paths_remove, dict))
@@ -223,7 +224,7 @@ class bam_session:
             os.path.join(session_rootdir, ".bam_tmp.zip"),
             }
 
-        with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
+        with open(os.path.join(session_rootdir, ".bam_paths_uuid.json"), 'r') as f:
             import json
             paths_uuid = json.load(f)
             del json
@@ -231,9 +232,11 @@ class bam_session:
         for fn_rel, sha1 in paths_uuid.items():
             fn_abs = os.path.join(session_rootdir, fn_rel)
             if os.path.exists(fn_abs):
-                if sha1_from_file(fn_abs) != sha1:
+                sha1_modified = sha1_from_file(fn_abs)
+                if sha1_modified != sha1:
                     paths_modified[fn_rel] = fn_abs
-
+                if paths_uuid_update is not None:
+                    paths_uuid_update[fn_rel] = sha1_modified
                 paths_used.add(fn_abs)
             else:
                 paths_remove[fn_rel] = fn_abs
@@ -265,6 +268,9 @@ class bam_session:
                 # TODO(cam)
                 # remap paths of added files
                 paths_add[fn_rel] = fn_abs
+
+                if paths_uuid_update is not None:
+                    paths_uuid_update[fn_rel] = sha1_from_file(fn_abs)
 
                 # TESTING ONLY
                 fn_abs_remote = fn_rel
@@ -475,10 +481,12 @@ class bam_commands:
         paths_modified = {}
         paths_remove = {}
         paths_remap_subset_add = {}
+        paths_uuid_update = {}
 
         bam_session.status(
                 session_rootdir,
                 paths_add, paths_remove, paths_modified, paths_remap_subset_add,
+                paths_uuid_update,
                 )
 
         if not any((paths_add, paths_modified, paths_remove)):
@@ -578,8 +586,19 @@ class bam_commands:
         except Exception:
             print(r.text)
 
-        # TODO(cam)
-        # if all goes well, rewrite sha1's
+        # TODO, handle error cases
+        ok = True
+        if ok:
+            # NOTE, we may want to generalize the 'update uuid' code & share it.
+
+            paths_uuid.update(paths_uuid_update)
+            with open(os.path.join(session_rootdir, ".bam_paths_uuid.json"), 'w') as f:
+                json.dump(
+                        paths_uuid_update, f, ensure_ascii=False,
+                        check_circular=False,
+                        # optional (pretty)
+                        sort_keys=True, indent=4, separators=(',', ': '),
+                        )
 
     @staticmethod
     def status(paths, use_json=False):
@@ -594,7 +613,10 @@ class bam_commands:
         paths_remove = {}
         paths_remap_subset_add = {}
 
-        bam_session.status(session_rootdir, paths_add, paths_remove, paths_modified, paths_remap_subset_add)
+        bam_session.status(
+                session_rootdir,
+                paths_add, paths_remove, paths_modified, paths_remap_subset_add,
+                )
 
         if use_json:
             for fn in sorted(paths_add):

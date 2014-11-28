@@ -581,7 +581,6 @@ class bam_commands:
         del paths
 
         session_rootdir = bam_config.find_sessiondir(path, abort=True)
-        print(session_rootdir)
 
         paths_add = {}
         paths_modified = {}

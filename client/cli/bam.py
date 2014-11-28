@@ -163,13 +163,18 @@ class bam_config:
         if os.path.isfile(bamignore):
             with open(bamignore, 'r') as f:
                 patterns = f.read().split("\n")
+                import re
+                try:
+                    compiled_patterns = [re.compile(p) for p in patterns]
+                except re.error:
+                    fatal("Your .bamignore file contains invalid regular expressions")
+
                 def filter_ignore(f):
-                    import re
-                    for pattern in filter_ignore.patterns:
+                    for pattern in filter_ignore.compiled_patterns:
                         if re.match(pattern, f):
                             return False
                     return True
-                filter_ignore.patterns = patterns
+                filter_ignore.compiled_patterns = compiled_patterns
 
                 return filter_ignore
         else:

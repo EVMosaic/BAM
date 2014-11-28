@@ -1045,6 +1045,26 @@ class BamIgnoreTest(BamSessionTestCase):
         self.assertEqual("Nothing to commit!\n", stdout)
 
 
+    def test_invalid_ignore(self):
+        session_name = "mysession"
+        file_name = "testfile.txt"
+        file_data = b"hello world!\n"
+
+        # A failing regex that breaks syntax highlight as nice side effect
+        file_data_bamignore = r"""("""
+
+        proj_path, session_path = self.init_session(session_name)
+
+        # write the .bamignore in the session root
+        file_quick_write(proj_path, ".bamignore", file_data_bamignore)
+
+        # create some files
+        file_quick_write(session_path, file_name, file_data)
+
+        # now check for status
+        self.assertRaises(RuntimeError, bam_run, ["status",], session_path)
+
+
 if __name__ == '__main__':
     data = global_setup()
     unittest.main(exit=False)

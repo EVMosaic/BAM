@@ -155,6 +155,26 @@ class bam_config:
                     sort_keys=True, indent=4, separators=(',', ': '),
                     )
 
+    @staticmethod
+    def create_bamignore_filter(id_=".bamignore", cwd=None):
+        path = bam_config.find_rootdir()
+        import os
+        bamignore = os.path.join(path, id_)
+        if os.path.isfile(bamignore):
+            with open(bamignore, 'r') as f:
+                patterns = f.read().split("\n")
+                def filter_ignore(f):
+                    import re
+                    for pattern in filter_ignore.patterns:
+                        if re.match(pattern, f):
+                            return False
+                    return True
+                filter_ignore.patterns = patterns
+
+                return filter_ignore
+        else:
+            return None
+
 
 class bam_session:
     # fake module
@@ -220,14 +240,9 @@ class bam_session:
                     if filename_check is None or filename_check(filepath):
                         yield filepath
 
-        def bamignore_check(fn):
-            # TODO(cam)
-            # .bamignore
-            if fn.endswith(".blend1"):
-                return False
-            return True
+        bamignore_filter = bam_config.create_bamignore_filter()
 
-        for fn_abs in iter_files(session_rootdir, bamignore_check):
+        for fn_abs in iter_files(session_rootdir, bamignore_filter):
             if fn_abs not in paths_used:
                 # we should be clever - add the file to a useful location based on some rules
                 # (category, filetype & tags?)

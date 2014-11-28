@@ -1005,6 +1005,46 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         self.helper_test_from_liblinks(blendfile, liblinks_src, liblinks_dst)
 
 
+class BamIgnoreTest(BamSessionTestCase):
+    """Checks out a project, creates a .bamignore file with a few rules
+    and tries to commit files that violate them.
+    """
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
+    def test_ignore(self):
+        session_name = "mysession"
+        file_name = "testfile.txt"
+        file_data = b"hello world!\n"
+
+        # Regular expressions for smart people
+        file_data_bamignore = r""".*\.txt$
+.*/subfolder/.*"""
+
+        proj_path, session_path = self.init_session(session_name)
+
+        # write the .bamignore in the session root
+        file_quick_write(proj_path, ".bamignore", file_data_bamignore)
+
+        # create some files
+        file_quick_write(session_path, file_name, file_data)
+
+        import os
+        subdir_path = os.path.join(session_path, "subfolder")
+        os.makedirs(subdir_path)
+        file_quick_write(subdir_path, "testfile.blend1", file_data)
+
+        # now check for status
+        stdout, stderr = bam_run(["status",], session_path)
+        self.assertEqual("", stderr)
+
+        # try to commit
+        stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+        self.assertEqual("", stderr)
+        self.assertEqual("Nothing to commit!\n", stdout)
+
+
 if __name__ == '__main__':
     data = global_setup()
     unittest.main(exit=False)

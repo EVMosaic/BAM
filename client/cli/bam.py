@@ -659,11 +659,15 @@ class bam_commands:
 # -----------------------------------------------------------------------------
 # Argument Parser
 
-def generic_argument_json(subparse):
-    subparse.add_argument(
-            "-j", "--json", dest="json", action='store_true',
-            help="Generate JSON output",
-            )
+def init_argparse_common(
+        subparse,
+        use_json=False,
+        ):
+    if use_json:
+        subparse.add_argument(
+                "-j", "--json", dest="json", action='store_true',
+                help="Generate JSON output",
+                )
 
 
 def create_argparse_init(subparsers):
@@ -778,7 +782,7 @@ def create_argparse_status(subparsers):
             help="Path(s) to operate on",
             )
 
-    generic_argument_json(subparse)
+    init_argparse_common(subparse, use_json=True)
 
     subparse.set_defaults(
             func=lambda args:
@@ -796,7 +800,7 @@ def create_argparse_list(subparsers):
             help="Path(s) to operate on",
             )
 
-    generic_argument_json(subparse)
+    init_argparse_common(subparse, use_json=True)
 
     subparse.set_defaults(
             func=lambda args:
@@ -820,7 +824,7 @@ def create_argparse_deps(subparsers):
             help="Scan dependencies recursively",
             )
 
-    generic_argument_json(subparse)
+    init_argparse_common(subparse, use_json=True)
 
     subparse.set_defaults(
             func=lambda args:

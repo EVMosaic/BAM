@@ -161,24 +161,31 @@ class bam_config:
         import os
         bamignore = os.path.join(path, id_)
         if os.path.isfile(bamignore):
-            with open(bamignore, 'r') as f:
-                patterns = f.read().split("\n")
+            with open(bamignore, 'r', encoding='utf-8') as f:
+                compiled_patterns = []
+
                 import re
-                try:
-                    compiled_patterns = [re.compile(p) for p in patterns]
-                except re.error:
-                    fatal("Your .bamignore file contains invalid regular expressions")
+                for i, l in enumerate(f):
+                    l = l.rstrip()
+                    if l:
+                        try:
+                            p = re.compile(l)
+                        except re.error as e:
+                            fatal("%s:%d file contains an invalid regular expression, %s" %
+                                  (bamignore, i + 1, str(e)))
+                        compiled_patterns.append(p)
 
-                def filter_ignore(f):
-                    for pattern in filter_ignore.compiled_patterns:
-                        if re.match(pattern, f):
-                            return False
-                    return True
-                filter_ignore.compiled_patterns = compiled_patterns
+                if compiled_patterns:
+                    def filter_ignore(f):
+                        for pattern in filter_ignore.compiled_patterns:
+                            if re.match(pattern, f):
+                                return False
+                        return True
+                    filter_ignore.compiled_patterns = compiled_patterns
 
-                return filter_ignore
-        else:
-            return None
+                    return filter_ignore
+
+        return None
 
 
 class bam_session:

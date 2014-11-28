@@ -270,21 +270,44 @@ def bam_run(argv, cwd=None):
     return ret
 
 
-def file_quick_write(path, filepart=None, data=None):
+def bam_run_as_json(argv, cwd=None):
+    stdout, stderr = bam_run(argv, cwd=cwd)
+    if stderr:
+        raise Exception(stderr)
+        return None
+
+    ret = None
+
+    import json
+    try:
+        ret = json.loads(stdout)
+    except Exception as e:
+        print("---- JSON BEGIN (invalid) ----")
+        print(stdout)
+        print("---- JSON END ----")
+        raise e
+    return ret
+
+
+
+def file_quick_write(path, filepart=None, data=None, append=False):
     """Quick file creation utility.
     """
     if data is None:
         data = b''
-    elif type(data) is bytes:
-        mode = 'wb'
+
+    mode = 'a' if append else 'w'
+    if type(data) is bytes:
+        mode = mode + 'b'
     elif type(data) is str:
-        mode = 'w'
+        pass
     else:
         raise Exception("type %r not known" % type(data))
 
     if filepart is not None:
         path = os.path.join(path, filepart)
 
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, mode) as f:
         f.write(data)
 
@@ -414,10 +437,8 @@ def blendfile_template_create_from_files(proj_path, session_path, blendfile_pair
 
     # not essential but we need to be sure what we made has correct deps
     # otherwise further tests will fail
-    stdout, stderr = bam_run(["deps", blendfile_abs, "--json"], proj_path)
+    ret = bam_run_as_json(["deps", blendfile_abs, "--json"], proj_path)
 
-    import json
-    ret = json.loads(stdout)
     # not real test since we don't use static method,
     # just check we at least account for all deps
     assert(len(ret) == len(images))
@@ -444,10 +465,8 @@ def blendfile_template_create_from_file_liblinks(proj_path, session_path, blendf
 
     # not essential but we need to be sure what we made has correct deps
     # otherwise further tests will fail
-    stdout, stderr = bam_run(["deps", blendfile_abs, "--json"], proj_path)
+    ret = bam_run_as_json(["deps", blendfile_abs, "--json"], proj_path)
 
-    import json
-    ret = json.loads(stdout)
     # not real test since we don't use static method,
     # just check we at least account for all deps
     # assert(len(ret) == len(links))
@@ -693,12 +712,8 @@ class BamListTest(BamSessionTestCase):
     def test_ls(self):
         proj_path = self.init_repo()
 
-        stdout, stderr = bam_run(["ls", "--json"], proj_path)
+        ret = bam_run_as_json(["ls", "--json"], proj_path)
 
-        self.assertEqual("", stderr)
-
-        import json
-        ret = json.loads(stdout)
         self.assertEqual(2, len(ret))
 
 
@@ -849,13 +864,10 @@ class BamDeleteTest(BamSessionTestCase):
         self.assertEqual("", stderr)
         # check if deletion of the file has happened
 
-        stdout, stderr = bam_run(["ls", "--json"], session_path)
-        # check for errors in the response
-        self.assertEqual("", stderr)
+        listing = bam_run_as_json(["ls", "--json"], session_path)
 
         # parse the response searching for the file. If it fails it means the file has
         # not been removed
-        listing = json.loads(stdout)
         for e in listing:
             self.assertNotEqual(e[0], file_name)
 

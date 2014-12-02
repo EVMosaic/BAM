@@ -618,7 +618,7 @@ class bam_commands:
                 paths_add, paths_remove, paths_modified, paths_remap_subset_add,
                 )
 
-        if use_json:
+        if not use_json:
             for fn in sorted(paths_add):
                 print("  A: %s" % fn)
             for fn in sorted(paths_modified):
@@ -856,7 +856,7 @@ def create_argparse_status(subparsers):
 
     subparse.set_defaults(
             func=lambda args:
-            bam_commands.status(args.paths or ["."]),
+            bam_commands.status(args.paths or ["."], use_json=args.json),
             )
 
 

@@ -711,10 +711,16 @@ class bam_commands:
 
         if use_json:
             import json
+            is_first = True
             # print in parts, so we don't block the output
             print("[")
             for f_src, f_dst, f_dst_abs, f_status in status_walker():
-                print(json.dumps((f_src, f_dst, f_dst_abs, f_status)), end=",\n")
+                if is_first:
+                    is_first = False
+                else:
+                    print(",")
+
+                print(json.dumps((f_src, f_dst, f_dst_abs, f_status)), end="")
             print("]")
         else:
             for f_src, f_dst, f_dst_abs, f_status in status_walker():

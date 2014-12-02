@@ -137,11 +137,10 @@ class FPElem_sequence_single(FPElem):
     def _set_cb(self, filepath):
         block, path, sub_block, sub_path = self.userdata
 
-        # TODO, os.sep
-        a, b = filepath.rsplit(b'/', 1)
+        head, sep, tail = utils.splitpath(filepath)
 
-        block[path] = a + b'/'
-        sub_block[sub_path] = b
+        block[path] = head + sep
+        sub_block[sub_path] = tail
 
 
 class FilePath:
@@ -700,3 +699,16 @@ class utils:
         def compatpath(path):
             # keep '//'
             return path[:2] + path[2:].replace(b'/', b'\\')
+
+    @staticmethod
+    def splitpath(path):
+        """
+        Splits the path using either slashes
+        """
+        split1 = path.rpartition(b'/')
+        split2 = path.rpartition(b'\\')
+        if len(split1[0]) > len(split2[0]):
+            return split1
+        else:
+            return split2
+

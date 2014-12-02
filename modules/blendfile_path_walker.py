@@ -46,13 +46,9 @@ class C_defs:
 
 
 if VERBOSE:
-    _A = open("/tmp/a.log", 'w')
-
-    class log_deps:
-        @staticmethod
-        def info(msg):
-            _A.write(msg)
-            _A.write("\n")
+    import logging
+    log_deps = logging.getLogger("path_walker")
+    del logging
 
     def set_as_str(s):
         if s is None:

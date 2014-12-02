@@ -329,6 +329,7 @@ class FileAPI(Resource):
             # Commit command
             result = local_client.run_command('commit',
                 [local_client.info()['entry_path'],
+                '--no-auth-cache',
                 '--message', arguments['message'],
                 '--username', svn_user,
                 '--password', svn_password],

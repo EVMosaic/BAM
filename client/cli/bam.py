@@ -257,6 +257,13 @@ class bam_session:
 
         bamignore_filter = bam_config.create_bamignore_filter()
 
+        # -----
+        # read our path relative to the project path
+        with open(os.path.join(session_rootdir, ".bam_paths_remap.json"), 'r') as f:
+            import json
+            paths_remap = json.load(f)
+            paths_remap_relbase = paths_remap.get(".", "")
+
         for fn_abs in iter_files(session_rootdir, bamignore_filter):
             if fn_abs not in paths_used:
                 # we should be clever - add the file to a useful location based on some rules
@@ -267,6 +274,12 @@ class bam_session:
 
                 # TODO(cam)
                 # remap paths of added files
+                if fn_rel.startswith("_"):
+                    if paths_remap_relbase:
+                        fn_rel = os.path.join(paths_remap_relbase, fn_rel[1:])
+                    else:
+                        fn_rel = fn_rel[1:]
+
                 paths_add[fn_rel] = fn_abs
 
                 if paths_uuid_update is not None:
@@ -274,6 +287,7 @@ class bam_session:
 
                 # TESTING ONLY
                 fn_abs_remote = fn_rel
+
                 paths_remap_subset_add[fn_rel] = fn_abs_remote
 
 

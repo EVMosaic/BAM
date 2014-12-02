@@ -390,6 +390,13 @@ class FileAPI(Resource):
             # simple case
             paths_remap[os.path.basename(filepath)] = os.path.basename(filepath)
 
+        if os.path.isfile(filepath):
+            paths_remap["."] = os.path.relpath(os.path.dirname(filepath), paths_remap_relbase)
+        else:
+            # TODO(cam) directory support
+            paths_remap["."] = os.path.relpath(filepath, paths_remap_relbase)
+
+
         # TODO, avoid reopening zipfile
         # append json info to zip
         import zipfile

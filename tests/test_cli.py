@@ -1034,8 +1034,8 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
 
         Maps to...
          - ./shot_01.blend
-         - ./_maps/special.blend
-         - ./maps/generic.blend
+         - ./maps/special.blend
+         - ./_maps/generic.blend
         """
 
         blendfile = "shots/01/shot_01.blend"

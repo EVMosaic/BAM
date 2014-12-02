@@ -694,12 +694,6 @@ class bam_commands:
                         recursive=recursive,
                         )
 
-        def deps_status(f):
-            if os.path.exists(f):
-                return "OK"
-            else:
-                return "MISSING FILE"
-
         def status_walker():
             for fp, (rootdir, fp_blend_basename) in deps_path_walker():
                 f_rel = fp.filepath

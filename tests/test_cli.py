@@ -993,6 +993,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
             if VERBOSE:
                 print("Exists?", f_abs)
             self.assertTrue(os.path.exists(f_abs))
+        return proj_path, session_path
 
     def test_absolute_relative_images(self):
         """
@@ -1057,7 +1058,55 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
             "_maps/generic.blend",
             )
 
-        self.helper_test_from_liblinks(blendfile, liblinks_src, liblinks_dst)
+        return self.helper_test_from_liblinks(blendfile, liblinks_src, liblinks_dst)
+
+    def test_absolute_relative_from_subdir(self):
+        """
+        Layout is as follows.
+
+         - ./shots/01/shot_01.blend
+         - ./shots/01/maps/special.blend
+         - ./maps/generic.blend
+
+        Maps to...
+         - ./shot_01.blend
+         - ./_maps/special.blend
+         - ./maps/generic.blend
+
+        Now add a file to these directory,
+        - ./_maps_more/rel.txt
+        - ./maps_more/abs.txt
+
+        Maps to...
+        - ./shots/01/maps_more/rel.txt
+        - ./maps_more/abs.txt
+        """
+
+        # WEAK, set in the test called next
+        blendfile = "shots/01/shot_01.blend"
+        proj_path, session_path = self.test_absolute_relative_liblinks()
+
+        shutil.rmtree(session_path)
+
+        stdout, stderr = bam_run(["checkout", blendfile, "--output", "new_out"], proj_path)
+        self.assertEqual("", stderr)
+
+        session_path = os.path.join(proj_path, "new_out")
+
+        # create these new
+        file_quick_write(session_path, os.path.join("_maps_more", "rel.txt"))
+        file_quick_write(session_path, os.path.join("maps_more", "abs.txt"))
+
+        stdout, stderr = bam_run(["commit", "-m", "new abs and rel files"], session_path)
+        self.assertEqual("", stderr)
+
+        ret = bam_run_as_json(["ls", "--json"], proj_path)
+
+        ret = bam_run_as_json(["ls", "shots/01/maps_more", "--json"], proj_path)
+        self.assertIn(["rel.txt", "file"], ret)
+
+        ret = bam_run_as_json(["ls", "maps_more", "--json"], proj_path)
+        self.assertIn(["abs.txt", "file"], ret)
 
 
 class BamIgnoreTest(BamSessionTestCase):

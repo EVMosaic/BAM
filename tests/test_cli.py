@@ -291,7 +291,6 @@ def bam_run_as_json(argv, cwd=None):
     return ret
 
 
-
 def file_quick_write(path, filepart=None, data=None, append=False):
     """Quick file creation utility.
     """
@@ -1094,14 +1093,13 @@ class BamIgnoreTest(BamSessionTestCase):
         file_quick_write(subdir_path, "testfile.blend1", file_data)
 
         # now check for status
-        stdout, stderr = bam_run(["status",], session_path)
+        stdout, stderr = bam_run(["status", ], session_path)
         self.assertEqual("", stderr)
 
         # try to commit
         stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
         self.assertEqual("", stderr)
         self.assertEqual("Nothing to commit!\n", stdout)
-
 
     def test_invalid_ignore(self):
         session_name = "mysession"
@@ -1123,7 +1121,7 @@ class BamIgnoreTest(BamSessionTestCase):
         file_quick_write(session_path, file_name, file_data)
 
         # now check for status
-        self.assertRaises(RuntimeError, bam_run, ["status",], session_path)
+        self.assertRaises(RuntimeError, bam_run, ["status", ], session_path)
 
 
 if __name__ == '__main__':

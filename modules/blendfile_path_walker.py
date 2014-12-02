@@ -635,7 +635,6 @@ class ExpandID:
         for item in bf_utils.iter_ListBase(block.get_pointer(b'base.first')):
             yield item.get_pointer(b'object', sdna_index_refine=sdna_index_Base)
 
-
         block_ed = block.get_pointer(b'ed')
         if block_ed is not None:
             sdna_index_Sequence = block.file.sdna_index_from_id[b'Sequence']

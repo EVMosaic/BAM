@@ -33,6 +33,10 @@ extensions = [
     'sphinx.ext.todo',
 ]
 
+if 1:
+    extensions += ['sphinxarg.ext']
+    sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "client", "cli"))
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 

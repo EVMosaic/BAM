@@ -269,16 +269,14 @@ class bam_session:
                 # we should be clever - add the file to a useful location based on some rules
                 # (category, filetype & tags?)
 
-                # XXX, remap!
                 fn_rel = os.path.relpath(fn_abs, session_rootdir)
 
-                # TODO(cam)
                 # remap paths of added files
                 if fn_rel.startswith("_"):
+                    fn_rel = fn_rel[1:]
+                else:
                     if paths_remap_relbase:
-                        fn_rel = os.path.join(paths_remap_relbase, fn_rel[1:])
-                    else:
-                        fn_rel = fn_rel[1:]
+                        fn_rel = os.path.join(paths_remap_relbase, fn_rel)
 
                 paths_add[fn_rel] = fn_abs
 

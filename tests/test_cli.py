@@ -1143,7 +1143,6 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
             self.assertEqual(ret[1][1], "//" + os.path.join("rel", "path", "house_rel.blend"))
             self.assertEqual(ret[1][3], "OK")
 
-
         stdout, stderr = bam_run(["checkout", blendfile, "--output", session_path], proj_path)
         self.assertEqual("", stderr)
         _check()
@@ -1255,9 +1254,6 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
             f.write(data)
         del data, f
         # XXX (end hack!)
-
-
-        # _dbg_dump_path(session_path)
 
         stdout, stderr = bam_run(["commit", "-m", "new house to remap"], session_path)
         self.assertEqual("", stderr)

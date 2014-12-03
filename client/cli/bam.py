@@ -203,13 +203,12 @@ class bam_session:
 
     @staticmethod
     def status(session_rootdir,
-               paths_add, paths_remove, paths_modified, paths_remap_subset_add,
+               paths_add, paths_remove, paths_modified,
                paths_uuid_update=None):
 
         assert(isinstance(paths_add, dict))
         assert(isinstance(paths_remove, dict))
         assert(isinstance(paths_modified, dict))
-        assert(isinstance(paths_remap_subset_add, dict))
 
         import os
         from bam_utils.system import sha1_from_file
@@ -257,13 +256,6 @@ class bam_session:
 
         bamignore_filter = bam_config.create_bamignore_filter()
 
-        # -----
-        # read our path relative to the project path
-        with open(os.path.join(session_rootdir, ".bam_paths_remap.json"), 'r') as f:
-            import json
-            paths_remap = json.load(f)
-            paths_remap_relbase = paths_remap.get(".", "")
-
         for f_abs in iter_files(session_rootdir, bamignore_filter):
             if f_abs not in paths_used:
                 # we should be clever - add the file to a useful location based on some rules
@@ -271,22 +263,10 @@ class bam_session:
 
                 f_rel = os.path.relpath(f_abs, session_rootdir)
 
-                # remap paths of added files
-                if f_rel.startswith("_"):
-                    f_rel = f_rel[1:]
-                else:
-                    if paths_remap_relbase:
-                        f_rel = os.path.join(paths_remap_relbase, f_rel)
-
                 paths_add[f_rel] = f_abs
 
                 if paths_uuid_update is not None:
                     paths_uuid_update[f_rel] = sha1_from_file(f_abs)
-
-                # TESTING ONLY
-                f_abs_remote = f_rel
-
-                paths_remap_subset_add[f_rel] = f_abs_remote
 
 
 class bam_commands:
@@ -486,18 +466,20 @@ class bam_commands:
         with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
             paths_uuid = json.load(f)
 
+        # No longer used
+        """
         with open(os.path.join(session_rootdir, ".bam_deps_remap.json")) as f:
             deps_remap = json.load(f)
+        """
 
         paths_add = {}
         paths_modified = {}
         paths_remove = {}
-        paths_remap_subset_add = {}
         paths_uuid_update = {}
 
         bam_session.status(
                 session_rootdir,
-                paths_add, paths_remove, paths_modified, paths_remap_subset_add,
+                paths_add, paths_remove, paths_modified,
                 paths_uuid_update,
                 )
 
@@ -505,11 +487,27 @@ class bam_commands:
             print("Nothing to commit!")
             return
 
-
         # we need to update paths_remap as we go
         with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as f:
             paths_remap = json.load(f)
             paths_remap_relbase = paths_remap.get(".", "")
+
+        def remap_filepath(f_rel):
+            f_rel_in_proj = paths_remap.get(f_rel)
+            if f_rel_in_proj is None:
+                if paths_remap_relbase:
+                    if f_rel.startswith("_"):
+                        f_rel_in_proj = f_rel[1:]
+                    else:
+                        f_rel_in_proj = os.path.join(paths_remap_relbase, f_rel)
+                else:
+                    if f_rel.startswith("_"):
+                        # we're already project relative
+                        f_rel_in_proj = f_rel[1:]
+                    else:
+                        f_rel_in_proj = f_rel
+
+            return f_rel_in_proj
 
         def remap_cb(f, data):
             # check for the absolute path hint
@@ -524,12 +522,7 @@ class bam_commands:
             os.makedirs(dir_remap, exist_ok=True)
 
             # final location in the project
-            f_rel_in_proj = paths_remap.get(f_rel)
-            if f_rel_in_proj is None:
-                if paths_remap_relbase:
-                    f_rel_in_proj = os.path.join(paths_remap_relbase, f_rel)
-                else:
-                    f_rel_in_proj = f_rel
+            f_rel_in_proj = remap_filepath(f_rel)
             proj_base_b = os.path.dirname(f_rel_in_proj).encode("utf-8")
 
             import blendfile_pack_restore
@@ -542,10 +535,16 @@ class bam_commands:
             return f_abs_remap
 
         for f_rel, f_abs in list(paths_modified.items()):
-            f_abs_remap = remap_file(f_rel, f_abs)
-            if os.path.exists(f_abs_remap):
-                paths_modified[f_rel] = f_abs_remap
+            if f_abs.endswith(".blend"):
+                f_abs_remap = remap_file(f_rel, f_abs)
+                if os.path.exists(f_abs_remap):
+                    paths_modified[f_rel] = f_abs_remap
 
+        for f_rel, f_abs in list(paths_add.items()):
+            if f_abs.endswith(".blend"):
+                f_abs_remap = remap_file(f_rel, f_abs)
+                if os.path.exists(f_abs_remap):
+                    paths_add[f_rel] = f_abs_remap
 
         """
                 deps = deps_remap.get(f_rel)
@@ -555,7 +554,6 @@ class bam_commands:
                     f_abs_remap = os.path.join(basedir_temp, f_rel)
                     dir_remap = os.path.dirname(f_abs_remap)
                     os.makedirs(dir_remap, exist_ok=True)
-
                     import blendfile_pack_restore
                     blendfile_pack_restore.blendfile_remap(
                             f_abs.encode('utf-8'),
@@ -566,7 +564,6 @@ class bam_commands:
                         f_abs = f_abs_remap
                         paths_modified[f_rel] = f_abs
         """
-
 
         # -------------------------
         print("Now make a zipfile")
@@ -589,8 +586,14 @@ class bam_commands:
                         sort_keys=True, indent=4, separators=(',', ': '),
                         ).encode('utf-8'))
 
-            paths_remap_subset = {k: v for k, v in paths_remap.items() if k in paths_modified}
-            paths_remap_subset.update(paths_remap_subset_add)
+            paths_remap_subset = {
+                    f_rel: f_rel_in_proj
+                    for f_rel, f_rel_in_proj in paths_remap.items() if f_rel in paths_modified}
+            paths_remap_subset.update({
+                    f_rel: remap_filepath(f_rel)
+                    for f_rel in paths_add})
+
+            # paths_remap_subset.update(paths_remap_subset_add)
             write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)
 
             # build a list of path manipulation operations
@@ -662,11 +665,10 @@ class bam_commands:
         paths_add = {}
         paths_modified = {}
         paths_remove = {}
-        paths_remap_subset_add = {}
 
         bam_session.status(
                 session_rootdir,
-                paths_add, paths_remove, paths_modified, paths_remap_subset_add,
+                paths_add, paths_remove, paths_modified,
                 )
 
         if not use_json:

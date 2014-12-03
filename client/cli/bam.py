@@ -505,26 +505,67 @@ class bam_commands:
             print("Nothing to commit!")
             return
 
+
+        # we need to update paths_remap as we go
+        with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as f:
+            paths_remap = json.load(f)
+            paths_remap_relbase = paths_remap.get(".", "")
+
+        def remap_cb(f, data):
+            # check for the absolute path hint
+            if f.startswith(b'//_'):
+                proj_base_b = data
+                return b'//' + os.path.relpath(f[3:], proj_base_b)
+            return None
+
         for f_rel, f_abs in list(paths_modified.items()):
             # we may want to be more clever here
-            deps = deps_remap.get(f_rel)
-            if deps:
-                # ----
-                # Remap!
+
+            if 1:
                 f_abs_remap = os.path.join(basedir_temp, f_rel)
                 dir_remap = os.path.dirname(f_abs_remap)
                 os.makedirs(dir_remap, exist_ok=True)
+
+                # final location in the project
+                f_rel_in_proj = paths_remap.get(f_rel)
+                if f_rel_in_proj is None:
+                    if paths_remap_relbase:
+                        f_rel_in_proj = os.path.join(paths_remap_relbase, f_rel)
+                    else:
+                        f_rel_in_proj = f_rel
+                proj_base_b = os.path.dirname(f_rel_in_proj).encode("utf-8")
 
                 import blendfile_pack_restore
                 blendfile_pack_restore.blendfile_remap(
                         f_abs.encode('utf-8'),
                         dir_remap.encode('utf-8'),
-                        deps,
+                        deps_remap_cb=remap_cb,
+                        deps_remap_cb_userdata=proj_base_b,
                         )
+
                 if os.path.exists(f_abs_remap):
                     f_abs = f_abs_remap
-
                     paths_modified[f_rel] = f_abs
+
+            else:
+                deps = deps_remap.get(f_rel)
+                if deps:
+                    # ----
+                    # remap!
+                    f_abs_remap = os.path.join(basedir_temp, f_rel)
+                    dir_remap = os.path.dirname(f_abs_remap)
+                    os.makedirs(dir_remap, exist_ok=True)
+
+                    import blendfile_pack_restore
+                    blendfile_pack_restore.blendfile_remap(
+                            f_abs.encode('utf-8'),
+                            dir_remap.encode('utf-8'),
+                            deps,
+                            )
+                    if os.path.exists(f_abs_remap):
+                        f_abs = f_abs_remap
+                        paths_modified[f_rel] = f_abs
+
 
         # -------------------------
         print("Now make a zipfile")
@@ -546,9 +587,6 @@ class bam_commands:
                         # optional (pretty)
                         sort_keys=True, indent=4, separators=(',', ': '),
                         ).encode('utf-8'))
-
-            with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as f:
-                paths_remap = json.load(f)
 
             paths_remap_subset = {k: v for k, v in paths_remap.items() if k in paths_modified}
             paths_remap_subset.update(paths_remap_subset_add)

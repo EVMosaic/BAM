@@ -29,7 +29,11 @@ VERBOSE = 1
 import blendfile_path_walker
 
 
-def blendfile_remap(blendfile_src, blendpath_dst, deps_remap):
+def blendfile_remap(
+        blendfile_src, blendpath_dst,
+        deps_remap=None, deps_remap_cb=None,
+        deps_remap_cb_userdata=None,
+        ):
     import os
 
     def temp_remap_cb(filepath, level):
@@ -56,12 +60,22 @@ def blendfile_remap(blendfile_src, blendpath_dst, deps_remap):
         # path_dst_final - current path in blend.
         # path_src_orig - original path from JSON.
 
-        path_dst_final = fp.filepath.decode('utf-8')
-        path_src_orig = deps_remap.get(path_dst_final)
-        if path_src_orig is not None:
-            fp.filepath = path_src_orig.encode('utf-8')
-            if VERBOSE:
-                print("  Remapping:", path_dst_final, "->", path_src_orig)
+        path_dst_final_b = fp.filepath
+
+        # support 2 modes, callback or dictionary
+        if deps_remap_cb is not None:
+            path_src_orig = deps_remap_cb(path_dst_final_b, deps_remap_cb_userdata)
+            if path_src_orig is not None:
+                fp.filepath = path_src_orig
+                if VERBOSE:
+                    print("  Remapping:", path_dst_final_b, "->", path_src_orig)
+        else:
+            path_dst_final = path_dst_final_b.decode('utf-8')
+            path_src_orig = deps_remap.get(path_dst_final)
+            if path_src_orig is not None:
+                fp.filepath = path_src_orig.encode('utf-8')
+                if VERBOSE:
+                    print("  Remapping:", path_dst_final, "->", path_src_orig)
 
 
 def pack_restore(blendfile_dir_src, blendfile_dir_dst, pathmap):

@@ -3,14 +3,16 @@ User manual
 
 Using BAM is easy and fun! Provided that:
 
-- you know how to use the command line of your os
+- you know how to use the command line of your system.
 - have some experience of how versioning systems work
 
-Actually, this is not true, and in this guide we will explain to use BAM client from scracth.
+Actually, this is not true, and in this guide we will explain to use BAM client from scratch.
 
-.. hint:: Do not try to follow this page as a step-by-step tutorial, since its content might 
-    be not completely coherent. The purpose of this manual is simply to explain the bam 
-    workflow from the artist point of view.
+.. hint::
+
+   Do not try to follow this page as a step-by-step tutorial, since its content might 
+   be not completely coherent. The purpose of this manual is simply to explain the bam 
+   workflow from the artist point of view.
 
 
 Project Initialization
@@ -18,7 +20,9 @@ Project Initialization
 
 In order to start working, we need to initialize a *project folder*. This operation should
 be done only once. To create a project folder we need to open our terminal, and go to the
-location where we want to store the project folder. Then we can type::
+location where we want to store the project folder. Then we can type:
+
+.. code-block:: sh
 
     bam init http://bam:5000/gooseberry
 
@@ -36,9 +40,11 @@ Session creation
 ================
 
 Once the project has been initialized and we are able to browse it remotely, we can proceed
-checking out a file from it. For example we can type::
+checking out a file from it. For example we can type:
 
-    bam co libs/envs/jungle/jungle_opening.blend
+.. code-block:: sh
+
+   bam checkout libs/envs/jungle/jungle_opening.blend
 
 This creates a ``jungle_opening`` folder inside of our ``gooseberry`` project folder, which
 will contain the ``jungle_opening.blend``, along with all its dependencies (library files,
@@ -66,8 +72,10 @@ We can not:
 
 - rename files
 
-In order to check what is the status of our edits, we can use ``bam st``, which will print a list
+In order to check what is the status of our edits, we can use ``bam status``, which will print a list
 of edited, added and deleted files.
 
-.. note:: Sessions are meant to create a contained and controlled working environment. We should
-    never, ever refer to content that is outside of a session folder.
+.. note::
+
+   Sessions are meant to create a contained and controlled working environment. We should
+   never, ever refer to content that is outside of a session folder.

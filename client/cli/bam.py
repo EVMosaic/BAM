@@ -962,7 +962,7 @@ def create_argparse():
     import argparse
 
     usage_text = (
-        "BAM! (Blender Asset Manager)\n" +
+        "BAM!\n" +
         __doc__
         )
 

@@ -794,7 +794,8 @@ def init_argparse_common(
 
 
 def create_argparse_init(subparsers):
-    subparse = subparsers.add_parser("init")
+    subparse = subparsers.add_parser("init",
+            help="Initialize a new project directory")
     subparse.add_argument(
             dest="url",
             help="Project repository url",
@@ -827,7 +828,7 @@ def create_argparse_create(subparsers):
 def create_argparse_checkout(subparsers):
     subparse = subparsers.add_parser(
             "checkout", aliases=("co",),
-            help="",
+            help="Checkout a remote path in an existing project",
             )
     subparse.add_argument(
             dest="path", type=str, metavar='REMOTE_PATH',
@@ -846,7 +847,7 @@ def create_argparse_checkout(subparsers):
 def create_argparse_commit(subparsers):
     subparse = subparsers.add_parser(
             "commit", aliases=("ci",),
-            help="",
+            help="Commit changes from a session to the remote project",
             )
     subparse.add_argument(
             "-m", "--message", dest="message", metavar='MESSAGE',
@@ -866,7 +867,7 @@ def create_argparse_commit(subparsers):
 def create_argparse_update(subparsers):
     subparse = subparsers.add_parser(
             "update", aliases=("up",),
-            help="",
+            help="Update a local session with changes from the remote project",
             )
     subparse.add_argument(
             dest="paths", nargs="+",
@@ -882,7 +883,7 @@ def create_argparse_update(subparsers):
 def create_argparse_revert(subparsers):
     subparse = subparsers.add_parser(
             "revert", aliases=("rv",),
-            help="",
+            help="Reset local changes back to the state at time of checkout",
             )
     subparse.add_argument(
             dest="paths", nargs="+",
@@ -898,7 +899,7 @@ def create_argparse_revert(subparsers):
 def create_argparse_status(subparsers):
     subparse = subparsers.add_parser(
             "status", aliases=("st",),
-            help="",
+            help="Show any edits made in the local session",
             )
     subparse.add_argument(
             dest="paths", nargs="*",
@@ -916,7 +917,7 @@ def create_argparse_status(subparsers):
 def create_argparse_list(subparsers):
     subparse = subparsers.add_parser(
             "list", aliases=("ls",),
-            help="",
+            help="List the contents of a remote directory",
             )
     subparse.add_argument(
             dest="paths", nargs="*",
@@ -936,7 +937,7 @@ def create_argparse_list(subparsers):
 def create_argparse_deps(subparsers):
     subparse = subparsers.add_parser(
             "deps", aliases=("dp",),
-            help="",
+            help="List dependencies for file(s)",
             )
     subparse.add_argument(
             dest="paths", nargs="*",

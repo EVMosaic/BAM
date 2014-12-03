@@ -402,9 +402,9 @@ class FileAPI(Resource):
         with zipfile.ZipFile(filepath_zip, 'a', zipfile.ZIP_DEFLATED) as zip_handle:
             import json
 
-            def write_dict_as_json(fn, dct):
+            def write_dict_as_json(f, dct):
                 zip_handle.writestr(
-                        fn,
+                        f,
                         json.dumps(dct,
                         check_circular=False,
                         # optional (pretty)

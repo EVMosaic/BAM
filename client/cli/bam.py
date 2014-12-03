@@ -229,17 +229,17 @@ class bam_session:
             paths_uuid = json.load(f)
             del json
 
-        for fn_rel, sha1 in paths_uuid.items():
-            fn_abs = os.path.join(session_rootdir, fn_rel)
-            if os.path.exists(fn_abs):
-                sha1_modified = sha1_from_file(fn_abs)
+        for f_rel, sha1 in paths_uuid.items():
+            f_abs = os.path.join(session_rootdir, f_rel)
+            if os.path.exists(f_abs):
+                sha1_modified = sha1_from_file(f_abs)
                 if sha1_modified != sha1:
-                    paths_modified[fn_rel] = fn_abs
+                    paths_modified[f_rel] = f_abs
                 if paths_uuid_update is not None:
-                    paths_uuid_update[fn_rel] = sha1_modified
-                paths_used.add(fn_abs)
+                    paths_uuid_update[f_rel] = sha1_modified
+                paths_used.add(f_abs)
             else:
-                paths_remove[fn_rel] = fn_abs
+                paths_remove[f_rel] = f_abs
 
         # ----
         # find new files
@@ -264,29 +264,29 @@ class bam_session:
             paths_remap = json.load(f)
             paths_remap_relbase = paths_remap.get(".", "")
 
-        for fn_abs in iter_files(session_rootdir, bamignore_filter):
-            if fn_abs not in paths_used:
+        for f_abs in iter_files(session_rootdir, bamignore_filter):
+            if f_abs not in paths_used:
                 # we should be clever - add the file to a useful location based on some rules
                 # (category, filetype & tags?)
 
-                fn_rel = os.path.relpath(fn_abs, session_rootdir)
+                f_rel = os.path.relpath(f_abs, session_rootdir)
 
                 # remap paths of added files
-                if fn_rel.startswith("_"):
-                    fn_rel = fn_rel[1:]
+                if f_rel.startswith("_"):
+                    f_rel = f_rel[1:]
                 else:
                     if paths_remap_relbase:
-                        fn_rel = os.path.join(paths_remap_relbase, fn_rel)
+                        f_rel = os.path.join(paths_remap_relbase, f_rel)
 
-                paths_add[fn_rel] = fn_abs
+                paths_add[f_rel] = f_abs
 
                 if paths_uuid_update is not None:
-                    paths_uuid_update[fn_rel] = sha1_from_file(fn_abs)
+                    paths_uuid_update[f_rel] = sha1_from_file(f_abs)
 
                 # TESTING ONLY
-                fn_abs_remote = fn_rel
+                f_abs_remote = f_rel
 
-                paths_remap_subset_add[fn_rel] = fn_abs_remote
+                paths_remap_subset_add[f_rel] = f_abs_remote
 
 
 class bam_commands:
@@ -354,8 +354,8 @@ class bam_commands:
         if rootdir != bam_config.find_rootdir(cwd=session_rootdir):
             fatal("session is located outside %r" % rootdir)
 
-        def write_empty(fn, data):
-            with open(os.path.join(session_rootdir, fn), 'wb') as f:
+        def write_empty(f, data):
+            with open(os.path.join(session_rootdir, f), 'wb') as f:
                 f.write(data)
 
         os.makedirs(session_rootdir)
@@ -505,26 +505,26 @@ class bam_commands:
             print("Nothing to commit!")
             return
 
-        for fn_rel, fn_abs in list(paths_modified.items()):
+        for f_rel, f_abs in list(paths_modified.items()):
             # we may want to be more clever here
-            deps = deps_remap.get(fn_rel)
+            deps = deps_remap.get(f_rel)
             if deps:
                 # ----
                 # Remap!
-                fn_abs_remap = os.path.join(basedir_temp, fn_rel)
-                dir_remap = os.path.dirname(fn_abs_remap)
+                f_abs_remap = os.path.join(basedir_temp, f_rel)
+                dir_remap = os.path.dirname(f_abs_remap)
                 os.makedirs(dir_remap, exist_ok=True)
 
                 import blendfile_pack_restore
                 blendfile_pack_restore.blendfile_remap(
-                        fn_abs.encode('utf-8'),
+                        f_abs.encode('utf-8'),
                         dir_remap.encode('utf-8'),
                         deps,
                         )
-                if os.path.exists(fn_abs_remap):
-                    fn_abs = fn_abs_remap
+                if os.path.exists(f_abs_remap):
+                    f_abs = f_abs_remap
 
-                    paths_modified[fn_rel] = fn_abs
+                    paths_modified[f_rel] = f_abs
 
         # -------------------------
         print("Now make a zipfile")
@@ -532,15 +532,15 @@ class bam_commands:
         temp_zip = os.path.join(session_rootdir, ".bam_tmp.zip")
         with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zip_handle:
             for paths_dict, op in ((paths_modified, 'M'), (paths_add, 'A')):
-                for (fn_rel, fn_abs) in paths_dict.items():
-                    print("  packing (%s): %r" % (op, fn_abs))
-                    zip_handle.write(fn_abs, arcname=fn_rel)
+                for (f_rel, f_abs) in paths_dict.items():
+                    print("  packing (%s): %r" % (op, f_abs))
+                    zip_handle.write(f_abs, arcname=f_rel)
 
             # make a paths remap that only includes modified files
             # TODO(cam), from 'packer.py'
-            def write_dict_as_json(fn, dct):
+            def write_dict_as_json(f, dct):
                 zip_handle.writestr(
-                        fn,
+                        f,
                         json.dumps(dct,
                         check_circular=False,
                         # optional (pretty)
@@ -557,10 +557,10 @@ class bam_commands:
             # build a list of path manipulation operations
             paths_ops = {}
             # paths_remove ...
-            for fn_rel, fn_abs in paths_remove.items():
+            for f_rel, f_abs in paths_remove.items():
                 # TODO
-                fn_abs_remote = paths_remap[fn_rel]
-                paths_ops[fn_abs_remote] = 'D'
+                f_abs_remote = paths_remap[f_rel]
+                paths_ops[f_abs_remote] = 'D'
 
             write_dict_as_json(".bam_paths_ops.json", paths_ops)
             log.debug(paths_ops)
@@ -631,20 +631,20 @@ class bam_commands:
                 )
 
         if not use_json:
-            for fn in sorted(paths_add):
-                print("  A: %s" % fn)
-            for fn in sorted(paths_modified):
-                print("  M: %s" % fn)
-            for fn in sorted(paths_remove):
-                print("  D: %s" % fn)
+            for f in sorted(paths_add):
+                print("  A: %s" % f)
+            for f in sorted(paths_modified):
+                print("  M: %s" % f)
+            for f in sorted(paths_remove):
+                print("  D: %s" % f)
         else:
             ret = []
-            for fn in sorted(paths_add):
-                ret.append(("A", fn))
-            for fn in sorted(paths_modified):
-                ret.append(("M", fn))
-            for fn in sorted(paths_remove):
-                ret.append(("D", fn))
+            for f in sorted(paths_add):
+                ret.append(("A", f))
+            for f in sorted(paths_modified):
+                ret.append(("M", f))
+            for f in sorted(paths_remove):
+                ret.append(("D", f))
 
             import json
             print(json.dumps(ret))

@@ -1176,7 +1176,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         if not blendfile_template_create(blendfile_abs, session_path, "create_blank", None, []):
             self.fail("blend file couldn't be created")
             return
-        self.assertTrue(os.path.exists(blendfile))
+        self.assertTrue(os.path.exists(blendfile_abs))
 
         stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
         self.assertEqual("", stderr)

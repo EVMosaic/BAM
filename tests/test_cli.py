@@ -1162,7 +1162,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         stdout, stderr = bam_run(["checkout", blendfile, "--output", session_path], proj_path)
         self.assertEqual("", stderr)
         _check()
-        _dbg_dump_path(session_path)
+        # _dbg_dump_path(session_path)
 
     def test_absolute_relative_from_blendfiles(self):
         """
@@ -1257,7 +1257,7 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         # XXX (end hack!)
 
 
-        _dbg_dump_path(session_path)
+        # _dbg_dump_path(session_path)
 
         stdout, stderr = bam_run(["commit", "-m", "new house to remap"], session_path)
         self.assertEqual("", stderr)

@@ -518,36 +518,36 @@ class bam_commands:
                 return b'//' + os.path.relpath(f[3:], proj_base_b)
             return None
 
+        def remap_file(f_rel, f_abs):
+            f_abs_remap = os.path.join(basedir_temp, f_rel)
+            dir_remap = os.path.dirname(f_abs_remap)
+            os.makedirs(dir_remap, exist_ok=True)
+
+            # final location in the project
+            f_rel_in_proj = paths_remap.get(f_rel)
+            if f_rel_in_proj is None:
+                if paths_remap_relbase:
+                    f_rel_in_proj = os.path.join(paths_remap_relbase, f_rel)
+                else:
+                    f_rel_in_proj = f_rel
+            proj_base_b = os.path.dirname(f_rel_in_proj).encode("utf-8")
+
+            import blendfile_pack_restore
+            blendfile_pack_restore.blendfile_remap(
+                    f_abs.encode('utf-8'),
+                    dir_remap.encode('utf-8'),
+                    deps_remap_cb=remap_cb,
+                    deps_remap_cb_userdata=proj_base_b,
+                    )
+            return f_abs_remap
+
         for f_rel, f_abs in list(paths_modified.items()):
-            # we may want to be more clever here
+            f_abs_remap = remap_file(f_rel, f_abs)
+            if os.path.exists(f_abs_remap):
+                paths_modified[f_rel] = f_abs_remap
 
-            if 1:
-                f_abs_remap = os.path.join(basedir_temp, f_rel)
-                dir_remap = os.path.dirname(f_abs_remap)
-                os.makedirs(dir_remap, exist_ok=True)
 
-                # final location in the project
-                f_rel_in_proj = paths_remap.get(f_rel)
-                if f_rel_in_proj is None:
-                    if paths_remap_relbase:
-                        f_rel_in_proj = os.path.join(paths_remap_relbase, f_rel)
-                    else:
-                        f_rel_in_proj = f_rel
-                proj_base_b = os.path.dirname(f_rel_in_proj).encode("utf-8")
-
-                import blendfile_pack_restore
-                blendfile_pack_restore.blendfile_remap(
-                        f_abs.encode('utf-8'),
-                        dir_remap.encode('utf-8'),
-                        deps_remap_cb=remap_cb,
-                        deps_remap_cb_userdata=proj_base_b,
-                        )
-
-                if os.path.exists(f_abs_remap):
-                    f_abs = f_abs_remap
-                    paths_modified[f_rel] = f_abs
-
-            else:
+        """
                 deps = deps_remap.get(f_rel)
                 if deps:
                     # ----
@@ -565,6 +565,7 @@ class bam_commands:
                     if os.path.exists(f_abs_remap):
                         f_abs = f_abs_remap
                         paths_modified[f_rel] = f_abs
+        """
 
 
         # -------------------------

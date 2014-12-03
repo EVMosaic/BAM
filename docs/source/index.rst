@@ -8,6 +8,8 @@ Contents:
 
    install/index.rst
    design/planning.rst
+   manual/index.rst
+   reference/index.rst
 
 
 

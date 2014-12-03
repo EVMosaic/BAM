@@ -331,6 +331,19 @@ def file_quick_touch(path, filepart=None, times=None):
         os.utime(path, times)
 
 
+def file_quick_touch_blend(path, filepart=None, times=None):
+    if filepart is not None:
+        path = os.path.join(path, filepart)
+
+    if not os.path.exists(path):
+        Exception("Path not found %r" % path)
+
+    # we can write junk data into the end of the blend file
+    with open(path, 'a') as fh:
+        fh.write("_")
+    os.utime(path, times)
+
+
 def file_quick_image(path, filepart=None):
     def write_png(buf, width, height):
         """ buf: must be bytes or a bytearray in py3, a regular string in py2. formatted RGBARGBA... """
@@ -1110,6 +1123,47 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         ret = bam_run_as_json(["ls", "maps_more", "--json"], proj_path)
         self.assertIn(["abs.txt", "file"], ret)
 
+    def _test_absolute_relative_from_blendfiles__structure(self, proj_path, session_path):
+        # used by both
+        # - test_absolute_relative_from_blendfiles()
+        # - test_absolute_relative_from_blendfiles_partial()
+        #
+        shutil.rmtree(session_path)
+
+        blendfile = os.path.join("subdir", "house_lib_user.blend")
+
+        # ---- make a new checkout
+
+        def _check():
+            ret = bam_run_as_json(["deps", os.path.join(session_path, os.path.basename(blendfile)), "--json"], proj_path)
+            ret.sort()
+
+            self.assertEqual(ret[0][1], "//" + os.path.join("_abs", "path", "house_abs.blend"))
+            self.assertEqual(ret[0][3], "OK")
+            self.assertEqual(ret[1][1], "//" + os.path.join("rel", "path", "house_rel.blend"))
+            self.assertEqual(ret[1][3], "OK")
+
+
+        stdout, stderr = bam_run(["checkout", blendfile, "--output", session_path], proj_path)
+        self.assertEqual("", stderr)
+        _check()
+
+        # ---- touch and commit
+
+        file_quick_touch_blend(os.path.join(os.path.join(session_path, "_abs", "path", "house_abs.blend")))
+        file_quick_touch_blend(os.path.join(os.path.join(session_path, "rel", "path", "house_rel.blend")))
+        file_quick_touch_blend(os.path.join(os.path.join(session_path, os.path.basename(blendfile))))
+
+        stdout, stderr = bam_run(["commit", "-m", "just touched"], session_path)
+        self.assertEqual("", stderr)
+
+        shutil.rmtree(session_path)
+
+        stdout, stderr = bam_run(["checkout", blendfile, "--output", session_path], proj_path)
+        self.assertEqual("", stderr)
+        _check()
+        _dbg_dump_path(session_path)
+
     def test_absolute_relative_from_blendfiles(self):
         """
         This uses 3x blend files to test multi-level commit, checkout.
@@ -1125,7 +1179,6 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         """
 
         session_name = "mysession"
-        blendfile = os.path.join("subdir", "house_lib_user.blend")
         proj_path, session_path = self.init_session(session_name)
 
         if 1:
@@ -1136,26 +1189,10 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
                         os.path.join(CURRENT_DIR, "blends", "multi_level", d),
                         os.path.join(session_path, d),
                         )
-
             stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
             self.assertEqual("", stderr)
 
-            # ret = bam_run_as_json(["ls", "--json"], proj_path)
-            # self.assertEqual(2, len(ret))
-            shutil.rmtree(session_path)
-
-            # ---- make a new checkout
-
-            stdout, stderr = bam_run(["checkout", blendfile, "--output", session_path], proj_path)
-            self.assertEqual("", stderr)
-
-            ret = bam_run_as_json(["deps", os.path.join(session_path, os.path.basename(blendfile)), "--json"], proj_path)
-            ret.sort()
-
-            self.assertEqual(ret[0][1], "//" + os.path.join("_abs", "path", "house_abs.blend"))
-            self.assertEqual(ret[0][3], "OK")
-            self.assertEqual(ret[1][1], "//" + os.path.join("rel", "path", "house_rel.blend"))
-            self.assertEqual(ret[1][3], "OK")
+        self._test_absolute_relative_from_blendfiles__structure(proj_path, session_path)
 
     def test_absolute_relative_from_blendfiles_partial(self):
         """Same as test_absolute_relative_from_blendfiles(),
@@ -1199,14 +1236,38 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
                     os.path.join(CURRENT_DIR, "blends", "multi_level", "subdir", "rel", "path"),
                     os.path.join(session_path, "rel", "path"),
                     )
+        shutil.copy(
+                os.path.join(CURRENT_DIR, "blends", "multi_level", "subdir", os.path.basename(blendfile)),
+                session_path,
+                )
+
+        # Now store the link as if we made the path locally, manually adding "./_abs/"
+        # This test is to show that BAM can remap this back to an absolute dir.
+        #
+        # XXX, binary search & replace, WEAK!
+        with open(os.path.join(session_path, os.path.basename(blendfile)), 'rb') as f:
+            data = f.read()
+        data = data.replace(
+                b'//../abs/path/house_abs.blend\x00',
+                b'//_abs/path/house_abs.blend\x00__',
+                1)
+        with open(os.path.join(session_path, os.path.basename(blendfile)), 'wb') as f:
+            f.write(data)
+        del data, f
+        # XXX (end hack!)
+
+
+        _dbg_dump_path(session_path)
 
         stdout, stderr = bam_run(["commit", "-m", "new house to remap"], session_path)
         self.assertEqual("", stderr)
 
-        ret = bam_run_as_json(["ls", "abs/path", "--json"], proj_path)
-        self.assertEqual(ret[0], ["house_abs.blend", "file"])
-        ret = bam_run_as_json(["ls", "subdir/rel/path", "--json"], proj_path)
-        self.assertEqual(ret[0], ["house_rel.blend", "file"])
+        self._test_absolute_relative_from_blendfiles__structure(proj_path, session_path)
+
+        # ret = bam_run_as_json(["ls", "abs/path", "--json"], proj_path)
+        # self.assertEqual(ret[0], ["house_abs.blend", "file"])
+        # ret = bam_run_as_json(["ls", "subdir/rel/path", "--json"], proj_path)
+        # self.assertEqual(ret[0], ["house_rel.blend", "file"])
 
 
 class BamIgnoreTest(BamSessionTestCase):

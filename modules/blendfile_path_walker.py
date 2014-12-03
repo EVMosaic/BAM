@@ -707,4 +707,3 @@ class utils:
             return split1
         else:
             return split2
-

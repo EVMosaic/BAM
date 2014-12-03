@@ -396,7 +396,6 @@ class FileAPI(Resource):
             # TODO(cam) directory support
             paths_remap["."] = os.path.relpath(filepath, paths_remap_relbase)
 
-
         # TODO, avoid reopening zipfile
         # append json info to zip
         import zipfile

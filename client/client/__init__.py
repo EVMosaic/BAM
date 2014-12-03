@@ -14,9 +14,9 @@ def request_url(path):
     return ('%s%s' % (config['BAM_SERVER'], path))
 
 
-#payload = {'path': ''}
-#r = requests.get(request_url('/files'), params=payload, auth=('bam', 'bam'))
-#print (r.json())
+# payload = {'path': ''}
+# r = requests.get(request_url('/files'), params=payload, auth=('bam', 'bam'))
+# print (r.json())
 
 # payload = {
 #     'filepath': 'shots',

@@ -35,7 +35,12 @@ extensions = [
 
 if 1:
     extensions += ['sphinxarg.ext']
-    sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "client", "cli"))
+    sys.path.extend([
+        # to import 'bam.py'
+        os.path.join(os.path.dirname(__file__), "..", "..", "client", "cli"),
+        # to access the 'sphinxarg' extension
+        os.path.abspath(os.path.join("..", "exts"))
+        ])
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -9,3 +9,11 @@ pep8:
 
 test:
 	python3 ./tests/test_cli.py
+
+doc:
+	$(MAKE) -C docs html
+	@echo "xdg-open docs/build/html/index.html"
+
+clean:
+	$(MAKE) -C docs clean
+

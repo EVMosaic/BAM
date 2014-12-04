@@ -206,12 +206,11 @@ class bam_session:
 
     @staticmethod
     def status(session_rootdir,
-               paths_add, paths_remove, paths_modified,
                paths_uuid_update=None):
 
-        assert(isinstance(paths_add, dict))
-        assert(isinstance(paths_remove, dict))
-        assert(isinstance(paths_modified, dict))
+        paths_add = {}
+        paths_remove = {}
+        paths_modified = {}
 
         from bam_utils.system import sha1_from_file
 
@@ -267,6 +266,8 @@ class bam_session:
                 if paths_uuid_update is not None:
                     paths_uuid_update[f_rel] = sha1_from_file(f_abs)
 
+        return paths_add, paths_remove, paths_modified
+
     @staticmethod
     def load_paths_uuid(session_rootdir):
         with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
@@ -274,15 +275,7 @@ class bam_session:
 
     @staticmethod
     def is_dirty(session_rootdir):
-        paths_add = {}
-        paths_modified = {}
-        paths_remove = {}
-
-        bam_session.status(
-                session_rootdir,
-                paths_add, paths_remove, paths_modified
-                )
-
+        paths_add, paths_remove, paths_modified = bam_session.status(session_rootdir)
         return any((paths_add, paths_modified, paths_remove))
 
 
@@ -528,16 +521,9 @@ class bam_commands:
             deps_remap = json.load(f)
         """
 
-        paths_add = {}
-        paths_modified = {}
-        paths_remove = {}
         paths_uuid_update = {}
 
-        bam_session.status(
-                session_rootdir,
-                paths_add, paths_remove, paths_modified,
-                paths_uuid_update,
-                )
+        paths_add, paths_remove, paths_modified = bam_session.status(session_rootdir, paths_uuid_update)
 
         if not any((paths_add, paths_modified, paths_remove)):
             print("Nothing to commit!")
@@ -717,15 +703,7 @@ class bam_commands:
         del paths
 
         session_rootdir = bam_config.find_sessiondir(path, abort=True)
-
-        paths_add = {}
-        paths_modified = {}
-        paths_remove = {}
-
-        bam_session.status(
-                session_rootdir,
-                paths_add, paths_remove, paths_modified,
-                )
+        paths_add, paths_remove, paths_modified = bam_session.status(session_rootdir)
 
         if not use_json:
             for f in sorted(paths_add):

@@ -110,9 +110,9 @@ class bam_config:
 
     def find_sessiondir(cwd=None, abort=False):
         """
-        from:  my_bam/my_session/some/subdir
-        to:    my_bam/my_session
-        where: my_bam/.bam/  (is the basedir)
+        from:  my_project/my_session/some/subdir
+        to:    my_project/my_session
+        where: my_project/.bam/  (is the basedir)
         """
         session_rootdir = bam_config.find_basedir(
                 cwd=cwd,
@@ -355,7 +355,6 @@ class bam_commands:
 
     @staticmethod
     def checkout(path, output_dir=None, session_rootdir_partial=None):
-        import requests
 
         cfg = bam_config.load(abort=True)
 
@@ -367,20 +366,22 @@ class bam_commands:
             if os.sep in output_dir.rstrip(os.sep):
                 # are we a subdirectory?
                 # (we know this exists, since we have config already)
-                rootdir = bam_config.find_rootdir(abort=True)
-                if ".." in os.path.relpath(output_dir, rootdir).split(os.sep):
-                    fatal("Output %r is outside the project path %r" % (output_dir, rootdir))
-                del rootdir
+                project_rootdir = bam_config.find_rootdir(abort=True)
+                if ".." in os.path.relpath(output_dir, project_rootdir).split(os.sep):
+                    fatal("Output %r is outside the project path %r" % (output_dir, project_rootdir))
+                del project_rootdir
             dst_dir = output_dir
         del output_dir
 
-        if session_rootdir_partial:
-            pass
+        if bam_config.find_sessiondir(cwd=dst_dir):
+            fatal("Can't checkout in existing session. Use update.")
 
         payload = {
             "filepath": path,
             "command": "checkout",
             }
+
+        import requests
         r = requests.get(
                 bam_session.request_url("file"),
                 params=payload,

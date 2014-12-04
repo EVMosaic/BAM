@@ -833,6 +833,21 @@ class BamCheckoutTest(BamSessionTestCase):
         file_data_test = file_quick_read(os.path.join(session_path, file_name))
         self.assertEqual(file_data, file_data_test)
 
+    def test_checkout_in_existing_session(self):
+        session_name = "mysession"
+        file_name = "other_file.txt"
+        file_data = b"yo world!\n"
+
+        proj_path, session_path = self.init_session(session_name)
+
+        # now do a real commit
+        file_quick_write(session_path, file_name, file_data)
+        stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+        self.assertEqual("", stderr)
+
+        # checkout inside of the existing session, should raise exception
+        self.assertRaises(RuntimeError, bam_run, ["checkout", file_name, "--output", session_path], session_path)
+
     def test_update_blank(self):
         session_name = "mysession"
         proj_path, session_path = self.init_session(session_name)

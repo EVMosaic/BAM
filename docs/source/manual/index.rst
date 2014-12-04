@@ -92,6 +92,10 @@ After committing, we can keep working in the same session, and do further commit
 Updatding and existing session
 ==============================
 
-At the moment it is not possible to update the session (if another artist updates one of the assets
-for example, we would like such asset to be updated in all the sessions using it).
+It is possible to update and existing session by running::
+
+    bam update
+
+Make sure you have committed your files before updating.
+
 

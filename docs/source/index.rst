@@ -6,12 +6,11 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   manual/index.rst
+   reference/index.rst
    install/index.rst
    design/planning.rst
    design/milestones.rst
-   manual/index.rst
-   reference/index.rst
-
 
 
 Indices and tables

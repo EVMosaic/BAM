@@ -2,7 +2,7 @@
 *.sublime-project
 *.sublime-workspace
 *.db
-*.blend1
+*.blend[0-9]*
 
 webservice/venv/
 docs/venv/

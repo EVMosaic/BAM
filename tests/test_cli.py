@@ -841,9 +841,41 @@ class BamCheckoutTest(BamSessionTestCase):
         self.assertEqual("", stderr)
         self.assertEqual("Nothing to update!\n", stdout)
 
-        #stdout, stderr = bam_run(["checkout"], session_path)
+    def test_update_simple(self):
+        session_name = "mysession"
+        file_name = "other_file.txt"
+        file_data = b"initial data!\n"
+        file_data_append = b"appended data!\n"
 
+        proj_path, session_path = self.init_session(session_name)
 
+        # now do a real commit
+        file_quick_write(session_path, file_name, file_data)
+        stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+        self.assertEqual("", stderr)
+
+        # remove the path
+        shutil.rmtree(session_path)
+
+        # checkout the file again
+        session_path_a = session_path + "_a"
+        stdout, stderr = bam_run(["checkout", file_name, "--output", session_path_a], proj_path)
+        self.assertEqual("", stderr)
+
+        session_path_b = session_path + "_b"
+        stdout, stderr = bam_run(["checkout", file_name, "--output", session_path_b], proj_path)
+        self.assertEqual("", stderr)
+
+        file_quick_write(session_path_a, file_name, file_data_append, append=True)
+
+        stdout, stderr = bam_run(["commit", "-m", "commit appended data"], session_path_a)
+        self.assertEqual("", stderr)
+
+        stdout, stderr = bam_run(["update"], session_path_b)
+        self.assertEqual("", stderr)
+
+        with open(os.path.join(session_path_b, file_name), 'rb') as f:
+            self.assertEqual(f.read(), file_data + file_data_append)
 
 
 class BamBlendTest(BamSimpleTestCase):

@@ -272,6 +272,19 @@ class bam_session:
         with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
             return json.load(f)
 
+    @staticmethod
+    def is_dirty(session_rootdir):
+        paths_add = {}
+        paths_modified = {}
+        paths_remove = {}
+
+        bam_session.status(
+                session_rootdir,
+                paths_add, paths_remove, paths_modified
+                )
+
+        return any((paths_add, paths_modified, paths_remove))
+
 
 class bam_commands:
     """
@@ -439,33 +452,48 @@ class bam_commands:
 
         # TODO(cam) multiple paths
         session_rootdir = bam_config.find_sessiondir(paths[0], abort=True)
+        # so as to avoid off-by-one errors string mangling
+        session_rootdir = session_rootdir.rstrip(os.sep)
+
         paths_uuid = bam_session.load_paths_uuid(session_rootdir)
 
         if not paths_uuid:
             print("Nothing to update!")
             return
+
+        if bam_session.is_dirty(session_rootdir):
+            fatal("Local changes detected, commit before checking out!")
+
         # -------------------------------------------------------------------------------
         # TODO(cam) don't guess this important info
-        files = os.listdir(session_rootdir)
+        files = [f for f in os.listdir(session_rootdir) if not f.startswith(".")]
         files_blend = [f for f in files if f.endswith(".blend")]
         if files_blend:
-            file = files_blend[0]
+            f = files_blend[0]
         else:
-            file = files[0]
-        with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as f:
-            paths_remap = json.load(f)
+            f = files[0]
+        with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as fp:
+            paths_remap = json.load(fp)
             paths_remap_relbase = paths_remap.get(".", "")
-        path = os.path.join(paths_remap_relbase, file)
+        path = os.path.join(paths_remap_relbase, f)
         # -------------------------------------------------------------------------------
 
-        # Send to sever sha PUT
-        # retrieve zip GET
         # merge sessions
+        session_tmp = session_rootdir + ".tmp"
         bam_commands.checkout(
                 path,
-                output_dir=session_rootdir.rstrip(os.sep) + ".tmp",
+                output_dir=session_tmp,
                 session_rootdir_partial=session_rootdir,
                 )
+
+        for dirpath, dirnames, filenames in os.walk(session_tmp):
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                f_src = filepath
+                f_dst = session_rootdir + filepath[len(session_tmp):]
+                os.rename(f_src, f_dst)
+        import shutil
+        shutil.rmtree(session_tmp)
 
     @staticmethod
     def commit(paths, message):

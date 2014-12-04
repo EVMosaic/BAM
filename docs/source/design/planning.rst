@@ -1,7 +1,7 @@
 
-%%%%%%%%%%%
+##########
   Pipeline
-%%%%%%%%%%%
+##########
 
 **The Story Tool**
 
@@ -27,9 +27,9 @@
 - Design to **allow** for swappable modular components, even if we end up sticking with single technologies.
 
 
-##################
-  Asset Managment
-##################
+
+Asset Managment
+===============
 
 - Assets <-> Users
   - Revisions
@@ -37,30 +37,29 @@
 
 
 Architecture Overview
-=====================
+---------------------
 
 Server
-------
+^^^^^^
 
 - File asset
 - Tools (blend file packer, evaluate sequencer, visualize deps, automated tasks ...)
 - Public API (web service), *communicates with client.*
 
 Client
-------
+^^^^^^
 
 - Interface GUI/CLI (Blender/Web-UI also)
 - Tools (manage files on the client, cache.)
 - Local files (models, images)
 
 
-
 User Stories
-============
+------------
 
 
 Layout Artist
--------------
+^^^^^^^^^^^^^
 
 Mathieu has to update the camera motion in an existing shot in layout stage.
 
@@ -81,7 +80,7 @@ He finally receives confirmation that the commit uploaded correctly.
 
 
 Animator
---------
+^^^^^^^^
 
 Hjalti opens the project management web site and finds he's been assigned a new shot to animate.
 
@@ -98,7 +97,7 @@ He can work on the animation, and modify the file, and commit... *as Mathieu did
 
 
 Editor
-------
+^^^^^^
 
 Mathieu is going through his daily review of the edit in Blender,
 
@@ -123,13 +122,13 @@ its values are propagated to the server (*once committed*).
 
 
 Implementation Details
-======================
+----------------------
 
 This document describes the layout for Blender pipeline.
 
 
 Overview
---------
+^^^^^^^^
 
 - Use SVN for internal storage.
 - SVN repository is for internal storage (but keep usable as *last resort*)
@@ -138,13 +137,13 @@ Overview
 
 
 SVN Commit Abstraction
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 Motivation:
 
 Artists need to be able to work on jobs without downloading entire repository.
 
-----
+
 
 Workflow:
 
@@ -154,7 +153,7 @@ Workflow:
 - Submit task back with commit log (blender-ui/cli/web?).
   (Server handles commit).
 
-----
+
 
 Technical details:
 
@@ -168,10 +167,10 @@ Technical details:
 
 
 Components
-==========
+----------
 
 Client
-------
+^^^^^^
 
 - UI (list + checkout (remote assets), edit + commit (local assets))
   - CLI (command line tool for low level access, scripts TD can use... etc)
@@ -189,27 +188,26 @@ Client
 
 
 Server
-------
+^^^^^^
 
 - Write blend file extractor / packager.
 - Write online SVN browser.
 - ... TODO
 
 
-#####################
-  Project Management
-#####################
+
+Project Management
+==================
 
 Use phabricator! DONE :D
 
 
-##################
-  Automated Tasks
-##################
+Automated Tasks
+===============
 
 
 Components
-==========
+----------
 
 There are 2 types of tasks to be automated.
 
@@ -224,7 +222,7 @@ Automated tasks are broken into 3 steps.
 
 
 User Stories
-============
+------------
 
 Heres a list of tasks we would expect the system to support
 
@@ -241,97 +239,24 @@ Heres a list of tasks we would expect the system to support
 
 
 Implementation
-==============
+--------------
 
 We plan to develop a very simple system leveraging existing technologies.
 
 
 Dashboard
----------
+^^^^^^^^^
 
 UI (web based), allows manual creation of tasks.
 
 
 Server
-------
+^^^^^^
 
 Backend connected to database and scheduler, managing & assigning jobs to workers.
 
 
 Worker
-------
+^^^^^^
 
 Simple client, exposes control of the machine via an API.
-
-
-
-%%%%%%%%%%%%%
-  Milestones
-%%%%%%%%%%%%%
-
-
-######################
-Minimum Viable Product
-######################
-
-Get existing project migrated to asset manager as soon as possible.
-
-- No Client-side-SVN.
-- Checkout/Commit assets.
-- Basic UI.
-- ZIP file access (as an example, users wouldn't have to notice)
-- Testing (basic testing framework)
-
-
-###########
-Performance
-###########
-
-- Parallel downloads
-- Cache (avoid re-downloading files)
-
-
-#########
-Interface
-#########
-
-- BAM project definition.
-- Blender Addon (UI for performing basic actions)
-- *Maybe* extend GUI client.
-- Web UI
-- Download Zipfiles
-
-
-###############
-Scaling/Project
-###############
-
-- Consistency checks (correct library linking)
-
-
-#####################
-Basic Automated Tasks
-#####################
-
-- Generated Previews (basic automated tasks hooked up to asset manager)
-- Baking (physics)
-- Web UI (create/view/manage jobs)
-
-
-##########
-Story Tool
-##########
-
-- Establish connection between sequencer and 'shot' assets *(abstract concept)*
-- Integrate into Addon
-- Connect automated tasks on edit updates, (sync sequence with short assets)
-- Expose the edit outside of Blender *(web based UI, reviews, comment, feedback, tasks...)*
-
-
-##################
-Project Management
-##################
-
-- Web UI
-- Connect basic communication tools to assets, commits.
-

@@ -23,16 +23,15 @@ Blender asset manager
 """
 
 import os
+import sys
 import json
 
 # ------------------
 # Ensure module path
-import os
-import sys
 path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "modules"))
 if path not in sys.path:
     sys.path.append(path)
-del os, sys, path
+del path
 # --------
 
 import logging
@@ -45,7 +44,6 @@ if __name__ == "__main__":
 
 def fatal(msg):
     if __name__ == "__main__":
-        import sys
         sys.stderr.write("fatal: ")
         sys.stderr.write(msg)
         sys.stderr.write("\n")
@@ -71,7 +69,6 @@ class bam_config:
         Return the config path (or None when not found)
         Actually should raise an error?
         """
-        import os
 
         if cwd is None:
             cwd = os.getcwd()
@@ -144,7 +141,6 @@ class bam_config:
                 fatal("Not a bam repository (or any of the parent directories): .bam")
 
         with open(filepath, 'r') as f:
-            import json
             return json.load(f)
 
     @staticmethod
@@ -156,7 +152,6 @@ class bam_config:
                 )
 
         with open(filepath, 'w') as f:
-            import json
             json.dump(
                     data, f, ensure_ascii=False,
                     check_circular=False,
@@ -167,7 +162,6 @@ class bam_config:
     @staticmethod
     def create_bamignore_filter(id_=".bamignore", cwd=None):
         path = bam_config.find_rootdir()
-        import os
         bamignore = os.path.join(path, id_)
         if os.path.isfile(bamignore):
             with open(bamignore, 'r', encoding='utf-8') as f:
@@ -219,7 +213,6 @@ class bam_session:
         assert(isinstance(paths_remove, dict))
         assert(isinstance(paths_modified, dict))
 
-        import os
         from bam_utils.system import sha1_from_file
 
         session_rootdir = os.path.abspath(session_rootdir)
@@ -276,8 +269,6 @@ class bam_session:
 
     @staticmethod
     def load_paths_uuid(session_rootdir):
-        import json
-        import os
         with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
             return json.load(f)
 
@@ -294,7 +285,6 @@ class bam_commands:
 
     @staticmethod
     def init(url, directory_name=None):
-        import os
         import urllib.parse
 
         if "@" in url:
@@ -336,8 +326,6 @@ class bam_commands:
 
     @staticmethod
     def create(session_name):
-        import os
-
         rootdir = bam_config.find_rootdir(abort=True)
 
         session_rootdir = os.path.join(rootdir, session_name)
@@ -361,8 +349,6 @@ class bam_commands:
 
     @staticmethod
     def checkout(path, output_dir=None, session_rootdir_partial=None):
-        import sys
-        import os
         import requests
 
         cfg = bam_config.load(abort=True)
@@ -460,8 +446,6 @@ class bam_commands:
             return
         # -------------------------------------------------------------------------------
         # TODO(cam) don't guess this important info
-        import os
-        import json
         files = os.listdir(session_rootdir)
         files_blend = [f for f in files if f.endswith(".blend")]
         if files_blend:
@@ -485,7 +469,6 @@ class bam_commands:
 
     @staticmethod
     def commit(paths, message):
-        import os
         import requests
 
         # Load project configuration
@@ -732,7 +715,6 @@ class bam_commands:
             for f in sorted(paths_remove):
                 ret.append(("D", f))
 
-            import json
             print(json.dumps(ret))
 
     @staticmethod
@@ -768,7 +750,6 @@ class bam_commands:
             for (name_short, name_full, file_type) in items:
                 ret.append((name_short, file_type))
 
-            import json
             print(json.dumps(ret))
         else:
             for (name_short, name_full, file_type) in items:
@@ -780,7 +761,6 @@ class bam_commands:
 
     @staticmethod
     def deps(paths, recursive=False, use_json=False):
-        import os
 
         def deps_path_walker():
             import blendfile_path_walker
@@ -808,7 +788,6 @@ class bam_commands:
                     )
 
         if use_json:
-            import json
             is_first = True
             # print in parts, so we don't block the output
             print("[")
@@ -1034,7 +1013,6 @@ def create_argparse():
 def main(argv=None):
 
     if argv is None:
-        import sys
         argv = sys.argv[1:]
 
     parser = create_argparse()

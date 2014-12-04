@@ -22,6 +22,8 @@
 Blender asset manager
 """
 
+import os
+import json
 
 # ------------------
 # Ensure module path
@@ -121,7 +123,14 @@ class bam_config:
                 abort=abort,
                 descr="bam session"
                 )
-        return session_rootdir[:-len(bam_config.SESSION_FILE)]
+
+        if session_rootdir is not None:
+            return session_rootdir[:-len(bam_config.SESSION_FILE)]
+        else:
+            if abort:
+                if not os.path.isdir(session_rootdir):
+                    fatal("Expected a directory (%r)" % session_rootdir)
+            return None
 
     @staticmethod
     def load(id_="config", cwd=None, abort=False):
@@ -223,10 +232,7 @@ class bam_session:
             os.path.join(session_rootdir, ".bam_tmp.zip"),
             }
 
-        with open(os.path.join(session_rootdir, ".bam_paths_uuid.json"), 'r') as f:
-            import json
-            paths_uuid = json.load(f)
-            del json
+        paths_uuid = bam_session.load_paths_uuid(session_rootdir)
 
         for f_rel, sha1 in paths_uuid.items():
             f_abs = os.path.join(session_rootdir, f_rel)
@@ -267,6 +273,13 @@ class bam_session:
 
                 if paths_uuid_update is not None:
                     paths_uuid_update[f_rel] = sha1_from_file(f_abs)
+
+    @staticmethod
+    def load_paths_uuid(session_rootdir):
+        import json
+        import os
+        with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
+            return json.load(f)
 
 
 class bam_commands:
@@ -347,7 +360,7 @@ class bam_commands:
         print("Session %r created" % session_name)
 
     @staticmethod
-    def checkout(path, output_dir=None):
+    def checkout(path, output_dir=None, session_rootdir_partial=None):
         import sys
         import os
         import requests
@@ -368,6 +381,9 @@ class bam_commands:
                 del rootdir
             dst_dir = output_dir
         del output_dir
+
+        if session_rootdir_partial:
+            pass
 
         payload = {
             "filepath": path,
@@ -431,6 +447,43 @@ class bam_commands:
         sys.stdout.write("\nwritten: %r\n" % dst_dir)
 
     @staticmethod
+    def update(paths):
+        # Load project configuration
+        cfg = bam_config.load(abort=True)
+
+        # TODO(cam) multiple paths
+        session_rootdir = bam_config.find_sessiondir(paths[0], abort=True)
+        paths_uuid = bam_session.load_paths_uuid(session_rootdir)
+
+        if not paths_uuid:
+            print("Nothing to update!")
+            return
+        # -------------------------------------------------------------------------------
+        # TODO(cam) don't guess this important info
+        import os
+        import json
+        files = os.listdir(session_rootdir)
+        files_blend = [f for f in files if f.endswith(".blend")]
+        if files_blend:
+            file = files_blend[0]
+        else:
+            file = files[0]
+        with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as f:
+            paths_remap = json.load(f)
+            paths_remap_relbase = paths_remap.get(".", "")
+        path = os.path.join(paths_remap_relbase, file)
+        # -------------------------------------------------------------------------------
+
+        # Send to sever sha PUT
+        # retrieve zip GET
+        # merge sessions
+        bam_commands.checkout(
+                path,
+                output_dir=session_rootdir.rstrip(os.sep) + ".tmp",
+                session_rootdir_partial=session_rootdir,
+                )
+
+    @staticmethod
     def commit(paths, message):
         import os
         import requests
@@ -438,13 +491,7 @@ class bam_commands:
         # Load project configuration
         cfg = bam_config.load(abort=True)
 
-        # TODO(cam) ignore files
-
-        # TODO(cam) multiple paths
-        session_rootdir = paths[0]
-
-        if not os.path.isdir(session_rootdir):
-            fatal("Expected a directory (%r)" % session_rootdir)
+        session_rootdir = bam_config.find_sessiondir(paths[0], abort=True)
 
         basedir = bam_config.find_basedir(
                 cwd=session_rootdir,
@@ -462,9 +509,7 @@ class bam_commands:
                   session_rootdir)
 
         # make a zipfile from session
-        import json
-        with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as f:
-            paths_uuid = json.load(f)
+        paths_uuid = bam_session.load_paths_uuid(session_rootdir)
 
         # No longer used
         """
@@ -844,6 +889,21 @@ def create_argparse_checkout(subparsers):
             )
 
 
+def create_argparse_update(subparsers):
+    subparse = subparsers.add_parser(
+            "update", aliases=("up",),
+            help="Update a local session with changes from the remote project",
+            )
+    subparse.add_argument(
+            dest="paths", nargs="*",
+            help="Path(s) to operate on",
+            )
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.update(args.paths or ["."]),
+            )
+
+
 def create_argparse_commit(subparsers):
     subparse = subparsers.add_parser(
             "commit", aliases=("ci",),
@@ -861,22 +921,6 @@ def create_argparse_commit(subparsers):
     subparse.set_defaults(
             func=lambda args:
             bam_commands.commit(args.paths or ["."], args.message),
-            )
-
-
-def create_argparse_update(subparsers):
-    subparse = subparsers.add_parser(
-            "update", aliases=("up",),
-            help="Update a local session with changes from the remote project",
-            )
-    subparse.add_argument(
-            dest="paths", nargs="+",
-            help="Path(s) to operate on",
-            )
-    subparse.set_defaults(
-            func=lambda args:
-            # TODO
-            print(args),
             )
 
 

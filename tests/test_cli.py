@@ -801,6 +801,14 @@ class BamCommitTest(BamSessionTestCase):
                  ["M", "d_dir/d_subdir/d_nested/d.data"],
                  ], ret)
 
+class BamCheckoutTest(BamSessionTestCase):
+    """Test for the `bam checkout` command.
+    """
+
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
     def test_checkout(self):
         session_name = "mysession"
         file_name = "other_file.txt"
@@ -824,6 +832,18 @@ class BamCommitTest(BamSessionTestCase):
 
         file_data_test = file_quick_read(os.path.join(session_path, file_name))
         self.assertEqual(file_data, file_data_test)
+
+    def test_update_blank(self):
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+        stdout, stderr = bam_run(["update"], session_path)
+        # Empty and new session should not update at all
+        self.assertEqual("", stderr)
+        self.assertEqual("Nothing to update!\n", stdout)
+
+        #stdout, stderr = bam_run(["checkout"], session_path)
+
+
 
 
 class BamBlendTest(BamSimpleTestCase):

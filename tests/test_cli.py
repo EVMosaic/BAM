@@ -715,6 +715,9 @@ class BamInitTest(BamSessionTestCase):
             self.assertEqual(url, cfg["url"])
             self.assertEqual(user_name, cfg["user"])
 
+        with open(os.path.join(proj_path, ".bamignore")) as f:
+            self.assertEqual(f.readline(), ".*\.blend\d+$")
+
 
 class BamListTest(BamSessionTestCase):
     """Test for the `bam ls --json` command. We run it with --json for easier command

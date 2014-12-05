@@ -160,6 +160,14 @@ class bam_config:
                     )
 
     @staticmethod
+    def write_bamignore(cwd=None):
+        path = bam_config.find_rootdir(cwd=cwd)
+        if path:
+            filepath = os.path.join(path, ".bamignore")
+            with open(filepath, 'w') as f:
+                f.write(r".*\.blend\d+$")
+
+    @staticmethod
     def create_bamignore_filter(id_=".bamignore", cwd=None):
         path = bam_config.find_rootdir()
         bamignore = os.path.join(path, id_)
@@ -327,6 +335,10 @@ class bam_commands:
                     "config_version": 1
                     },
                 cwd=proj_dirname_abs)
+
+        # Create the default .bamignore
+        # TODO (fsiddi) get this data from the project config on the server
+        bam_config.write_bamignore(cwd=proj_dirname_abs)
 
         print("Project %r initialized" % proj_dirname)
 

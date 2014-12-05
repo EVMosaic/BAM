@@ -15,3 +15,15 @@ In order to get it up and running.
 - Run the service
 
 To learn about the web-service usage, check out the proper (non existing) section.
+
+
+Client
+======
+
+In order to use the `bam` command in your terminal, you can add this file in any of
+your BIN paths and call it `bam`. Don't forget to give it +x permissions. ::
+
+    #!/bin/sh
+    exec python /absolute/path/to/bam/client/cli/bam.py "$@"
+
+As you can see, the file links to your bam.py file, so make sure that one is right!

@@ -95,10 +95,10 @@ class FPElem:
     def filepath_absolute(self):
         filepath = self.filepath
         if filepath.startswith(b'//'):
-            return os.path.join(
+            return os.path.normpath(os.path.join(
                     self.basedir,
                     utils.compatpath(filepath[2:]),
-                    )
+                    ))
         else:
             return utils.compatpath(filepath)
 
@@ -269,8 +269,9 @@ class FilePath:
             if block_codes_idlib is not None:
                 def iter_blocks_idlib():
                     for block in blend.find_blocks_from_code(b'LI'):
-                        if block[b'name'] in block_codes_idlib:
-                            yield from block_expand(block, b'LI')
+                        # TODO, this should work but in fact mades some libs not link correctly.
+                        # if block[b'name'] in block_codes_idlib:
+                        yield from block_expand(block, b'LI')
             else:
                 def iter_blocks_idlib():
                     return blend.find_blocks_from_code(b'LI')

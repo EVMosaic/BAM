@@ -54,7 +54,8 @@ def _relpath_remap(
         ):
 
     import os
-
+    assert(os.path.isabs(path_src))
+    path_src = os.path.normpath(path_src)
     path_dst = os.path.relpath(path_src, base_dir_src)
 
     if blendfile_src_dir_fakeroot is None:
@@ -77,8 +78,10 @@ def _relpath_remap(
             path_dst = os.path.normpath(path_dst)
             path_dst = b'_' + path_dst
 
-        path_dst_final = os.path.join(os.path.relpath(fp_basedir, base_dir_src), path_dst)
+        # _dbg(b"FINAL A: " + path_dst)
+        path_dst_final = os.path.join(os.path.relpath(base_dir_src, fp_basedir), path_dst)
         path_dst_final = os.path.normpath(path_dst_final)
+        # _dbg(b"FINAL B: " + path_dst_final)
 
     return path_dst, path_dst_final
 

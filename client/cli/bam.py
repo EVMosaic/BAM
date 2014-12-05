@@ -64,7 +64,7 @@ class bam_config:
     SESSION_FILE = ".bam_paths_remap.json"
 
     @staticmethod
-    def find_basedir(cwd=None, suffix=None, abort=False, test_subpath=CONFIG_DIR, descr="<unknown>"):
+    def find_basedir(cwd=None, path_suffix=None, abort=False, test_subpath=CONFIG_DIR, descr="<unknown>"):
         """
         Return the config path (or None when not found)
         Actually should raise an error?
@@ -82,8 +82,8 @@ class bam_config:
         while parent != parent_prev:
             test_dir = os.path.join(parent, test_subpath)
             if os.path.exists(test_dir):
-                if suffix is not None:
-                    test_dir = os.path.join(test_dir, suffix)
+                if path_suffix is not None:
+                    test_dir = os.path.join(test_dir, path_suffix)
                 return test_dir
 
             parent_prev = parent
@@ -95,13 +95,13 @@ class bam_config:
         return None
 
     @staticmethod
-    def find_rootdir(cwd=None, suffix=None, abort=False, test_subpath=CONFIG_DIR, descr="<unknown>"):
+    def find_rootdir(cwd=None, path_suffix=None, abort=False, test_subpath=CONFIG_DIR, descr="<unknown>"):
         """
         find_basedir(), without '.bam' suffix
         """
         path = bam_config.find_basedir(
                 cwd=cwd,
-                suffix=suffix,
+                path_suffix=path_suffix,
                 abort=abort,
                 test_subpath=test_subpath,
                 )
@@ -133,7 +133,7 @@ class bam_config:
     def load(id_="config", cwd=None, abort=False):
         filepath = bam_config.find_basedir(
                 cwd=cwd,
-                suffix=id_,
+                path_suffix=id_,
                 descr="bam repository",
                 )
         if abort is True:
@@ -147,7 +147,7 @@ class bam_config:
     def write(id_="config", data=None, cwd=None):
         filepath = bam_config.find_basedir(
                 cwd=cwd,
-                suffix=id_,
+                path_suffix=id_,
                 descr="bam repository",
                 )
 

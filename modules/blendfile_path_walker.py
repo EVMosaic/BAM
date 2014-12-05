@@ -270,8 +270,8 @@ class FilePath:
                 def iter_blocks_idlib():
                     for block in blend.find_blocks_from_code(b'LI'):
                         # TODO, this should work but in fact mades some libs not link correctly.
-                        # if block[b'name'] in block_codes_idlib:
-                        yield from block_expand(block, b'LI')
+                        if block[b'name'] in block_codes_idlib:
+                            yield from block_expand(block, b'LI')
             else:
                 def iter_blocks_idlib():
                     return blend.find_blocks_from_code(b'LI')
@@ -567,6 +567,16 @@ class ExpandID:
 
         yield block.get_pointer(b'proxy')
         yield block.get_pointer(b'proxy_group')
+
+        # 'ob->pose->chanbase[...].custom'
+        block_pose = block.get_pointer(b'pose')
+        if block_pose is not None:
+            assert(block_pose.dna_type.dna_type_id == b'bPose')
+            sdna_index_bPoseChannel = block_pose.file.sdna_index_from_id[b'bPoseChannel']
+            for item in bf_utils.iter_ListBase(block_pose.get_pointer(b'chanbase.first')):
+                item_custom = item.get_pointer(b'custom', sdna_index_refine=sdna_index_bPoseChannel)
+                if item_custom is not None:
+                    yield item_custom
 
     @staticmethod
     def expand_ME(block):  # 'Mesh'

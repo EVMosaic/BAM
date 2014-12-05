@@ -184,8 +184,8 @@ class BlendFile:
             self.structs[sdna_index_next].size):
 
             raise RuntimeError("cant refine to smaller type (%s -> %s)" %
-                               (self.file.structs[sdna_index_curr].dna_type_id.decode('ascii'),
-                                self.file.structs[sdna_index_next].dna_type_id.decode('ascii')))
+                               (self.structs[sdna_index_curr].dna_type_id.decode('ascii'),
+                                self.structs[sdna_index_next].dna_type_id.decode('ascii')))
 
     @staticmethod
     def decode_structs(header, block, handle):

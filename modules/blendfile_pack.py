@@ -204,6 +204,7 @@ def pack(
         path_src_orig = fp.filepath
         path_rel = blendfile_path_walker.utils.compatpath(path_src_orig)
         path_src = blendfile_path_walker.utils.abspath(path_rel, fp.basedir)
+        path_src = os.path.normpath(path_src)
 
         # destination path realtive to the root
         # assert(b'..' not in path_src)

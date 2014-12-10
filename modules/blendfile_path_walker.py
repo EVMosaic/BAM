@@ -83,6 +83,21 @@ class FPElem:
     # --------
     # filepath
 
+    def filepath_absolute_resolve(self, basedir=None):
+        """
+        Resolve the filepath, with the option to override the basedir.
+        """
+        filepath = self.filepath
+        if filepath.startswith(b'//'):
+            if basedir is None:
+                basedir = self.basedir
+            return os.path.normpath(os.path.join(
+                    basedir,
+                    utils.compatpath(filepath[2:]),
+                    ))
+        else:
+            return utils.compatpath(filepath)
+
     @property
     def filepath(self):
         return self._get_cb()
@@ -93,14 +108,7 @@ class FPElem:
 
     @property
     def filepath_absolute(self):
-        filepath = self.filepath
-        if filepath.startswith(b'//'):
-            return os.path.normpath(os.path.join(
-                    self.basedir,
-                    utils.compatpath(filepath[2:]),
-                    ))
-        else:
-            return utils.compatpath(filepath)
+        return self.filepath_absolute_resolve()
 
 
 class FPElem_block_path(FPElem):

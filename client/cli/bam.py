@@ -822,6 +822,73 @@ class bam_commands:
             for f_src, f_dst, f_dst_abs, f_status in status_walker():
                 print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))
 
+    @staticmethod
+    def remap_start(
+            paths,
+            ):
+        filepath_remap = "bam_remap.data"
+
+        for p in paths:
+            if not os.path.exists(p):
+                fatal("Path %r not found!" % p)
+        paths = [p.encode('utf-8') for p in paths]
+
+
+        if os.path.exists(filepath_remap):
+            fatal("Remap in progress, run with 'finish' or remove %r" % filepath_remap)
+
+        import blendfile_path_remap
+        remap_data = blendfile_path_remap.start(
+                paths,
+                )
+
+        with open(filepath_remap, 'wb') as fh:
+            import pickle
+            pickle.dump(remap_data, fh, pickle.HIGHEST_PROTOCOL)
+
+    @staticmethod
+    def remap_finish(
+            paths,
+            force_relative=False,
+            dry_run=False,
+            ):
+        filepath_remap = "bam_remap.data"
+
+        for p in paths:
+            if not os.path.exists(p):
+                fatal("Path %r not found!" % p)
+        # bytes needed for blendfile_path_remap API
+        paths = [p.encode('utf-8') for p in paths]
+
+
+        if not os.path.exists(filepath_remap):
+            fatal("Remap not started, run with 'start', (%r not found)" % filepath_remap)
+
+        with open(filepath_remap, 'rb') as fh:
+            import pickle
+            remap_data = pickle.load(fh)
+
+        import blendfile_path_remap
+        blendfile_path_remap.finish(
+                paths, remap_data,
+                force_relative=force_relative,
+                dry_run=dry_run,
+                )
+
+        if not dry_run:
+            os.remove(filepath_remap)
+
+    @staticmethod
+    def remap_reset(
+            ):
+        filepath_remap = "bam_remap.data"
+        if os.path.exists(filepath_remap):
+            os.remove(filepath_remap)
+        else:
+            fatal("remapping not started, nothing to do!")
+
+
+
 # -----------------------------------------------------------------------------
 # Argument Parser
 
@@ -1000,6 +1067,68 @@ def create_argparse_deps(subparsers):
                     )
 
 
+def create_argparse_remap(subparsers):
+    subparse = subparsers.add_parser(
+            "remap",
+            help="Remap blend file paths",
+            )
+
+    subparse_remap_commands = subparse.add_subparsers(
+            title="Remap commands",
+            description='valid subcommands',
+            help='additional help',
+            )
+    sub_subparse = subparse_remap_commands.add_parser(
+            "start",
+            help="Start remapping the blend files",
+            )
+
+    sub_subparse.add_argument(
+            dest="paths", nargs="*",
+            help="Path(s) to operate on",
+            )
+    sub_subparse.set_defaults(
+            func=lambda args:
+            bam_commands.remap_start(
+                    args.paths or ["."],
+                    ),
+                    )
+
+    sub_subparse = subparse_remap_commands.add_parser(
+            "finish",
+            help="Finish remapping the blend files",
+            )
+    sub_subparse.add_argument(
+            dest="paths", nargs="*",
+            help="Path(s) to operate on",
+            )
+    sub_subparse.add_argument(
+            "-r", "--force-relative", dest="force_relative", action='store_true',
+            help="Make all remapped paths relative (even if they were originally absolute)",
+            )
+    sub_subparse.add_argument(
+            "-d", "--dry-run", dest="dry_run", action='store_true',
+            help="Just print output as if the paths are being run",
+            )
+    sub_subparse.set_defaults(
+            func=lambda args:
+            bam_commands.remap_finish(
+                    args.paths or ["."],
+                    force_relative=args.force_relative,
+                    dry_run=args.dry_run,
+                    ),
+                    )
+
+    sub_subparse = subparse_remap_commands.add_parser(
+            "reset",
+            help="Cancel path remapping",
+            )
+    sub_subparse.set_defaults(
+            func=lambda args:
+            bam_commands.remap_reset(),
+            )
+
+
 def create_argparse():
     import argparse
 
@@ -1025,6 +1154,7 @@ def create_argparse():
     create_argparse_status(subparsers)
     create_argparse_list(subparsers)
     create_argparse_deps(subparsers)
+    create_argparse_remap(subparsers)
 
     return parser
 

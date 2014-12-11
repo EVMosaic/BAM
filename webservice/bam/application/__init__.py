@@ -283,6 +283,7 @@ class FileAPI(Resource):
 
             with open(os.path.join(extract_tmp_dir, '.bam_paths_remap.json'), 'r') as path_remap:
                 path_remap = json.load(path_remap)
+                log.debug(path_remap)
 
             import shutil
             for src_file_path, dst_file_path in path_remap.items():
@@ -318,6 +319,9 @@ class FileAPI(Resource):
                 path_ops = json.load(path_ops)
 
             log.debug(path_ops)
+            log.debug('----------------What is going on')
+            log.debug(result)
+
             for file_path, operation in path_ops.items():
                 # TODO(fsiddi), collect all file paths and remove after
                 if operation == 'D':

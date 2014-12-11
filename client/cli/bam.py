@@ -641,12 +641,19 @@ class bam_commands:
                         sort_keys=True, indent=4, separators=(',', ': '),
                         ).encode('utf-8'))
 
+            print('#######################################')
+            print(paths_modified)
+            print(paths_remap)
+
+
             paths_remap_subset = {
                     f_rel: f_rel_in_proj
                     for f_rel, f_rel_in_proj in paths_remap.items() if f_rel in paths_modified}
+            print(paths_remap_subset)
             paths_remap_subset.update({
                     f_rel: remap_filepath(f_rel)
                     for f_rel in paths_add})
+            print(paths_remap_subset)
 
             # paths_remap_subset.update(paths_remap_subset_add)
             write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)

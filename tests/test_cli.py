@@ -804,6 +804,47 @@ class BamCommitTest(BamSessionTestCase):
                  ["M", "d_dir/d_subdir/d_nested/d.data"],
                  ], ret)
 
+    def test_create_commit_update(self):
+        """After creating a new session, we commit its content. Then, we do some
+        edits and we commit again.
+        """
+
+        session_name = "mysession"
+        file_name = "testfile.txt"
+        file_data = b"hello world!\n"
+
+        proj_path, session_path = self.init_session(session_name)
+
+        # now do a real commit
+        file_quick_write(session_path, file_name, file_data)
+        stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+        self.assertEqual("", stderr)
+        _dbg_dump_path(session_path)
+        wait_for_input()
+
+        # edit the file within the same session
+        new_file_data = b"goodbye cruel world!\n"
+        file_quick_write(session_path, file_name, new_file_data)
+        stdout, stderr = bam_run(["commit", "-m", "session second commit"], session_path)
+        self.assertEqual("", stderr)
+        _dbg_dump_path(session_path)
+        wait_for_input()
+
+        # remove the path
+        shutil.rmtree(session_path)
+
+        # checkout the file again
+        stdout, stderr = bam_run(["checkout", file_name, "--output", session_path], proj_path)
+        self.assertEqual("", stderr)
+        self.assertTrue(os.path.exists(os.path.join(session_path, file_name)))
+        
+
+
+        # file content should match the one from the last commit
+        file_data_test = file_quick_read(os.path.join(session_path, file_name))
+        self.assertEqual(new_file_data, file_data_test)
+
+
 class BamCheckoutTest(BamSessionTestCase):
     """Test for the `bam checkout` command.
     """

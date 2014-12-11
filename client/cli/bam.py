@@ -699,15 +699,25 @@ class bam_commands:
         ok = True
         if ok:
             # NOTE, we may want to generalize the 'update uuid' code & share it.
-
+            def write_dict_as_json(filepath, dct):
+                with open(os.path.join(session_rootdir, filepath), 'w') as f:
+                    json.dump(
+                            dct, f, ensure_ascii=False,
+                            check_circular=False,
+                            # optional (pretty)
+                            sort_keys=True, indent=4, separators=(',', ': '),
+                            )
+            # ----------
+            # paths_uuid
             paths_uuid.update(paths_uuid_update)
-            with open(os.path.join(session_rootdir, ".bam_paths_uuid.json"), 'w') as f:
-                json.dump(
-                        paths_uuid_update, f, ensure_ascii=False,
-                        check_circular=False,
-                        # optional (pretty)
-                        sort_keys=True, indent=4, separators=(',', ': '),
-                        )
+            write_dict_as_json(".bam_paths_uuid.json", paths_uuid_update)
+
+            # -----------
+            # paths_remap
+            paths_remap.update(paths_remap_subset)
+            for k in paths_remove:
+                del paths_remap[k]
+            write_dict_as_json(".bam_paths_remap.json", paths_remap)
 
     @staticmethod
     def status(paths, use_json=False):

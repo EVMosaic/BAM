@@ -166,6 +166,9 @@ class FilePath:
 
             # recursive options
             recursive=False,
+            # recurse all indirectly linked data
+            # (not just from the initially referenced blend file)
+            recursive_all=False,
             # list of ID block names we want to load, or None to load all
             block_codes=None,
             # root when we're loading libs indirectly
@@ -195,7 +198,7 @@ class FilePath:
         if lib_visit is None:
             lib_visit = {}
 
-        if recursive and (level > 0) and (block_codes is not None):
+        if recursive and (level > 0) and (block_codes is not None) and (recursive_all is False):
             # prevent from expanding the
             # same datablock more then once
             expand_codes = set()

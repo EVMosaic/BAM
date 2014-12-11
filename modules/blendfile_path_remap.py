@@ -33,7 +33,7 @@ def _is_blend(f):
 
 
 def _warn(msg):
-    print("Warning: %s" % msg)
+    print("  warning: %s" % msg)
 
 
 def _uuid_from_file(fn, block_size=1 << 20):
@@ -73,10 +73,16 @@ def _iter_files(paths, check_ext=None):
 
 def start(
     paths,
+    is_quiet=False,
     dry_run=False,
     ):
     # {(sha1, length): "filepath"}
     remap_uuid = {}
+
+    # relative paths which don't exist,
+    # don't complain when they're missing on remap.
+    # {f_src: [relative path deps, ...]}
+    remap_lost = {}
 
     # all files we need to map
     # absolute paths
@@ -89,9 +95,14 @@ def start(
     # First walk over all blends
     import blendfile_path_walker
 
-    for blendfile in _iter_files(paths, check_ext=_is_blend):
+    for blendfile_src in _iter_files(paths, check_ext=_is_blend):
+        if not is_quiet:
+            print("blend read: %r" % blendfile_src)
+
+        remap_lost[blendfile_src] = remap_lost_blendfile_src = set()
+
         for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
-                blendfile,
+                blendfile_src,
                 readonly=True,
                 recursive=False,
                 ):
@@ -103,10 +114,14 @@ def start(
             if os.path.exists(f_abs):
                 files_to_map.add(f_abs)
             else:
-                _warn("file %r from %r not found!" % (f_abs, blendfile))
+                if not is_quiet:
+                    _warn("file %r not found!" % f_abs)
+
+                # don't complain about this file being missing on remap
+                remap_lost_blendfile_src.add(fp.filepath)
 
         # so we can know where its moved to
-        files_to_map.add(blendfile)
+        files_to_map.add(blendfile_src)
     del blendfile_path_walker
 
     # ------------------------------------------------------------------------
@@ -118,13 +133,15 @@ def start(
 
         f_match = remap_uuid.get(f_uuid)
         if f_match is not None:
-            _warn("duplicate file found! (%r, %r)" % (f_match, f))
+            if not is_quiet:
+                _warn("duplicate file found! (%r, %r)" % (f_match, f))
 
         remap_uuid[f_uuid] = f
 
     # now find all deps
     remap_data_args = (
             remap_uuid,
+            remap_lost,
             )
 
     return remap_data_args
@@ -132,11 +149,13 @@ def start(
 
 def finish(
     paths, remap_data_args,
+    is_quiet=False,
     force_relative=False,
     dry_run=False,
     ):
 
     (remap_uuid,
+     remap_lost,
      ) = remap_data_args
 
     remap_src_to_dst = {}
@@ -156,8 +175,15 @@ def finish(
     for blendfile_dst in _iter_files(paths, check_ext=_is_blend):
         blendfile_src = remap_dst_to_src.get(blendfile_dst)
         if blendfile_src is None:
-            _warn("new blendfile added since beginning 'remap': %r" % blendfile_dst)
+            if not is_quiet:
+                _warn("new blendfile added since beginning 'remap': %r" % blendfile_dst)
             continue
+
+        # not essential, just so we can give more meaningful errors
+        remap_lost_blendfile_src = remap_lost[blendfile_src]
+
+        if not is_quiet:
+            print("blend write: %r" % blendfile_src)
 
         blendfile_src_basedir = os.path.dirname(blendfile_src)
         blendfile_dst_basedir = os.path.dirname(blendfile_dst)
@@ -170,6 +196,11 @@ def finish(
 
             # so we can update the reference
             f_src_rel = fp.filepath
+
+            if f_src_rel in remap_lost_blendfile_src:
+                # this file never existed, so we can't remap it
+                continue
+
             is_relative = f_src_rel.startswith(b'//')
             if is_relative:
                 f_src_abs = fp.filepath_absolute_resolve(basedir=blendfile_src_basedir)
@@ -180,7 +211,8 @@ def finish(
             f_dst_abs = remap_src_to_dst.get(f_src_abs)
 
             if f_dst_abs is None:
-                _warn("file %r from %r not found in map!" % (f_src_abs, blendfile_dst))
+                if not is_quiet:
+                    _warn("file %r not found in map!" % f_src_abs)
                 continue
 
             # now remap!

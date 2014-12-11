@@ -51,7 +51,7 @@ def _uuid_from_file(fn, block_size=1 << 20):
             if not data:
                 break
             sha1.update(data)
-        return (size, sha1.hexdigest())
+        return (hex(size)[2:] + sha1.hexdigest()).encode()
 
 
 def _iter_files(paths, check_ext=None):

@@ -270,23 +270,23 @@ def pack(
         del relbase
 
     if paths_uuid is not None:
-        from bam_utils.system import sha1_from_file
+        from bam_utils.system import uuid_from_file
 
         for src, dst in path_copy_files:
-            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = sha1_from_file(src)
+            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = uuid_from_file(src)
         # XXX, better way to store temp target
         blendfile_dst_tmp = temp_remap_cb(blendfile_src, base_dir_src)
-        paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = sha1_from_file(blendfile_dst_tmp)
+        paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = uuid_from_file(blendfile_dst_tmp)
 
         # blend libs
         for dst in path_temp_files:
             k = os.path.relpath(dst[:-len(TEMP_SUFFIX)], base_dir_dst_temp).decode('utf-8')
             if k not in paths_uuid:
-                paths_uuid[k] = sha1_from_file(dst)
+                paths_uuid[k] = uuid_from_file(dst)
             del k
 
         del blendfile_dst_tmp
-        del sha1_from_file
+        del uuid_from_file
 
     # --------------------
     # Handle File Copy/Zip

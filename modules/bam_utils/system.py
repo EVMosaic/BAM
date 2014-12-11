@@ -45,13 +45,27 @@ else:
         return msg
 
 
-def sha1_from_file(fn, block_size=1 << 20):
+def uuid_from_file(fn, block_size=1 << 20):
+    """
+    Returns an arbitrary sized unique ASCII string based on the file contents.
+    (exact hashing method may change).
+    """
     with open(fn, 'rb') as f:
+        # first get the size
+        import os
+        f.seek(0, os.SEEK_END)
+        size = f.tell()
+        f.seek(0, os.SEEK_SET)
+        del os
+        # done!
+
         import hashlib
-        sha1 = hashlib.new('sha1')
+        sha1 = hashlib.new('sha512')
         while True:
             data = f.read(block_size)
             if not data:
                 break
             sha1.update(data)
-        return sha1.hexdigest()
+        # skip the '0x'
+        return hex(size)[2:] + sha1.hexdigest()
+

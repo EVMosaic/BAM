@@ -375,9 +375,9 @@ class FileAPI(Resource):
                 return
         else:
             # non blend-file
-            from bam_utils.system import sha1_from_file
-            paths_uuid[os.path.basename(filepath)] = sha1_from_file(filepath)
-            del sha1_from_file
+            from bam_utils.system import uuid_from_file
+            paths_uuid[os.path.basename(filepath)] = uuid_from_file(filepath)
+            del uuid_from_file
 
             import zipfile
             with zipfile.ZipFile(filepath_zip, 'w', zipfile.ZIP_DEFLATED) as zip_handle:

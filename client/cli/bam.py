@@ -220,7 +220,7 @@ class bam_session:
         paths_remove = {}
         paths_modified = {}
 
-        from bam_utils.system import sha1_from_file
+        from bam_utils.system import uuid_from_file
 
         session_rootdir = os.path.abspath(session_rootdir)
 
@@ -237,7 +237,7 @@ class bam_session:
         for f_rel, sha1 in paths_uuid.items():
             f_abs = os.path.join(session_rootdir, f_rel)
             if os.path.exists(f_abs):
-                sha1_modified = sha1_from_file(f_abs)
+                sha1_modified = uuid_from_file(f_abs)
                 if sha1_modified != sha1:
                     paths_modified[f_rel] = f_abs
                 if paths_uuid_update is not None:
@@ -272,7 +272,7 @@ class bam_session:
                 paths_add[f_rel] = f_abs
 
                 if paths_uuid_update is not None:
-                    paths_uuid_update[f_rel] = sha1_from_file(f_abs)
+                    paths_uuid_update[f_rel] = uuid_from_file(f_abs)
 
         return paths_add, paths_remove, paths_modified
 

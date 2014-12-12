@@ -151,13 +151,8 @@ class bam_config:
                 descr="bam repository",
                 )
 
-        with open(filepath, 'w') as f:
-            json.dump(
-                    data, f, ensure_ascii=False,
-                    check_circular=False,
-                    # optional (pretty)
-                    sort_keys=True, indent=4, separators=(',', ': '),
-                    )
+        from bam_utils.system import write_json_to_file
+        write_json_to_file(filepath, data)
 
     @staticmethod
     def write_bamignore(cwd=None):
@@ -503,6 +498,7 @@ class bam_commands:
 
     @staticmethod
     def commit(paths, message):
+        from bam_utils.system import write_json_to_file, write_json_to_zip
         import requests
 
         # Load project configuration
@@ -632,14 +628,6 @@ class bam_commands:
 
             # make a paths remap that only includes modified files
             # TODO(cam), from 'packer.py'
-            def write_dict_as_json(f, dct):
-                zip_handle.writestr(
-                        f,
-                        json.dumps(dct,
-                        check_circular=False,
-                        # optional (pretty)
-                        sort_keys=True, indent=4, separators=(',', ': '),
-                        ).encode('utf-8'))
 
             paths_remap_subset = {
                     f_rel: f_rel_in_proj
@@ -649,7 +637,7 @@ class bam_commands:
                     for f_rel in paths_add})
 
             # paths_remap_subset.update(paths_remap_subset_add)
-            write_dict_as_json(".bam_paths_remap.json", paths_remap_subset)
+            write_json_to_zip(zip_handle, ".bam_paths_remap.json", paths_remap_subset)
 
             # build a list of path manipulation operations
             paths_ops = {}
@@ -659,7 +647,7 @@ class bam_commands:
                 f_abs_remote = paths_remap[f_rel]
                 paths_ops[f_abs_remote] = 'D'
 
-            write_dict_as_json(".bam_paths_ops.json", paths_ops)
+            write_json_to_zip(zip_handle, ".bam_paths_ops.json", paths_ops)
             log.debug(paths_ops)
 
         if os.path.exists(basedir_temp):
@@ -698,26 +686,19 @@ class bam_commands:
         # TODO, handle error cases
         ok = True
         if ok:
-            # NOTE, we may want to generalize the 'update uuid' code & share it.
-            def write_dict_as_json(filepath, dct):
-                with open(os.path.join(session_rootdir, filepath), 'w') as f:
-                    json.dump(
-                            dct, f, ensure_ascii=False,
-                            check_circular=False,
-                            # optional (pretty)
-                            sort_keys=True, indent=4, separators=(',', ': '),
-                            )
+
             # ----------
             # paths_uuid
             paths_uuid.update(paths_uuid_update)
-            write_dict_as_json(".bam_paths_uuid.json", paths_uuid_update)
+            write_json_to_file(os.path.join(session_rootdir, ".bam_paths_uuid.json"), paths_uuid_update)
 
             # -----------
             # paths_remap
             paths_remap.update(paths_remap_subset)
             for k in paths_remove:
                 del paths_remap[k]
-            write_dict_as_json(".bam_paths_remap.json", paths_remap)
+            write_json_to_file(os.path.join(session_rootdir, ".bam_paths_remap.json"), paths_remap)
+            del write_json_to_file
 
     @staticmethod
     def status(paths, use_json=False):

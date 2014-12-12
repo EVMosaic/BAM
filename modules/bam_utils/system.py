@@ -69,3 +69,26 @@ def uuid_from_file(fn, block_size=1 << 20):
         # skip the '0x'
         return hex(size)[2:] + sha1.hexdigest()
 
+
+def write_json_to_zip(zip_handle, path, data=None):
+    import json
+    zip_handle.writestr(
+            path,
+            json.dumps(
+                data,
+                check_circular=False,
+                # optional (pretty)
+                sort_keys=True, indent=4, separators=(',', ': '),
+                ).encode('utf-8'))
+
+
+def write_json_to_file(path, data):
+    import json
+    with open(path, 'w') as file_handle:
+        json.dump(
+                data, file_handle, ensure_ascii=False,
+                check_circular=False,
+                # optional (pretty)
+                sort_keys=True, indent=4, separators=(',', ': '),
+                )
+

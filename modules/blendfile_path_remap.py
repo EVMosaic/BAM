@@ -32,8 +32,21 @@ def _is_blend(f):
     return f.lower().endswith(b'.blend')
 
 
-def _warn(msg):
+def _warn__ascii(msg):
     print("  warning: %s" % msg)
+
+
+def _info__ascii(msg):
+    print(msg)
+
+
+def _warn__json(msg):
+    import json
+    print(json.dumps(("warning", msg)), end=",\n")
+
+def _info__json(msg):
+    import json
+    print(json.dumps(("info", msg)), end=",\n")
 
 
 def _uuid_from_file(fn, block_size=1 << 20):
@@ -55,14 +68,16 @@ def _uuid_from_file(fn, block_size=1 << 20):
 
 
 def _iter_files(paths, check_ext=None):
+    # note, sorting isn't needed
+    # just gives predictable output
     for p in paths:
         p = os.path.abspath(p)
-        for dirpath, dirnames, filenames in os.walk(p):
+        for dirpath, dirnames, filenames in sorted(os.walk(p)):
             # skip '.svn'
             if dirpath.startswith(b'.') and dirpath != b'.':
                 continue
 
-            for filename in filenames:
+            for filename in sorted(filenames):
                 if check_ext is None or check_ext(filename):
                     filepath = os.path.join(dirpath, filename)
                     yield filepath
@@ -72,10 +87,22 @@ def _iter_files(paths, check_ext=None):
 # Public Functions
 
 def start(
-    paths,
-    is_quiet=False,
-    dry_run=False,
-    ):
+        paths,
+        is_quiet=False,
+        dry_run=False,
+        use_json=False,
+        ):
+
+    if use_json:
+        warn = _warn__json
+        info = _info__json
+    else:
+        warn = _warn__ascii
+        info = _info__ascii
+
+    if use_json:
+        print("[")
+
     # {(sha1, length): "filepath"}
     remap_uuid = {}
 
@@ -97,7 +124,7 @@ def start(
 
     for blendfile_src in _iter_files(paths, check_ext=_is_blend):
         if not is_quiet:
-            print("blend read: %r" % blendfile_src)
+            info("blend read: %r" % blendfile_src)
 
         remap_lost[blendfile_src] = remap_lost_blendfile_src = set()
 
@@ -115,7 +142,7 @@ def start(
                 files_to_map.add(f_abs)
             else:
                 if not is_quiet:
-                    _warn("file %r not found!" % f_abs)
+                    warn("file %r not found!" % f_abs)
 
                 # don't complain about this file being missing on remap
                 remap_lost_blendfile_src.add(fp.filepath)
@@ -134,7 +161,7 @@ def start(
         f_match = remap_uuid.get(f_uuid)
         if f_match is not None:
             if not is_quiet:
-                _warn("duplicate file found! (%r, %r)" % (f_match, f))
+                warn("duplicate file found! (%r, %r)" % (f_match, f))
 
         remap_uuid[f_uuid] = f
 
@@ -144,15 +171,36 @@ def start(
             remap_lost,
             )
 
+    if use_json:
+        if not remap_uuid:
+            print("\"nothing to remap!\"")
+        else:
+            print("\"complete\"")
+        print("]")
+    else:
+        if not remap_uuid:
+            print("Nothing to remap!")
+
     return remap_data_args
 
 
 def finish(
-    paths, remap_data_args,
-    is_quiet=False,
-    force_relative=False,
-    dry_run=False,
-    ):
+        paths, remap_data_args,
+        is_quiet=False,
+        force_relative=False,
+        dry_run=False,
+        use_json=False,
+        ):
+
+    if use_json:
+        warn = _warn__json
+        info = _info__json
+    else:
+        warn = _warn__ascii
+        info = _info__ascii
+
+    if use_json:
+        print("[")
 
     (remap_uuid,
      remap_lost,
@@ -171,19 +219,18 @@ def finish(
     # now the fun begins, remap _all_ paths
     import blendfile_path_walker
 
-
     for blendfile_dst in _iter_files(paths, check_ext=_is_blend):
         blendfile_src = remap_dst_to_src.get(blendfile_dst)
         if blendfile_src is None:
             if not is_quiet:
-                _warn("new blendfile added since beginning 'remap': %r" % blendfile_dst)
+                warn("new blendfile added since beginning 'remap': %r" % blendfile_dst)
             continue
 
         # not essential, just so we can give more meaningful errors
         remap_lost_blendfile_src = remap_lost[blendfile_src]
 
         if not is_quiet:
-            print("blend write: %r" % blendfile_src)
+            info("blend write: %r -> %r" % (blendfile_src, blendfile_dst))
 
         blendfile_src_basedir = os.path.dirname(blendfile_src)
         blendfile_dst_basedir = os.path.dirname(blendfile_dst)
@@ -195,36 +242,40 @@ def finish(
             # TODO. warn when referencing files outside 'paths'
 
             # so we can update the reference
-            f_src_rel = fp.filepath
+            f_src_orig = fp.filepath
 
-            if f_src_rel in remap_lost_blendfile_src:
+            if f_src_orig in remap_lost_blendfile_src:
                 # this file never existed, so we can't remap it
                 continue
 
-            is_relative = f_src_rel.startswith(b'//')
+            is_relative = f_src_orig.startswith(b'//')
             if is_relative:
                 f_src_abs = fp.filepath_absolute_resolve(basedir=blendfile_src_basedir)
             else:
-                f_src_abs = f_src_rel
+                f_src_abs = f_src_orig
 
             f_src_abs = os.path.normpath(f_src_abs)
             f_dst_abs = remap_src_to_dst.get(f_src_abs)
 
             if f_dst_abs is None:
                 if not is_quiet:
-                    _warn("file %r not found in map!" % f_src_abs)
+                    warn("file %r not found in map!" % f_src_abs)
                 continue
 
             # now remap!
             if is_relative or force_relative:
-                f_dst_rel = b'//' + os.path.relpath(f_dst_abs, blendfile_dst_basedir)
+                f_dst_final = b'//' + os.path.relpath(f_dst_abs, blendfile_dst_basedir)
             else:
-                f_dst_rel = f_dst_abs
+                f_dst_final = f_dst_abs
 
-            if f_dst_rel != f_src_rel:
+            if f_dst_final != f_src_orig:
                 if not dry_run:
-                    fp.filepath = f_dst_abs
-                # print("remap %r -> %r" % (f_src_abs, fp.filepath))
+                    fp.filepath = f_dst_final
+                if not is_quiet:
+                    info("remap %r -> %r" % (f_src_abs, f_dst_abs))
 
     del blendfile_path_walker
+
+    if use_json:
+        print("\"complete\"\n]")
 

@@ -816,6 +816,7 @@ class bam_commands:
     @staticmethod
     def remap_start(
             paths,
+            use_json=False,
             ):
         filepath_remap = "bam_remap.data"
 
@@ -831,6 +832,7 @@ class bam_commands:
         import blendfile_path_remap
         remap_data = blendfile_path_remap.start(
                 paths,
+                use_json=use_json,
                 )
 
         with open(filepath_remap, 'wb') as fh:
@@ -842,6 +844,7 @@ class bam_commands:
             paths,
             force_relative=False,
             dry_run=False,
+            use_json=False,
             ):
         filepath_remap = "bam_remap.data"
 
@@ -864,6 +867,7 @@ class bam_commands:
                 paths, remap_data,
                 force_relative=force_relative,
                 dry_run=dry_run,
+                use_json=use_json,
                 )
 
         if not dry_run:
@@ -871,6 +875,7 @@ class bam_commands:
 
     @staticmethod
     def remap_reset(
+            use_json=False,
             ):
         filepath_remap = "bam_remap.data"
         if os.path.exists(filepath_remap):
@@ -1030,7 +1035,8 @@ def create_argparse_list(subparsers):
             func=lambda args:
             bam_commands.list_dir(
                     args.paths or ["."],
-                    use_json=args.json),
+                    use_json=args.json,
+                    ),
                     )
 
 
@@ -1078,10 +1084,13 @@ def create_argparse_remap(subparsers):
             dest="paths", nargs="*",
             help="Path(s) to operate on",
             )
+    init_argparse_common(sub_subparse, use_json=True)
+
     sub_subparse.set_defaults(
             func=lambda args:
             bam_commands.remap_start(
                     args.paths or ["."],
+                    use_json=args.json,
                     ),
                     )
 
@@ -1101,12 +1110,15 @@ def create_argparse_remap(subparsers):
             "-d", "--dry-run", dest="dry_run", action='store_true',
             help="Just print output as if the paths are being run",
             )
+    init_argparse_common(sub_subparse, use_json=True)
+
     sub_subparse.set_defaults(
             func=lambda args:
             bam_commands.remap_finish(
                     args.paths or ["."],
                     force_relative=args.force_relative,
                     dry_run=args.dry_run,
+                    use_json=args.json,
                     ),
                     )
 
@@ -1114,9 +1126,13 @@ def create_argparse_remap(subparsers):
             "reset",
             help="Cancel path remapping",
             )
+    init_argparse_common(sub_subparse, use_json=True)
+
     sub_subparse.set_defaults(
             func=lambda args:
-            bam_commands.remap_reset(),
+            bam_commands.remap_reset(
+                    use_json=args.json,
+                    ),
             )
 
 

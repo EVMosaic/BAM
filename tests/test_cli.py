@@ -344,7 +344,7 @@ def file_quick_touch_blend(path, filepart=None, times=None):
     os.utime(path, times)
 
 
-def file_quick_image(path, filepart=None):
+def file_quick_image(path, filepart=None, fill_color=b'\xff' * 4):
     def write_png(buf, width, height):
         """ buf: must be bytes or a bytearray in py3, a regular string in py2. formatted RGBARGBA... """
         import zlib
@@ -369,7 +369,7 @@ def file_quick_image(path, filepart=None):
     if filepart is not None:
         path = os.path.join(path, filepart)
     with open(path, 'wb') as f:
-        f.write(write_png(b'0000' * 4, 2, 2))
+        f.write(write_png(fill_color * 4, 2, 2))
 
 
 def _dbg_dump_path(path):
@@ -439,14 +439,14 @@ def blendfile_template_create(blendfile, blendfile_root, create_id, create_data,
         return True
 
 
-def blendfile_template_create_from_files(proj_path, session_path, blendfile_pair, images):
+def blendfile_template_create_from_files(proj_path, session_path, blendfile, images):
 
-    for f_proj, f_local in images:
+    for i, f_proj in enumerate(images):
         f_abs = os.path.join(session_path, f_proj)
         os.makedirs(os.path.dirname(f_abs))
-        file_quick_image(f_abs)
+        file_quick_image(f_abs, fill_color=bytes([i]))
 
-    blendfile_abs = os.path.join(session_path, blendfile_pair[0])
+    blendfile_abs = os.path.join(session_path, blendfile)
     deps = []
     if not blendfile_template_create(blendfile_abs, session_path, "create_from_files", None, deps):
         return False
@@ -1046,7 +1046,9 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         proj_path, session_path = self.init_session(session_name)
 
         # create the image files we need
-        blendfile_template_create_from_files(proj_path, session_path, blendfile_pair, images)
+        blendfile_template_create_from_files(
+                proj_path, session_path,
+                blendfile_pair[0], [f[0] for f in images])
 
         # now commit the files
         stdout, stderr = bam_run(["commit", "-m", "commit shot_01"], session_path)
@@ -1429,6 +1431,82 @@ class BamIgnoreTest(BamSessionTestCase):
 
         # now check for status
         self.assertRaises(RuntimeError, bam_run, ["status", ], session_path)
+
+class BamRemapTest(BamSimpleTestCase):
+    """ Test remapping existing blend files via the 'bam remap' command.
+        note: this doesn't need any bam-session. simply a directory to work in.
+    """
+
+    @staticmethod
+    def remap_path_pair(base, src_dst):
+        return ("%s -> %s" % (
+                os.path.join(base, src_dst[0]).encode('utf-8'),
+                os.path.join(base, src_dst[1]).encode('utf-8'),
+                ))
+
+    def test_remap_empty(self):
+        subdir_path = os.path.join(TEMP_LOCAL, "my_remap")
+        os.makedirs(subdir_path)
+
+        ret = bam_run_as_json(["remap", "start", "--json"], subdir_path)
+        self.assertEqual(["nothing to remap!"], ret)
+
+    def test_remap_simple(self):
+        subdir_path = os.path.join(TEMP_LOCAL, "my_remap")
+        subdir_path_sub = os.path.join(TEMP_LOCAL, "my_remap", "sub")
+        os.makedirs(subdir_path_sub)
+
+        # DUMMY VALUES (we don't really need)
+        proj_path = subdir_path
+        session_path = subdir_path_sub
+
+        # absolute path: (project relative) -->
+        # checkout path: (relative to blend)
+        blendfile_pair = ("shots/01/shot_01.blend", "new/deeply/nested/path/testme.blend")
+        images =(
+            ("maps/generic.png", "foobar/another.png"),
+            ("shots/01/maps/special.png", "blah/image.png"),
+            )
+
+        blendfile_template_create_from_files(
+                proj_path, session_path,
+                blendfile_pair[0], [f[0] for f in images])
+
+        blendfile_pair_abs = (
+                os.path.join(session_path, blendfile_pair[0]),
+                os.path.join(session_path, blendfile_pair[1]),
+                )
+
+        ret_expect = [
+                ['info', "blend read: %s" % blendfile_pair_abs[0].encode()],
+                 'complete',
+                 ]
+        ret = bam_run_as_json(["remap", "start", "--json"], session_path)
+        self.assertEqual(ret_expect, ret)
+
+        for f_pair in ((blendfile_pair,) + images):
+            f_src = os.path.join(session_path, f_pair[0])
+            f_dst = os.path.join(session_path, f_pair[1])
+            os.makedirs(os.path.dirname(f_dst), exist_ok=True)
+            shutil.move(f_src, f_dst)
+
+        ret_expect = [
+                 ["info", "blend write: %s" % BamRemapTest.remap_path_pair(session_path, blendfile_pair)],
+                 ["info", "remap %s" % BamRemapTest.remap_path_pair(session_path, images[0])],
+                 ["info", "remap %s" % BamRemapTest.remap_path_pair(session_path, images[1])],
+                 "complete",
+                 ]
+        ret = bam_run_as_json(["remap", "finish", "--json", "--dry-run"], session_path)
+        self.assertEqual(ret_expect, ret)
+        ret = bam_run_as_json(["remap", "finish", "--json"], session_path)
+        self.assertEqual(ret_expect, ret)
+
+        # finally run deps to see the paths are as we expect
+        ret = bam_run_as_json(["deps", blendfile_pair_abs[1], "--json"], session_path)
+        self.assertEqual(ret[0][1], "//" + os.path.join("..", "..", "..", "..", images[0][1]))
+        self.assertEqual(ret[0][3], "OK")
+        self.assertEqual(ret[1][1], "//" + os.path.join("..", "..", "..", "..", images[1][1]))
+        self.assertEqual(ret[1][3], "OK")
 
 
 if __name__ == '__main__':

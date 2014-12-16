@@ -361,7 +361,12 @@ class bam_commands:
         print("Session %r created" % session_name)
 
     @staticmethod
-    def checkout(path, output_dir=None, session_rootdir_partial=None):
+    def checkout(
+            path,
+            output_dir=None,
+            session_rootdir_partial=None,
+            all_deps=False,
+            ):
 
         cfg = bam_config.load(abort=True)
 
@@ -386,6 +391,9 @@ class bam_commands:
         payload = {
             "filepath": path,
             "command": "checkout",
+            "arguments": json.dumps({
+                "all_deps": all_deps,
+                }),
             }
 
         import requests
@@ -657,24 +665,23 @@ class bam_commands:
 
         # --------------
         # Commit Request
-        args = {
-            'message': message,
-            }
         payload = {
-            'command': 'commit',
-            'arguments': json.dumps(args),
+            "command": "commit",
+            "arguments": json.dumps({
+                'message': message,
+                }),
             }
         files = {
-            'file': open(temp_zip, 'rb'),
+            "file": open(temp_zip, 'rb'),
             }
 
         r = requests.put(
                 bam_session.request_url("file"),
                 params=payload,
-                auth=(cfg['user'], cfg['password']),
+                auth=(cfg["user"], cfg["password"]),
                 files=files)
 
-        files['file'].close()
+        files["file"].close()
         os.remove(temp_zip)
 
         try:
@@ -944,9 +951,13 @@ def create_argparse_checkout(subparsers):
             "-o", "--output", dest="output", type=str, metavar='DIRNAME',
             help="Local name to checkout the session into (optional, falls back to path name)",
             )
+    subparse.add_argument(
+            "-a", "--all-deps", dest="all_deps", action='store_true',
+            help="Checkout all dependencies (unused indirect dependencies too)",
+            )
     subparse.set_defaults(
             func=lambda args:
-            bam_commands.checkout(args.path, args.output),
+            bam_commands.checkout(args.path, args.output, args.all_deps),
             )
 
 

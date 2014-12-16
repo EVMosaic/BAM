@@ -170,6 +170,9 @@ class FileAPI(Resource):
     def get(self, project_name):
         filepath = request.args['filepath']
         command = request.args['command']
+        command_args = request.args.get('arguments')
+        if command_args is not None:
+            command_args = json.loads(command_args)
 
         project = Project.query.filter_by(name=project_name).first()
 
@@ -210,7 +213,12 @@ class FileAPI(Resource):
                 os.close(filepath_zip[0])
                 filepath_zip = filepath_zip[1]
 
-                yield from self.pack_fn(filepath, filepath_zip, project.repository_path, report)
+                yield from self.pack_fn(
+                        filepath, filepath_zip,
+                        project.repository_path,
+                        command_args['all_deps'],
+                        report,
+                        )
 
                 # TODO, handle fail
                 if not os.path.exists(filepath_zip):
@@ -340,7 +348,7 @@ class FileAPI(Resource):
             return jsonify(message='File not allowed')
 
     @staticmethod
-    def pack_fn(filepath, filepath_zip, paths_remap_relbase, report):
+    def pack_fn(filepath, filepath_zip, paths_remap_relbase, all_deps, report):
         """
         'paths_remap_relbase' is the project path,
         we want all paths to be relative to this so we don't get server path included.
@@ -367,6 +375,7 @@ class FileAPI(Resource):
                         paths_remap_relbase=paths_remap_relbase.encode('utf-8'),
                         # TODO(cam) this just means the json is written in the zip
                         deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
+                        all_deps=all_deps,
                         report=report,
                         blendfile_src_dir_fakeroot=blendfile_src_dir_fakeroot.encode('utf-8'),
                         )

@@ -94,6 +94,8 @@ def pack(
         blendfile_src, blendfile_dst, mode='FILE',
         paths_remap_relbase=None,
         deps_remap=None, paths_remap=None, paths_uuid=None,
+        # load every libs dep, not just used deps.
+        all_deps=False,
         # yield reports
         report=None,
 
@@ -190,6 +192,7 @@ def pack(
             readonly=False,
             temp_remap_cb=temp_remap_cb,
             recursive=True,
+            recursive_all=all_deps,
             lib_visit=lib_visit,
             ):
 

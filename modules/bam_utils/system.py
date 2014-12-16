@@ -91,4 +91,3 @@ def write_json_to_file(path, data):
                 # optional (pretty)
                 sort_keys=True, indent=4, separators=(',', ': '),
                 )
-

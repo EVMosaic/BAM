@@ -99,7 +99,7 @@ class DirectoryAPI(Resource):
         parser = reqparse.RequestParser()
         # parser.add_argument('rate', type=int, help='Rate cannot be converted')
         parser.add_argument('path', type=str)
-        args = parser.parse_args()
+        # args = parser.parse_args()
         super(DirectoryAPI, self).__init__()
 
     def get(self, project_name):
@@ -163,7 +163,7 @@ class FileAPI(Resource):
         parser.add_argument('arguments', type=str)
         parser.add_argument('files', type=werkzeug.datastructures.FileStorage,
             location='files')
-        args = parser.parse_args()
+        # args = parser.parse_args()
 
         super(FileAPI, self).__init__()
 
@@ -373,7 +373,6 @@ class FileAPI(Resource):
                 yield from blendfile_pack.pack(
                         filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode='ZIP',
                         paths_remap_relbase=paths_remap_relbase.encode('utf-8'),
-                        # TODO(cam) this just means the json is written in the zip
                         deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
                         all_deps=all_deps,
                         report=report,

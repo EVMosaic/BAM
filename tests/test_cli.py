@@ -1463,7 +1463,7 @@ class BamRemapTest(BamSimpleTestCase):
         # absolute path: (project relative) -->
         # checkout path: (relative to blend)
         blendfile_pair = ("shots/01/shot_01.blend", "new/deeply/nested/path/testme.blend")
-        images =(
+        images = (
             ("maps/generic.png", "foobar/another.png"),
             ("shots/01/maps/special.png", "blah/image.png"),
             )

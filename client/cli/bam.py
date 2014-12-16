@@ -457,7 +457,7 @@ class bam_commands:
     @staticmethod
     def update(paths):
         # Load project configuration
-        cfg = bam_config.load(abort=True)
+        # cfg = bam_config.load(abort=True)
 
         # TODO(cam) multiple paths
         session_rootdir = bam_config.find_sessiondir(paths[0], abort=True)
@@ -861,7 +861,6 @@ class bam_commands:
         # bytes needed for blendfile_path_remap API
         paths = [p.encode('utf-8') for p in paths]
 
-
         if not os.path.exists(filepath_remap):
             fatal("Remap not started, run with 'start', (%r not found)" % filepath_remap)
 
@@ -889,7 +888,6 @@ class bam_commands:
             os.remove(filepath_remap)
         else:
             fatal("remapping not started, nothing to do!")
-
 
 
 # -----------------------------------------------------------------------------

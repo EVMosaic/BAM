@@ -51,7 +51,7 @@ Story Tool
 
 - Establish connection between sequencer and 'shot' assets *(abstract concept)*
 - Integrate into Addon
-- Connect automated tasks on edit updates, (sync sequence with short assets)
+- Connect automated tasks on edit updates, (sync sequence with shot assets)
 - Expose the edit outside of Blender *(web based UI, reviews, comment, feedback, tasks...)*
 
 

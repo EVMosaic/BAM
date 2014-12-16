@@ -860,6 +860,15 @@ class BamCheckoutTest(BamSessionTestCase):
         # checkout inside of the existing session, should raise exception
         self.assertRaises(RuntimeError, bam_run, ["checkout", file_name, "--output", session_path], session_path)
 
+
+class BamUpdateTest(BamSessionTestCase):
+    """Test for the `bam update` command.
+    """
+
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
     def test_update_blank(self):
         session_name = "mysession"
         proj_path, session_path = self.init_session(session_name)

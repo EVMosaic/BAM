@@ -238,9 +238,9 @@ class FileAPI(Resource):
     def put(self, project_name):
         project = Project.query.filter_by(name=project_name).first()
         command = request.args['command']
-        arguments = ''
-        if 'arguments' in request.args:
-            arguments = json.loads(request.args['arguments'])
+        command_args = request.args.get('arguments')
+        if command_args is not None:
+            command_args = json.loads(command_args)
         file = request.files['file']
 
         # Get the value of the first (and only) result for the specified project setting
@@ -330,7 +330,7 @@ class FileAPI(Resource):
             result = local_client.run_command('commit',
                 [local_client.info()['entry_path'],
                 '--no-auth-cache',
-                '--message', arguments['message'],
+                '--message', command_args['message'],
                 '--username', svn_user,
                 '--password', svn_password],
                 combine=True)

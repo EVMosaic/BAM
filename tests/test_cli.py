@@ -232,24 +232,6 @@ def svn_repo_checkout(repo, path):
     return run_check(["svn", "checkout", repo, path])
 
 
-def svn_repo_populate(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-    # TODO, we probably want to define files externally, for now this is just to see it works
-    dummy_file = os.path.join(path, "file1")
-    file_quick_touch(dummy_file)
-
-    # adds all files recursively
-    if not run_check(["svn", "add", path]):
-        return False
-
-    if not run_check(["svn", "commit", "-m", "First commit"], path):
-        return False
-
-    return True
-
-
 def bam_run(argv, cwd=None):
     with CHDir(cwd):
         import bam
@@ -652,10 +634,6 @@ class BamSessionTestCase(unittest.TestCase):
         if not svn_repo_checkout(path_svn_repo_url, path_svn_checkout):
             self.fail("svn_repo: checkout %r" % path_svn_repo_url)
 
-        # Populate the repo with an empty file
-        if not svn_repo_populate(os.path.join(path_svn_checkout, self.proj_name)):
-            self.fail("svn_repo: populate")
-
     def tearDown(self):
         # input('Wait:')
         shutil.rmtree(TEMP_LOCAL)
@@ -733,7 +711,7 @@ class BamListTest(BamSessionTestCase):
 
         ret = bam_run_as_json(["ls", "--json"], proj_path)
 
-        self.assertEqual(2, len(ret))
+        self.assertEqual(1, len(ret))
 
 
 class BamCommitTest(BamSessionTestCase):

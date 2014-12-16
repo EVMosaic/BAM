@@ -176,12 +176,12 @@ class FileAPI(Resource):
         if command == 'info':
             r = svn.local.LocalClient(project.repository_path)
 
-            log = r.log_default(None, None, 5, filepath)
-            log = [l for l in log]
+            svn_log = r.log_default(None, None, 5, filepath)
+            svn_log = [l for l in svn_log]
 
             return jsonify(
                 filepath=filepath,
-                log=log)
+                log=svn_log)
 
         elif command == 'checkout':
             filepath = os.path.join(project.repository_path, filepath)

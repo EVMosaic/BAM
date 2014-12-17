@@ -145,10 +145,10 @@ def run(cmd, cwd=None):
     if VERBOSE:
         print(">>> ", args_as_string(cmd))
     import subprocess
-    kwargs = dict(
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        )
+    kwargs = {
+        "stderr": subprocess.PIPE,
+        "stdout": subprocess.PIPE,
+        }
     if cwd is not None:
         kwargs["cwd"] = cwd
 

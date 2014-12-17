@@ -19,7 +19,8 @@
 # ***** END GPL LICENCE BLOCK *****
 
 import os
-VERBOSE = os.environ.get('BAM_VERBOSE', False)
+# gives problems with scripts that use stdout, for testing 'bam deps' for eg.
+# VERBOSE = os.environ.get('BAM_VERBOSE', False)
 TIMEIT = False
 
 
@@ -199,9 +200,16 @@ class FilePath:
             # prevents cyclic references too!
             # {lib_path: set([block id's ...])}
             lib_visit=None,
+
+            # optional blendfile callbacks
+            # These callbacks run on enter-exit blend files
+            # so you can keep track of what file and level you're at.
+            blendfile_level_cb=(None, None),
             ):
         # print(level, block_codes)
         import os
+
+        filepath = os.path.abspath(filepath)
 
         if VERBOSE:
             indent_str = "  " * level
@@ -212,7 +220,12 @@ class FilePath:
             log_deps.info("%s%s" % (indent_str, filepath.decode('utf-8')))
             log_deps.info("%s%s" % (indent_str, set_as_str(block_codes)))
 
-        basedir = os.path.dirname(os.path.abspath(filepath))
+        blendfile_level_cb_enter, blendfile_level_cb_exit = blendfile_level_cb
+
+        if blendfile_level_cb_enter is not None:
+            blendfile_level_cb_enter(filepath)
+
+        basedir = os.path.dirname(filepath)
         if rootdir is None:
             rootdir = basedir
 
@@ -416,7 +429,12 @@ class FilePath:
                         rootdir=rootdir,
                         level=level + 1,
                         lib_visit=lib_visit,
+                        blendfile_level_cb=blendfile_level_cb,
                         )
+
+        if blendfile_level_cb_exit is not None:
+            blendfile_level_cb_exit(filepath)
+
 
     # ------------------------------------------------------------------------
     # Direct filepaths from Blocks

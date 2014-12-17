@@ -860,6 +860,66 @@ class BamCheckoutTest(BamSessionTestCase):
         # checkout inside of the existing session, should raise exception
         self.assertRaises(RuntimeError, bam_run, ["checkout", file_name, "--output", session_path], session_path)
 
+    def test_checkout_variation(self):
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+        variation_path = os.path.join(session_path, "variations")
+
+        if 1:
+            import shutil
+            # path cant already exist, ugh
+            shutil.copytree(
+                    os.path.join(CURRENT_DIR, "blends", "variations"),
+                    variation_path,
+                    )
+            stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+            self.assertEqual("", stderr)
+
+
+        listing = bam_run_as_json(["ls", "variations", "--json"], session_path)
+        listing_expect = [
+            ["cone.blend", "file"],
+            ["cone.blue.blend", "file"],
+            ["lib_endpoint.blend", "file"],
+            ["lib_user.blend", "file"],
+            ]
+
+        self.assertEqual(listing, listing_expect)
+
+        f_variation = os.path.join(variation_path, "lib_user.json")
+
+        # now create variation file & commit it
+        file_quick_write(
+                f_variation,
+                data='{"variations": ["cone.blue.blend"]}',
+                )
+
+        stdout, stderr = bam_run(["commit", "-m", "add variation"], session_path)
+        self.assertEqual("", stderr)
+
+        listing = bam_run_as_json(["ls", "variations", "--json"], session_path)
+        listing_expect.append(["lib_user.json", "file"])
+        listing_expect.sort()
+        self.assertEqual(listing, listing_expect)
+
+        # now clear the repo and do a fresh checkout, and see that the variation is applied.
+        # remove the path
+        shutil.rmtree(session_path)
+
+        # checkout the file again
+        file_name = "variations/lib_endpoint.blend"
+        session_path = session_path + "_a"
+        stdout, stderr = bam_run(["checkout", file_name, "--output", session_path], proj_path)
+        self.assertEqual("", stderr)
+
+        ret = bam_run_as_json(["deps", "lib_endpoint.blend", "--json", "--recursive"], session_path)
+        ret.sort()
+
+        self.assertEqual(ret[0][1], "//lib_user.blend")
+        self.assertEqual(ret[0][3], "OK")
+        self.assertEqual(ret[1][1], "//cone.blue.blend")
+        self.assertEqual(ret[1][3], "OK")
+
 
 class BamUpdateTest(BamSessionTestCase):
     """Test for the `bam update` command.
@@ -1354,54 +1414,6 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         # self.assertEqual(ret[0], ["house_abs.blend", "file"])
         # ret = bam_run_as_json(["ls", "subdir/rel/path", "--json"], proj_path)
         # self.assertEqual(ret[0], ["house_rel.blend", "file"])
-
-
-class BamVariation(BamSessionTestCase):
-    """
-    """
-    def __init__(self, *args):
-        self.init_defaults()
-        super().__init__(*args)
-
-    def test_variation(self):
-        """
-        """
-
-        session_name = "mysession"
-        proj_path, session_path = self.init_session(session_name)
-        variation_path = os.path.join(session_path, "variations")
-
-        if 1:
-            import shutil
-            # path cant already exist, ugh
-            shutil.copytree(
-                    os.path.join(CURRENT_DIR, "blends", "variations"),
-                    variation_path,
-                    )
-            stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
-            self.assertEqual("", stderr)
-
-
-        listing = bam_run_as_json(["ls", "variations", "--json"], session_path)
-        self.assertEqual(
-                listing,
-                [["cone.blue.blend", "file"],
-                 ["cone.red.blend", "file"],
-                 ["lib_endpoint.blend", "file"]],
-                 ["lib_user.blend", "file"]],
-                )
-
-        f_variation = os.path.join(variation_path, "lib_user.json")
-
-        # now create variation file & commit it
-        file_quick_write(
-                session_path,
-                f,
-                "",
-                append=True)
-
-
-        # import time; time.sleep(10000000)
 
 
 class BamIgnoreTest(BamSessionTestCase):

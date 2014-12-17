@@ -818,7 +818,7 @@ class bam_commands:
             print("]")
         else:
             for f_src, f_dst, f_dst_abs, f_status in status_walker():
-                print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))ia
+                print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))
 
     @staticmethod
     def pack(

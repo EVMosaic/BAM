@@ -119,6 +119,9 @@ def pack(
         # converting:  '../../bar' --> '__/__/bar'
         # so all paths are nested and not moved outside the session path.
         blendfile_src_dir_fakeroot=None,
+
+        # Read variations from json files.
+        use_variations=True,
         ):
     """
     :param deps_remap: Store path deps_remap info as follows.
@@ -181,6 +184,12 @@ def pack(
         """
         filepath = blendfile_path_walker.utils.compatpath(filepath)
 
+        if use_variations:
+            if blendfile_levels_dict_curr:
+                filepath = blendfile_levels_dict_curr.get(filepath, filepath)
+
+        # ...
+
         # first remap this blend file to the location it will end up (so we can get images relative to _that_)
         # TODO(cam) cache the results
         fp_basedir_conv = _relpath_remap(os.path.join(rootdir, b'dummy'), base_dir_src, base_dir_src, blendfile_src_dir_fakeroot)[0]
@@ -197,6 +206,70 @@ def pack(
             path_temp_files.add(filepath_tmp)
         return filepath_tmp
 
+    # -----------------
+    # Variation Support
+    #
+    # Use a json file to allow recursive-remapping of variations.
+    #
+    # file_a.blend
+    # file_a.json   '{"variations": ["tree.blue.blend", ...]}'
+    # file_a.blend -> file_b.blend
+    #                 file_b.blend --> tree.blend
+    #
+    # the variation of `file_a.blend` causes `file_b.blend`
+    # to link in `tree.blue.blend`
+
+    if use_variations:
+        blendfile_levels = []
+        blendfile_levels_dict = []
+        blendfile_levels_dict_curr = {}
+
+        def blendfile_levels_rebuild():
+            # after changing blend file configurations,
+            # re-create current variation lookup table
+            blendfile_levels_dict_curr.clear()
+            for d in blendfile_levels_dict:
+                if d is not None:
+                    blendfile_levels_dict_curr.update(d)
+
+        # use variations!
+        def blendfile_level_cb_enter(filepath):
+            import json
+
+            filepath_json = os.path.splitext(filepath)[0] + b".json"
+            if os.path.exists(filepath_json):
+                with open(filepath_json, encoding='utf-8') as f_handle:
+                    variations = [f.encode("utf-8") for f in json.load(f_handle).get("variations")]
+                    # convert to absolute paths
+                    basepath = os.path.dirname(filepath)
+                    variations = {
+                        # Reverse lookup, from non-variation to variation we specify in this file.
+                        # {"/abs/path/foo.png": "/abs/path/foo.variation.png", ...}
+                        # .. where the input _is_ the variation,
+                        #    we just make it absolute and use the non-variation as
+                        #    the key to the variation value.
+                        b".".join(f.rsplit(b".", 2)[0::2]): f for f_ in variations
+                        for f in (os.path.normpath(os.path.join(basepath, f_)),)
+                        }
+            else:
+                variations = None
+
+            blendfile_levels.append(filepath)
+            blendfile_levels_dict.append(variations)
+
+            if variations:
+                blendfile_levels_rebuild()
+
+        def blendfile_level_cb_exit(filepath):
+            blendfile_levels.pop()
+            blendfile_levels_dict.pop()
+
+            if blendfile_levels_dict_curr:
+                blendfile_levels_rebuild()
+    else:
+        blendfile_level_cb_enter = blendfile_level_cb_exit = None
+        blendfile_levels_dict_curr = None
+
     lib_visit = {}
     fp_blend_basename_last = b''
 
@@ -207,6 +280,10 @@ def pack(
             recursive=True,
             recursive_all=all_deps,
             lib_visit=lib_visit,
+            blendfile_level_cb=(
+                blendfile_level_cb_enter,
+                blendfile_level_cb_exit,
+                )
             ):
 
         # we could pass this in!
@@ -221,6 +298,15 @@ def pack(
         path_rel = blendfile_path_walker.utils.compatpath(path_src_orig)
         path_src = blendfile_path_walker.utils.abspath(path_rel, fp.basedir)
         path_src = os.path.normpath(path_src)
+
+        # apply variation (if available)
+        if use_variations:
+            if blendfile_levels_dict_curr:
+                path_src_variation = blendfile_levels_dict_curr.get(path_src)
+                if path_src_variation is not None:
+                    path_src = path_src_variation
+                    path_rel = os.path.join(os.path.dirname(path_rel), os.path.basename(path_src))
+                del path_src_variation
 
         # destination path realtive to the root
         # assert(b'..' not in path_src)
@@ -238,7 +324,6 @@ def pack(
 
         path_dst_final = b'//' + path_dst_final
         fp.filepath = path_dst_final
-
         # add to copy-list
         # never copy libs (handled separately)
         if not isinstance(fp, blendfile_path_walker.FPElem_block_path) or fp.userdata[0].code != b'LI':

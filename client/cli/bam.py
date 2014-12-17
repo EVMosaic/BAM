@@ -821,6 +821,23 @@ class bam_commands:
                 print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))
 
     @staticmethod
+    def pack(paths, output, all_deps=False):
+        # Local packing (don't use any project/session stuff)
+        import blendfile_pack
+
+        # TODO(cam) multiple paths
+        path = paths[0]
+        del paths
+
+        for msg in blendfile_pack.pack(
+                path.encode('utf-8'),
+                output.encode('utf-8'),
+                'ZIP',
+                all_deps=all_deps,
+                ):
+            print(msg, end="")
+
+    @staticmethod
     def remap_start(
             paths,
             use_json=False,
@@ -896,11 +913,17 @@ class bam_commands:
 def init_argparse_common(
         subparse,
         use_json=False,
+        use_all_deps=False,
         ):
     if use_json:
         subparse.add_argument(
                 "-j", "--json", dest="json", action='store_true',
                 help="Generate JSON output",
+                )
+    if use_all_deps:
+        subparse.add_argument(
+                "-a", "--all-deps", dest="all_deps", action='store_true',
+                help="Follow all dependencies (unused indirect dependencies too)",
                 )
 
 
@@ -949,10 +972,9 @@ def create_argparse_checkout(subparsers):
             "-o", "--output", dest="output", type=str, metavar='DIRNAME',
             help="Local name to checkout the session into (optional, falls back to path name)",
             )
-    subparse.add_argument(
-            "-a", "--all-deps", dest="all_deps", action='store_true',
-            help="Checkout all dependencies (unused indirect dependencies too)",
-            )
+
+    init_argparse_common(subparse, use_all_deps=True)
+
     subparse.set_defaults(
             func=lambda args:
             bam_commands.checkout(args.path, args.output, args.all_deps),
@@ -1073,6 +1095,31 @@ def create_argparse_deps(subparsers):
                     )
 
 
+def create_argparse_pack(subparsers):
+    subparse = subparsers.add_parser(
+            "pack", aliases=("pk",),
+            help="Pack a blend file and its dependencies into an archive",
+            )
+    subparse.add_argument(
+            dest="paths", nargs="+",
+            help="Path(s) to operate on",
+            )
+    subparse.add_argument(
+            "-o", "--output", dest="output", metavar='ZIP', required=True,
+            help="Output file or a directory when multiple inputs are passed",
+            )
+
+    init_argparse_common(subparse, use_all_deps=True)
+
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.pack(
+                    args.paths,
+                    args.output,
+                    all_deps=args.all_deps),
+                    )
+
+
 def create_argparse_remap(subparsers):
     subparse = subparsers.add_parser(
             "remap",
@@ -1170,6 +1217,7 @@ def create_argparse():
     create_argparse_status(subparsers)
     create_argparse_list(subparsers)
     create_argparse_deps(subparsers)
+    create_argparse_pack(subparsers)
     create_argparse_remap(subparsers)
 
     return parser

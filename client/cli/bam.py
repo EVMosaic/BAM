@@ -821,7 +821,12 @@ class bam_commands:
                 print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))
 
     @staticmethod
-    def pack(paths, output, all_deps=False):
+    def pack(
+            paths,
+            output,
+            all_deps=False,
+            use_quiet=False,
+            ):
         # Local packing (don't use any project/session stuff)
         import blendfile_pack
 
@@ -829,13 +834,19 @@ class bam_commands:
         path = paths[0]
         del paths
 
+        if use_quiet:
+            report = lambda msg: None
+        else:
+            report = lambda msg: print(msg, end="")
+
         for msg in blendfile_pack.pack(
                 path.encode('utf-8'),
                 output.encode('utf-8'),
                 'ZIP',
                 all_deps=all_deps,
+                report=report,
                 ):
-            print(msg, end="")
+            pass
 
     @staticmethod
     def remap_start(
@@ -914,6 +925,7 @@ def init_argparse_common(
         subparse,
         use_json=False,
         use_all_deps=False,
+        use_quiet=False,
         ):
     if use_json:
         subparse.add_argument(
@@ -924,6 +936,11 @@ def init_argparse_common(
         subparse.add_argument(
                 "-a", "--all-deps", dest="all_deps", action='store_true',
                 help="Follow all dependencies (unused indirect dependencies too)",
+                )
+    if use_quiet:
+        subparse.add_argument(
+                "-q", "--quiet", dest="use_quiet", action='store_true',
+                help="Suppress status output",
                 )
 
 
@@ -1109,14 +1126,15 @@ def create_argparse_pack(subparsers):
             help="Output file or a directory when multiple inputs are passed",
             )
 
-    init_argparse_common(subparse, use_all_deps=True)
+    init_argparse_common(subparse, use_all_deps=True, use_quiet=True)
 
     subparse.set_defaults(
             func=lambda args:
             bam_commands.pack(
                     args.paths,
                     args.output,
-                    all_deps=args.all_deps),
+                    all_deps=args.all_deps,
+                    use_quiet=args.use_quiet),
                     )
 
 

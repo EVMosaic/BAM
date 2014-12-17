@@ -61,7 +61,7 @@ def _relpath_remap(
     if blendfile_src_dir_fakeroot is None:
         # /foo/../bar.png --> /foo/__/bar.png
         path_dst = path_dst.replace(b'..', b'__')
-        path_dst_final = os.path.relpath(path_dst, fp_basedir)
+        path_dst = os.path.normpath(path_dst)
     else:
         if b'..' in path_dst:
             # remap, relative to project root
@@ -75,13 +75,12 @@ def _relpath_remap(
             if b'..' in path_dst:
                 # SHOULD NEVER HAPPEN
                 path_dst = path_dst.replace(b'..', b'__nonproject__')
-            path_dst = os.path.normpath(path_dst)
             path_dst = b'_' + path_dst
 
-        # _dbg(b"FINAL A: " + path_dst)
-        path_dst_final = os.path.join(os.path.relpath(base_dir_src, fp_basedir), path_dst)
-        path_dst_final = os.path.normpath(path_dst_final)
-        # _dbg(b"FINAL B: " + path_dst_final)
+    # _dbg(b"FINAL A: " + path_dst)
+    path_dst_final = os.path.join(os.path.relpath(base_dir_src, fp_basedir), path_dst)
+    path_dst_final = os.path.normpath(path_dst_final)
+    # _dbg(b"FINAL B: " + path_dst_final)
 
     return path_dst, path_dst_final
 

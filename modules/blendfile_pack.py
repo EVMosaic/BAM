@@ -361,23 +361,21 @@ def create_argparse():
     # for main_render() only, but validate args.
     parser.add_argument(
             "-i", "--input", dest="path_src", metavar='FILE', required=True,
-            help="Input path(s) or a wildcard to glob many files")
+            help="Input path(s) or a wildcard to glob many files",
+            )
     parser.add_argument(
             "-o", "--output", dest="path_dst", metavar='DIR', required=True,
-            help="Output file or a directory when multiple inputs are passed")
+            help="Output file or a directory when multiple inputs are passed",
+            )
     parser.add_argument(
             "-m", "--mode", dest="mode", metavar='MODE', required=False,
             choices=('FILE', 'ZIP'), default='FILE',
-            help="Output file or a directory when multiple inputs are passed")
+            help="Output file or a directory when multiple inputs are passed",
+            )
     parser.add_argument(
-            "-r", "--deps_remap", dest="deps_remap", metavar='FILE',
-            help="Write out the path mapping to a JSON file")
-    parser.add_argument(
-            "-s", "--paths_remap", dest="paths_remap", metavar='FILE',
-            help="Write out the original paths to a JSON file")
-    parser.add_argument(
-            "-u", "--paths_uuid", dest="paths_uuid", metavar='FILE',
-            help="Write out the original paths UUID to a JSON file")
+            "-q", "--quiet", dest="use_quiet", action='store_true', required=False,
+            help="Suppress status output",
+            )
 
     return parser
 
@@ -390,40 +388,18 @@ def main():
 
     encoding = sys.getfilesystemencoding()
 
-    deps_remap = {} if args.deps_remap else None
-    paths_remap = {} if args.paths_remap else None
-    paths_uuid = {} if args.paths_uuid else None
+    if args.use_quiet:
+        report = lambda msg: None
+    else:
+        report = lambda msg: print(msg, end="")
 
     for msg in pack(
-            args.path_src.encode(encoding),
-            args.path_dst.encode(encoding),
+            args.path_src.encode('utf-8'),
+            args.path_dst.encode('utf-8'),
             args.mode,
-            deps_remap=deps_remap,
-            paths_remap=paths_remap,
-            paths_uuid=paths_uuid,
             ):
-        print(msg)
+        report(msg)
 
-    def write_dict_as_json(fn, dct):
-        with open(fn, 'w', encoding='utf-8') as f:
-            import json
-            json.dump(
-                    dct, f, ensure_ascii=False,
-                    check_circular=False,
-                    # optional (pretty)
-                    sort_keys=True, indent=4, separators=(',', ': '),
-                    )
-
-    if deps_remap is not None:
-        write_dict_as_json(args.deps_remap, deps_remap)
-
-    if paths_remap is not None:
-        write_dict_as_json(args.paths_remap, paths_remap)
-
-    if paths_uuid is not None:
-        write_dict_as_json(args.paths_uuid, paths_uuid)
-
-    del write_dict_as_json
 
 if __name__ == "__main__":
     main()

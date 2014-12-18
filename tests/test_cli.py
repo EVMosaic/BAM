@@ -10,7 +10,7 @@ Run all tests:
 
 Run a single test:
 
-   python3 -m unittest test_cli.BamCommitTest.test_checkout
+   python3 -m unittest test_cli.BamCheckoutTest.test_checkout
 """
 
 import os

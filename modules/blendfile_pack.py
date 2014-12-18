@@ -54,7 +54,16 @@ def _relpath_remap(
         ):
 
     import os
-    assert(os.path.isabs(path_src))
+
+    if not os.path.isabs(path_src):
+        # Absolute win32 paths on a unix system
+        # cause bad issues!
+        if len(path_src) >= 2:
+            if path_src[0] != b'/'[0] and path_src[1] == b':'[0]:
+                pass
+            else:
+                raise Exception("Internal error 'path_src' -> %r must be absolute" % path_src)
+
     path_src = os.path.normpath(path_src)
     path_dst = os.path.relpath(path_src, base_dir_src)
 
@@ -327,7 +336,7 @@ def pack(
             shutil.rmtree(base_dir_dst_temp)
 
             for src, dst in path_copy_files:
-                assert(b'.blend' not in dst)
+                assert(not dst.endswith(b'.blend'))
 
                 if not os.path.exists(src):
                     yield report("  %s: %r\n" % (colorize("source missing", color='red'), src))

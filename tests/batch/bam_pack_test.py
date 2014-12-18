@@ -205,14 +205,14 @@ def pack_blend_test(blendfile_src, log, blender_bin):
     shutil.rmtree(TEMP_EXTRACT)
     del returncode
 
-    is_error = False
+    error_num = 0
 
     # just extra check... not essential but means we know quickly if library state is different
     if stdout_src.count(b'LIB ERROR') != stdout_dst.count(b'LIB ERROR'):
         log.error("Library errors differ in packed library, with the following output")
         log.error("*** SOURCE STDOUT ***\n" + stdout_src.decode('utf-8'))
         log.error("*** PACKED STDOUT ***\n" + stdout_dst.decode('utf-8'))
-        is_error = True
+        error_num += 1
 
     data_src_basename = {os.path.basename(f_full): (f_full, f_ok) for f_full, f_ok in data_src}
     data_dst_basename = {os.path.basename(f_full): (f_full, f_ok) for f_full, f_ok in data_dst}
@@ -220,15 +220,26 @@ def pack_blend_test(blendfile_src, log, blender_bin):
     # do magic!
     for f_src_nameonly, (f_src_full, f_src_ok) in data_src_basename.items():
         if f_src_ok:
-            f_dst_full, f_dst_ok = data_dst_basename[f_src_nameonly]
+            f_pair = data_dst_basename.get(f_src_nameonly)
+            if f_pair is None:
+                # the key should be found even if the files missing
+                log.error("%r (%r) missing from destination (internal error?)!" % (blendfile_src, f_src_full))
+                error_num += 1
+                continue
+
+            f_dst_full, f_dst_ok = f_pair
             if not f_dst_ok:
                 log.error("%r (%r -> %r) failed!" % (blendfile_src, f_src_full, f_dst_full))
-                is_error = True
+                error_num += 1
             else:
                 # log.info("found %r -> %r" % (f_src_full, f_dst_full))
                 pass
 
-    return is_error
+    if error_num:
+        log.info("BLEND FAIL (%d) %r" % (error_num, blendfile_src))
+
+
+    return (error_num != 0)
 
 
 def pack_blend_recursive_test(

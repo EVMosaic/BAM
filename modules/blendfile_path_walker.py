@@ -68,6 +68,9 @@ class FPElem:
         # library link level
         "level",
 
+        # True when this is apart of a sequence (image or movieclip)
+        "is_sequence",
+
         "userdata",
         )
 
@@ -76,6 +79,7 @@ class FPElem:
                  userdata):
         self.basedir = basedir
         self.level = level
+        self.is_sequence = False
 
         # subclass must call
         self.userdata = userdata
@@ -412,17 +416,24 @@ class FilePath:
     @staticmethod
     def _from_block_MC(block, basedir, extra_info, level):
         # TODO, image sequence
-        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
+        fp = FPElem_block_path(basedir, level, (block, b'name'))
+        fp.is_sequence = True
+        yield fp, extra_info
 
     @staticmethod
     def _from_block_IM(block, basedir, extra_info, level):
         # old files miss this
-        if block.get(b'source', -1) not in {C_defs.IMA_SRC_FILE, C_defs.IMA_SRC_SEQUENCE, C_defs.IMA_SRC_MOVIE}:
+        image_source = block.get(b'source', C_defs.IMA_SRC_FILE)
+        if image_source not in {C_defs.IMA_SRC_FILE, C_defs.IMA_SRC_SEQUENCE, C_defs.IMA_SRC_MOVIE}:
             return
         if block[b'packedfile']:
             return
 
-        yield FPElem_block_path(basedir, level, (block, b'name')), extra_info
+        fp = FPElem_block_path(basedir, level, (block, b'name'))
+        if image_source == C_defs.IMA_SRC_SEQUENCE:
+            fp.is_sequence = True
+        yield fp, extra_info
+
 
     @staticmethod
     def _from_block_VF(block, basedir, extra_info, level):
@@ -733,3 +744,34 @@ class utils:
             return split1
         else:
             return split2
+
+    def find_sequence_paths(filepath, use_fullpath=True):
+        # supports str, byte paths
+        basedir, filename = os.path.split(filepath)
+        if not os.path.exists(basedir):
+            return []
+
+        filename_noext, ext = os.path.splitext(filename)
+
+        from string import digits
+        if isinstance(filepath, bytes):
+            digits = digits.encode()
+        filename_nodigits = filename_noext.rstrip(digits)
+
+        if len(filename_nodigits) == len(filename_noext):
+            # input isn't from a sequence
+            return []
+
+        files = os.listdir(basedir)
+        files[:] = [
+            f for f in files
+            if f.startswith(filename_nodigits) and
+            f.endswith(ext) and
+            f[len(filename_nodigits):-len(ext) if ext else -1].isdigit()
+            ]
+        if use_fullpath:
+            files[:] = [
+                os.path.join(basedir, f) for f in files
+                ]
+
+        return files

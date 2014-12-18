@@ -238,6 +238,14 @@ def pack(
         # never copy libs (handled separately)
         if not isinstance(fp, blendfile_path_walker.FPElem_block_path) or fp.userdata[0].code != b'LI':
             path_copy_files.add((path_src, path_dst))
+            if fp.is_sequence:
+                _src_dir = os.path.dirname(path_src)
+                _dst_dir = os.path.dirname(path_dst)
+                path_copy_files.update(
+                        {(os.path.join(_src_dir, f), os.path.join(_dst_dir, f))
+                        for f in blendfile_path_walker.utils.find_sequence_paths(path_src)
+                        })
+                del _src_dir, _dst_dir
 
         if deps_remap is not None:
             # this needs to become JSON later... ugh, need to use strings

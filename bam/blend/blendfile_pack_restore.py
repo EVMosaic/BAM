@@ -26,7 +26,7 @@ This script takes Blend-File and remaps their paths to the original locations.
 
 VERBOSE = 1
 
-import blendfile_path_walker
+from bam.blend import blendfile_path_walker
 
 
 def blendfile_remap(

@@ -120,7 +120,7 @@ def start(
 
     # ------------------------------------------------------------------------
     # First walk over all blends
-    import blendfile_path_walker
+    from bam.blend import blendfile_path_walker
 
     for blendfile_src in _iter_files(paths, check_ext=_is_blend):
         if not is_quiet:
@@ -217,7 +217,7 @@ def finish(
             remap_dst_to_src[f_dst] = f_src
 
     # now the fun begins, remap _all_ paths
-    import blendfile_path_walker
+    from bam.blend import blendfile_path_walker
 
     for blendfile_dst in _iter_files(paths, check_ext=_is_blend):
         blendfile_src = remap_dst_to_src.get(blendfile_dst)

@@ -151,7 +151,7 @@ class bam_config:
                 descr="bam repository",
                 )
 
-        from bam_utils.system import write_json_to_file
+        from bam.utils.system import write_json_to_file
         write_json_to_file(filepath, data)
 
     @staticmethod
@@ -215,7 +215,7 @@ class bam_session:
         paths_remove = {}
         paths_modified = {}
 
-        from bam_utils.system import uuid_from_file
+        from bam.utils.system import uuid_from_file
 
         session_rootdir = os.path.abspath(session_rootdir)
 
@@ -506,7 +506,7 @@ class bam_commands:
 
     @staticmethod
     def commit(paths, message):
-        from bam_utils.system import write_json_to_file, write_json_to_zip
+        from bam.utils.system import write_json_to_file, write_json_to_zip
         import requests
 
         # Load project configuration
@@ -584,7 +584,7 @@ class bam_commands:
             f_rel_in_proj = remap_filepath(f_rel)
             proj_base_b = os.path.dirname(f_rel_in_proj).encode("utf-8")
 
-            import blendfile_pack_restore
+            from bam.blend import blendfile_pack_restore
             blendfile_pack_restore.blendfile_remap(
                     f_abs.encode('utf-8'),
                     dir_remap.encode('utf-8'),
@@ -780,7 +780,7 @@ class bam_commands:
     def deps(paths, recursive=False, use_json=False):
 
         def deps_path_walker():
-            import blendfile_path_walker
+            from bam.blend import blendfile_path_walker
             for blendfile_src in paths:
                 blendfile_src = blendfile_src.encode('utf-8')
                 yield from blendfile_path_walker.FilePath.visit_from_blend(
@@ -828,7 +828,7 @@ class bam_commands:
             use_quiet=False,
             ):
         # Local packing (don't use any project/session stuff)
-        import blendfile_pack
+        from .blend import blendfile_pack
 
         # TODO(cam) multiple paths
         path = paths[0]
@@ -864,7 +864,7 @@ class bam_commands:
         if os.path.exists(filepath_remap):
             fatal("Remap in progress, run with 'finish' or remove %r" % filepath_remap)
 
-        import blendfile_path_remap
+        from bam.blend import blendfile_path_remap
         remap_data = blendfile_path_remap.start(
                 paths,
                 use_json=use_json,
@@ -896,7 +896,7 @@ class bam_commands:
             import pickle
             remap_data = pickle.load(fh)
 
-        import blendfile_path_remap
+        from bam.blend import blendfile_path_remap
         blendfile_path_remap.finish(
                 paths, remap_data,
                 force_relative=force_relative,
@@ -1242,7 +1242,6 @@ def create_argparse():
 
 
 def main(argv=None):
-
     if argv is None:
         argv = sys.argv[1:]
 

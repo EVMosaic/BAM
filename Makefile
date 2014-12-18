@@ -10,9 +10,10 @@ pep8:
 test:
 	python3 ./tests/test_cli.py
 
+.PHONY: doc
 doc:
-	$(MAKE) -C docs html
-	@echo "xdg-open docs/build/html/index.html"
+	$(MAKE) -C doc html
+	@echo "xdg-open doc/build/html/index.html"
 
 clean:
 	$(MAKE) -C docs clean

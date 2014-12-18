@@ -27,7 +27,7 @@ Environment vars:
 # Ensure module path
 import os
 import sys
-path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "modules"))
+path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 if path not in sys.path:
     sys.path.append(path)
 del os, sys, path

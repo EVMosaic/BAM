@@ -18,7 +18,7 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-import blendfile_path_walker
+from bam.blend import blendfile_path_walker
 
 TIMEIT = False
 
@@ -139,7 +139,7 @@ def pack(
     import os
     import shutil
 
-    from bam_utils.system import colorize
+    from bam.utils.system import colorize
 
     # first check args are OK
     # fakeroot _cant_ start with a separator, since we prepend chars to it.
@@ -294,7 +294,7 @@ def pack(
         del relbase
 
     if paths_uuid is not None:
-        from bam_utils.system import uuid_from_file
+        from bam.utils.system import uuid_from_file
 
         for src, dst in path_copy_files:
             paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = uuid_from_file(src)

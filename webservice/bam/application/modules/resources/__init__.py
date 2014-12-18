@@ -295,7 +295,7 @@ class FileAPI(Resource):
         we want all paths to be relative to this so we don't get server path included.
         """
         import os
-        import blendfile_pack
+        from bam.blend import blendfile_pack
 
         assert(os.path.exists(filepath) and not os.path.isdir(filepath))
         log.info("  Source path: %r" % filepath)
@@ -324,7 +324,7 @@ class FileAPI(Resource):
                 return
         else:
             # non blend-file
-            from bam_utils.system import uuid_from_file
+            from bam.utils.system import uuid_from_file
             paths_uuid[os.path.basename(filepath)] = uuid_from_file(filepath)
             del uuid_from_file
 

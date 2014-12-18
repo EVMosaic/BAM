@@ -37,7 +37,7 @@ if 1:
     extensions += ['sphinxarg.ext']
     sys.path.extend([
         # to import 'bam.py'
-        os.path.join(os.path.dirname(__file__), "..", "..", "client", "cli"),
+        os.path.join(os.path.dirname(__file__), "..", ".."),
         # to access the 'sphinxarg' extension
         os.path.abspath(os.path.join("..", "exts"))
         ])

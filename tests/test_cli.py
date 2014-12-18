@@ -26,7 +26,7 @@ if VERBOSE:
 # Ensure module path
 import os
 import sys
-path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "client", "cli"))
+path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 if path not in sys.path:
     sys.path.append(path)
 del os, sys, path
@@ -234,7 +234,7 @@ def svn_repo_checkout(repo, path):
 
 def bam_run(argv, cwd=None):
     with CHDir(cwd):
-        import bam
+        import bam.cli
 
         if VERBOSE:
             sys.stdout.write("\n  running:  ")
@@ -246,7 +246,7 @@ def bam_run(argv, cwd=None):
             # input('press_key!:')
 
         with StdIO() as fakeio:
-            bam.main(argv)
+            bam.cli.main(argv)
             ret = fakeio.read()
 
         if VERBOSE:

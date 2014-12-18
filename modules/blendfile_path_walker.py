@@ -416,7 +416,8 @@ class FilePath:
 
     @staticmethod
     def _from_block_IM(block, basedir, extra_info, level):
-        if block[b'source'] not in {C_defs.IMA_SRC_FILE, C_defs.IMA_SRC_SEQUENCE, C_defs.IMA_SRC_MOVIE}:
+        # old files miss this
+        if block.get(b'source', -1) not in {C_defs.IMA_SRC_FILE, C_defs.IMA_SRC_SEQUENCE, C_defs.IMA_SRC_MOVIE}:
             return
         if block[b'packedfile']:
             return
@@ -438,7 +439,10 @@ class FilePath:
 
     @staticmethod
     def _from_block_ME(block, basedir, extra_info, level):
-        block_external = block.get_pointer(b'ldata.external')
+        block_external = block.get_pointer(b'ldata.external', None)
+        if block_external is None:
+            block_external = block.get_pointer(b'fdata.external', None)
+
         if block_external is not None:
             yield FPElem_block_path(basedir, level, (block_external, b'filename')), extra_info
 
@@ -559,7 +563,7 @@ class ExpandID:
                 yield item.get_pointer(b'id', sdna_index_refine=sdna_index_bNode)
 
     def _expand_generic_nodetree_id(block):
-        block_ntree = block.get_pointer(b'nodetree')
+        block_ntree = block.get_pointer(b'nodetree', None)
         if block_ntree is not None:
             yield from ExpandID._expand_generic_nodetree(block_ntree)
 

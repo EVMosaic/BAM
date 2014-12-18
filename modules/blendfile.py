@@ -388,10 +388,15 @@ class BlendFileBlock:
     # Utility get/set
     #
     #   avoid inline pointer casting
-    def get_pointer(self, path, sdna_index_refine=None):
+    def get_pointer(self, path, default=..., sdna_index_refine=None):
         if sdna_index_refine is None:
             sdna_index_refine = self.sdna_index
-        result = self.get(path, sdna_index_refine=sdna_index_refine)
+        result = self.get(path, default, sdna_index_refine=sdna_index_refine)
+
+        # default
+        if type(result) is not int:
+            return result
+
         assert(self.file.structs[sdna_index_refine].field_from_path(self.file.header, self.file.handle, path).dna_name.is_pointer)
         if result != 0:
             # possible (but unlikely)

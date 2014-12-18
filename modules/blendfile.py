@@ -354,6 +354,7 @@ class BlendFileBlock:
             default=...,
             sdna_index_refine=None,
             use_nil=True, use_str=True,
+            base_index=0,
             ):
 
         if sdna_index_refine is None:
@@ -362,7 +363,13 @@ class BlendFileBlock:
             self.file.ensure_subtype_smaller(self.sdna_index, sdna_index_refine)
 
         dna_struct = self.file.structs[sdna_index_refine]
-        self.file.handle.seek(self.file_offset, os.SEEK_SET)
+        ofs = self.file_offset
+
+        if base_index != 0:
+            assert(base_index < self.count)
+            ofs += (self.size // self.count) * base_index
+
+        self.file.handle.seek(ofs, os.SEEK_SET)
         return dna_struct.field_get(
                 self.file.header, self.file.handle, path,
                 default=default,
@@ -388,10 +395,15 @@ class BlendFileBlock:
     # Utility get/set
     #
     #   avoid inline pointer casting
-    def get_pointer(self, path, default=..., sdna_index_refine=None):
+    def get_pointer(
+            self, path,
+            default=...,
+            sdna_index_refine=None,
+            base_index=0,
+            ):
         if sdna_index_refine is None:
             sdna_index_refine = self.sdna_index
-        result = self.get(path, default, sdna_index_refine=sdna_index_refine)
+        result = self.get(path, default, sdna_index_refine=sdna_index_refine, base_index=base_index)
 
         # default
         if type(result) is not int:

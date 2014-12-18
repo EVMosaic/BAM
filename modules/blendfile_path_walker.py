@@ -84,6 +84,9 @@ class FPElem:
         # subclass must call
         self.userdata = userdata
 
+    def files_siblings(self):
+        return ()
+
     # --------
     # filepath
 
@@ -149,6 +152,19 @@ class FPElem_sequence_single(FPElem):
 
         block[path] = head + sep
         sub_block[sub_path] = tail
+
+class FPElem_sequence_image_seq(FPElem_sequence_single):
+    """
+    Image sequence
+        userdata = (block, path)
+    """
+    __slots__ = ()
+    def files_siblings(self):
+        block, path, sub_block, sub_path = self.userdata
+
+        array =  block.get_pointer(b'stripdata')
+        files = [array.get(b'name', use_str=False, base_index=i) for i in range(array.count)]
+        return files
 
 
 class FilePath:
@@ -478,8 +494,7 @@ class FilePath:
                         item_stripdata = item_strip.get_pointer(b'stripdata')
 
                         if item_type == C_defs.SEQ_TYPE_IMAGE:
-                            # TODO, multiple images
-                            yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
+                            yield FPElem_sequence_image_seq(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
                         elif item_type == C_defs.SEQ_TYPE_MOVIE:
                             yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
                         elif item_type == C_defs.SEQ_TYPE_SOUND_RAM:

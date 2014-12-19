@@ -68,7 +68,7 @@ del bpy
 # Ensure module path
 import os
 import sys
-path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "client", "cli"))
+path = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 if path not in sys.path:
     sys.path.append(path)
 
@@ -170,12 +170,13 @@ def pack_blend_test(blendfile_src, log, blender_bin):
     argv = (
         "pack", blendfile_src,
         "--output", TEMP_ZIP,
+        "--compress=store",
         "--quiet",
         )
 
-    import bam
+    import bam.cli
     log.info("bam " + " ".join(argv))
-    bam.main(argv)
+    bam.cli.main(argv)
 
     # extract zip
     os.makedirs(TEMP_EXTRACT, exist_ok=True)

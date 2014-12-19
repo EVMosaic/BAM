@@ -104,6 +104,7 @@ def pack(
         deps_remap=None, paths_remap=None, paths_uuid=None,
         # load every libs dep, not just used deps.
         all_deps=False,
+        compress_level=-1,
         # yield reports
         report=None,
 
@@ -342,7 +343,15 @@ def pack(
 
     elif mode == 'ZIP':
         import zipfile
-        with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', zipfile.ZIP_DEFLATED) as zip_handle:
+
+        # not awesome!
+        import zlib
+        assert(compress_level in range(-1, 10))
+        _compress_level_orig = zlib.Z_DEFAULT_COMPRESSION
+        zlib.Z_DEFAULT_COMPRESSION = compress_level
+        _compress_mode = zipfile.ZIP_DEFLATED (compress_level == 0) if zipfile.ZIP_STORED else zipfile.ZIP_DEFLATED
+
+        with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', _compress_mode) as zip_handle:
             for fn in path_temp_files:
                 yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), fn))
                 zip_handle.write(
@@ -367,6 +376,9 @@ def pack(
                     _dbg(b"REAL_FILE:     " + dst)
                     _dbg(b"RELATIVE_FILE: " + os.path.relpath(dst, base_dir_dst))
                     """
+
+        zlib.Z_DEFAULT_COMPRESSION = _compress_level_orig
+        del _compress_level_orig, _compress_mode
 
         yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
     else:

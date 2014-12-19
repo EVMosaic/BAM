@@ -826,6 +826,7 @@ class bam_commands:
             output,
             all_deps=False,
             use_quiet=False,
+            compress_level=-1,
             ):
         # Local packing (don't use any project/session stuff)
         from .blend import blendfile_pack
@@ -844,6 +845,7 @@ class bam_commands:
                 output.encode('utf-8'),
                 'ZIP',
                 all_deps=all_deps,
+                compress_level=compress_level,
                 report=report,
                 ):
             pass
@@ -926,7 +928,10 @@ def init_argparse_common(
         use_json=False,
         use_all_deps=False,
         use_quiet=False,
+        use_compress_level=False,
         ):
+    import argparse
+
     if use_json:
         subparse.add_argument(
                 "-j", "--json", dest="json", action='store_true',
@@ -941,6 +946,17 @@ def init_argparse_common(
         subparse.add_argument(
                 "-q", "--quiet", dest="use_quiet", action='store_true',
                 help="Suppress status output",
+                )
+    if use_compress_level:
+        class ChoiceToZlibLevel(argparse.Action):
+            def __call__(self, parser, namespace, value, option_string=None):
+                setattr(namespace, self.dest, {"default": -1, "fast": 1, "best": 9, "store": 0}[value[0]])
+
+        subparse.add_argument(
+                "-c", "--compress", dest="compress_level", nargs=1, default=-1, metavar='LEVEL',
+                action=ChoiceToZlibLevel,
+                choices=('default', 'fast', 'best', 'store'),
+                help="Compression level for resulting archive",
                 )
 
 
@@ -1126,7 +1142,7 @@ def create_argparse_pack(subparsers):
             help="Output file or a directory when multiple inputs are passed",
             )
 
-    init_argparse_common(subparse, use_all_deps=True, use_quiet=True)
+    init_argparse_common(subparse, use_all_deps=True, use_quiet=True, use_compress_level=True)
 
     subparse.set_defaults(
             func=lambda args:
@@ -1134,7 +1150,8 @@ def create_argparse_pack(subparsers):
                     args.paths,
                     args.output,
                     all_deps=args.all_deps,
-                    use_quiet=args.use_quiet),
+                    use_quiet=args.use_quiet,
+                    compress_level=args.compress_level),
                     )
 
 

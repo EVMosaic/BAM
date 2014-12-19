@@ -333,7 +333,8 @@ def pack(
         for src, dst in path_copy_files:
             assert(b'.blend' not in dst)
 
-            if not os.path.exists(src):
+            # in rare cases a filepath could point to a directory
+            if (not os.path.exists(src)) or os.path.isdir(src):
                 yield report("  %s: %r\n" % (colorize("source missing", color='red'), src))
             else:
                 yield report("  %s: %r -> %r\n" % (colorize("copying", color='blue'), src, dst))
@@ -369,7 +370,8 @@ def pack(
             for src, dst in path_copy_files:
                 assert(not dst.endswith(b'.blend'))
 
-                if not os.path.exists(src):
+                # in rare cases a filepath could point to a directory
+                if (not os.path.exists(src)) or os.path.isdir(src):
                     yield report("  %s: %r\n" % (colorize("source missing", color='red'), src))
                 else:
                     yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), src))

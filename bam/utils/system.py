@@ -91,3 +91,36 @@ def write_json_to_file(path, data):
                 # optional (pretty)
                 sort_keys=True, indent=4, separators=(',', ': '),
                 )
+
+
+def is_compressed_filetype(filepath):
+    """
+    Use to check if we should compress files in a zip.
+    """
+    # for now, only include files which Blender is likely to reference
+    import os
+    assert(isinstance(filepath, bytes))
+    return os.path.splitext(filepath)[1].lower() in {
+        # images
+        b'.exr',
+        b'.jpg', b'.jpeg',
+        b'.png',
+
+        # audio
+        b'.aif', b'.aiff',
+        b'.mp3',
+        b'.ogg', b'.ogv',
+        b'.wav',
+
+        # video
+        b'.avi',
+        b'.mkv',
+        b'.mov',
+        b'.mpg', b'.mpeg',
+
+        # archives
+        # '.bz2', '.tbz',
+        # '.gz', '.tgz',
+        # '.zip',
+        }
+

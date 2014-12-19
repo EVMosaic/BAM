@@ -350,13 +350,18 @@ def pack(
         _compress_level_orig = zlib.Z_DEFAULT_COMPRESSION
         zlib.Z_DEFAULT_COMPRESSION = compress_level
         _compress_mode = zipfile.ZIP_DEFLATED (compress_level == 0) if zipfile.ZIP_STORED else zipfile.ZIP_DEFLATED
+        if _compress_mode == zipfile.ZIP_STORED:
+            is_compressed_filetype = lambda fn: False
+        else:
+            from bam.utils.system import is_compressed_filetype
 
         with zipfile.ZipFile(blendfile_dst.decode('utf-8'), 'w', _compress_mode) as zip_handle:
             for fn in path_temp_files:
                 yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), fn))
                 zip_handle.write(
                         fn.decode('utf-8'),
-                        arcname=os.path.relpath(fn[:-1], base_dir_dst_temp).decode('utf-8'))
+                        arcname=os.path.relpath(fn[:-1], base_dir_dst_temp).decode('utf-8'),
+                        )
                 os.remove(fn)
 
             shutil.rmtree(base_dir_dst_temp)
@@ -368,14 +373,11 @@ def pack(
                     yield report("  %s: %r\n" % (colorize("source missing", color='red'), src))
                 else:
                     yield report("  %s: %r -> <archive>\n" % (colorize("copying", color='blue'), src))
-                    zip_handle.write(src.decode('utf-8'),
-                              arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'))
-
-                    """
-                    _dbg(b"")
-                    _dbg(b"REAL_FILE:     " + dst)
-                    _dbg(b"RELATIVE_FILE: " + os.path.relpath(dst, base_dir_dst))
-                    """
+                    zip_handle.write(
+                            src.decode('utf-8'),
+                            arcname=os.path.relpath(dst, base_dir_dst).decode('utf-8'),
+                            compress_type=zipfile.ZIP_STORED if is_compressed_filetype(dst) else _compress_mode,
+                            )
 
         zlib.Z_DEFAULT_COMPRESSION = _compress_level_orig
         del _compress_level_orig, _compress_mode

@@ -141,6 +141,10 @@ def pack(
 
     from bam.utils.system import colorize
 
+    # in case this is directly from the command line or user-input
+    blendfile_src = os.path.normpath(os.path.abspath(blendfile_src))
+    blendfile_dst = os.path.normpath(os.path.abspath(blendfile_dst))
+
     # first check args are OK
     # fakeroot _cant_ start with a separator, since we prepend chars to it.
     assert((blendfile_src_dir_fakeroot is None) or
@@ -418,7 +422,7 @@ def main():
     for msg in pack(
             args.path_src.encode('utf-8'),
             args.path_dst.encode('utf-8'),
-            args.mode,
+            mode=args.mode,
             ):
         report(msg)
 

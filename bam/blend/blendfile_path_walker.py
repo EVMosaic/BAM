@@ -623,6 +623,8 @@ class ExpandID:
     def expand_ME(block):  # 'Mesh'
         yield from ExpandID._expand_generic_animdata(block)
         yield from ExpandID._expand_generic_material(block)
+        yield block.get_pointer(b'texcomesh')
+        # TODO, TexFace? - it will be slow, we could simply ignore :S
 
     @staticmethod
     def expand_CU(block):  # 'Curve'
@@ -636,10 +638,18 @@ class ExpandID:
             yield block.get_pointer(b'vfonti')
             yield block.get_pointer(b'vfontbi')
 
+        yield block.get_pointer(b'bevobj')
+        yield block.get_pointer(b'taperobj')
+        yield block.get_pointer(b'textoncurve')
+
     @staticmethod
     def expand_MB(block):  # 'MBall'
         yield from ExpandID._expand_generic_animdata(block)
         yield from ExpandID._expand_generic_material(block)
+
+    @staticmethod
+    def expand_AR(block):  # 'bArmature'
+        yield from ExpandID._expand_generic_animdata(block)
 
     @staticmethod
     def expand_LA(block):  # 'Lamp'
@@ -676,7 +686,10 @@ class ExpandID:
     def expand_SC(block):  # 'Scene'
         yield from ExpandID._expand_generic_animdata(block)
         yield from ExpandID._expand_generic_nodetree_id(block)
+        yield block.get_pointer(b'camera')
         yield block.get_pointer(b'world')
+        yield block.get_pointer(b'set', None)
+        yield block.get_pointer(b'clip', None)
 
         sdna_index_Base = block.file.sdna_index_from_id[b'Base']
         for item in bf_utils.iter_ListBase(block.get_pointer(b'base.first')):
@@ -701,6 +714,9 @@ class ExpandID:
                             yield item.get_pointer(b'clip')
                         elif item_type == C_defs.SEQ_TYPE_MASK:
                             yield item.get_pointer(b'mask')
+                        elif item_type == C_defs.SEQ_TYPE_SOUND_RAM:
+                            yield item.get_pointer(b'sound')
+
 
             yield from seqbase(bf_utils.iter_ListBase(block_ed.get_pointer(b'seqbase.first')))
 

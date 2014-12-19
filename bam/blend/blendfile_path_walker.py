@@ -486,7 +486,8 @@ class FilePath:
                     if item_type >= C_defs.SEQ_TYPE_EFFECT:
                         pass
                     elif item_type == C_defs.SEQ_TYPE_META:
-                        yield from seqbase(bf_utils.iter_ListBase(item.get_pointer(b'seqbase.first', sdna_index_refine=sdna_index_Sequence)))
+                        yield from seqbase(bf_utils.iter_ListBase(
+                                item.get_pointer(b'seqbase.first', sdna_index_refine=sdna_index_Sequence)))
                     else:
                         item_strip = item.get_pointer(b'strip', sdna_index_refine=sdna_index_Sequence)
                         if item_strip is None:  # unlikely!
@@ -494,13 +495,11 @@ class FilePath:
                         item_stripdata = item_strip.get_pointer(b'stripdata')
 
                         if item_type == C_defs.SEQ_TYPE_IMAGE:
-                            yield FPElem_sequence_image_seq(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
-                        elif item_type == C_defs.SEQ_TYPE_MOVIE:
-                            yield FPElem_sequence_single(basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
-                        elif item_type == C_defs.SEQ_TYPE_SOUND_RAM:
-                            pass
-                        elif item_type == C_defs.SEQ_TYPE_SOUND_HD:
-                            pass
+                            yield FPElem_sequence_image_seq(
+                                    basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
+                        elif item_type in {C_defs.SEQ_TYPE_MOVIE, C_defs.SEQ_TYPE_SOUND_RAM, C_defs.SEQ_TYPE_SOUND_HD}:
+                            yield FPElem_sequence_single(
+                                    basedir, level, (item_strip, b'dir', item_stripdata, b'name')), extra_info
 
             yield from seqbase(bf_utils.iter_ListBase(block_ed.get_pointer(b'seqbase.first')))
 

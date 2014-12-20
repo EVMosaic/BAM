@@ -278,4 +278,3 @@ def finish(
 
     if use_json:
         print("\"complete\"\n]")
-

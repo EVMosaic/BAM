@@ -123,4 +123,3 @@ def is_compressed_filetype(filepath):
         # '.gz', '.tgz',
         # '.zip',
         }
-

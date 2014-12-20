@@ -159,10 +159,11 @@ class FPElem_sequence_image_seq(FPElem_sequence_single):
         userdata = (block, path)
     """
     __slots__ = ()
+
     def files_siblings(self):
         block, path, sub_block, sub_path = self.userdata
 
-        array =  block.get_pointer(b'stripdata')
+        array = block.get_pointer(b'stripdata')
         files = [array.get(b'name', use_str=False, base_index=i) for i in range(array.count)]
         return files
 
@@ -450,7 +451,6 @@ class FilePath:
             fp.is_sequence = True
         yield fp, extra_info
 
-
     @staticmethod
     def _from_block_VF(block, basedir, extra_info, level):
         if block[b'packedfile']:
@@ -715,7 +715,6 @@ class ExpandID:
                             yield item.get_pointer(b'mask')
                         elif item_type == C_defs.SEQ_TYPE_SOUND_RAM:
                             yield item.get_pointer(b'sound')
-
 
             yield from seqbase(bf_utils.iter_ListBase(block_ed.get_pointer(b'seqbase.first')))
 

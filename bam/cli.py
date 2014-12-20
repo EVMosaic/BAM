@@ -862,7 +862,6 @@ class bam_commands:
                 fatal("Path %r not found!" % p)
         paths = [p.encode('utf-8') for p in paths]
 
-
         if os.path.exists(filepath_remap):
             fatal("Remap in progress, run with 'finish' or remove %r" % filepath_remap)
 

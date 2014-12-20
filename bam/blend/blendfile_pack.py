@@ -350,7 +350,7 @@ def pack(
         assert(compress_level in range(-1, 10))
         _compress_level_orig = zlib.Z_DEFAULT_COMPRESSION
         zlib.Z_DEFAULT_COMPRESSION = compress_level
-        _compress_mode = zipfile.ZIP_DEFLATED (compress_level == 0) if zipfile.ZIP_STORED else zipfile.ZIP_DEFLATED
+        _compress_mode = zipfile.ZIP_STORED if (compress_level == 0) else zipfile.ZIP_DEFLATED
         if _compress_mode == zipfile.ZIP_STORED:
             is_compressed_filetype = lambda fn: False
         else:
@@ -427,8 +427,6 @@ def main():
 
     parser = create_argparse()
     args = parser.parse_args(sys.argv[1:])
-
-    encoding = sys.getfilesystemencoding()
 
     if args.use_quiet:
         report = lambda msg: None

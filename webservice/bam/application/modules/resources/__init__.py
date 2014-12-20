@@ -30,7 +30,6 @@ from application.modules.projects.model import Project
 from application.modules.projects.model import ProjectSetting
 
 
-
 class DirectoryAPI(Resource):
     """Displays list of files."""
 
@@ -118,14 +117,63 @@ class FileAPI(Resource):
         project = Project.query.filter_by(name=project_name).first()
 
         if command == 'info':
-            r = svn.local.LocalClient(project.repository_path)
 
+            r = svn.local.LocalClient(project.repository_path)
             svn_log = r.log_default(None, None, 5, filepath)
             svn_log = [l for l in svn_log]
 
+            size = os.path.getsize(os.path.join(r.path, filepath))
+
             return jsonify(
                 filepath=filepath,
-                log=svn_log)
+                log=svn_log,
+                size=size)
+
+        elif command == 'bundle':
+            filepath = os.path.join(project.repository_path, filepath)
+
+            if not os.path.exists(filepath):
+                return jsonify(message="Path not found %r" % filepath)
+            elif os.path.isdir(filepath):
+                return jsonify(message="Path is a directory %r" % filepath)
+
+            def bundle():
+                def report(txt):
+                    pass
+
+                # pack the file!
+                import tempfile
+
+                # weak! (ignore original opened file)
+                filepath_zip = tempfile.mkstemp(suffix=".zip")
+                os.close(filepath_zip[0])
+                filepath_zip = filepath_zip[1]
+
+                # subprocess here
+                for r in self.pack_fn(
+                        filepath, filepath_zip,
+                        project.repository_path,
+                        True,
+                        report,
+                        ):
+                    pass
+                # once done, send a message to the cloud and mark the download as available
+                # we will send the download form the cloud server
+                # return jsonify(filepath=filepath_zip)
+
+            # Check in database if file has been requested already
+
+            # Check if archive is available on the filesystem
+
+            # If file not avaliable, start the bundling and return a None filepath,
+            # which the cloud will interpret as, no file is available at the moment
+
+            p = Process(target=bundle,)
+            p.start()
+
+            filepath=None
+
+            return jsonify(filepath=filepath, status="building")
 
         elif command == 'checkout':
             filepath = os.path.join(project.repository_path, filepath)

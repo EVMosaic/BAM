@@ -33,14 +33,11 @@ extensions = [
     'sphinx.ext.todo',
 ]
 
-if 1:
-    extensions += ['sphinxarg.ext']
-    sys.path.extend([
-        # to import 'bam.py'
-        os.path.join(os.path.dirname(__file__), "..", ".."),
-        # to access the 'sphinxarg' extension
-        os.path.abspath(os.path.join("..", "exts"))
-        ])
+# create bam_cli_argparse.rst
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+__import__("bam_cli_argparse").main()
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

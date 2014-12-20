@@ -116,7 +116,8 @@ def parse_parser(parser, data=None, **kwargs):
         option = {
             'name': action.option_strings,
             'default': action.default if show_defaults else '==SUPPRESS==',
-            'help': action.help or ''
+            'help': action.help or '',
+            'metavar': action.metavar
         }
         if action.choices:
             option['choices'] = action.choices

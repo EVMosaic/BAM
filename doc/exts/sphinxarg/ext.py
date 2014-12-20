@@ -9,6 +9,29 @@ from sphinx.util.nodes import nested_parse_with_titles
 from sphinxarg.parser import parse_parser, parser_navigate
 
 
+def text_from_rst(text, is_rst=False):
+    if not text:
+        return []
+    if not is_rst:
+        return [nodes.paragraph(text=text)]
+    else:
+        text = text.lstrip("\n")
+        text_newlines = text.split("\n")
+        text_indent = len(text_newlines[0]) - len(text_newlines[0].lstrip(" \t"))
+        text = "\n".join([t[text_indent:] for t in text_newlines])
+        del text_newlines, text_indent
+
+        import docutils.parsers.rst
+        parser = docutils.parsers.rst.Parser()
+        filepath = None
+        settings = docutils.frontend.OptionParser(
+                components=(docutils.parsers.rst.Parser,)
+                ).get_default_values()
+        document = docutils.utils.new_document(filepath, settings)
+        parser.parse(text, document)
+        return document.children
+
+
 def map_nested_definitions(nested_content):
     if nested_content is None:
         raise Exception('Nested content should be iterable, not null')
@@ -91,7 +114,7 @@ def print_opt_list(data, nested_content):
     return nodes.option_list('', *items) if items else None
 
 
-def print_command_args_and_opts(arg_list, opt_list, sub_list=None):
+def print_command_args_and_opts(arg_list, opt_list, epilog_list=None, sub_list=None):
     items = []
     if arg_list:
         items.append(nodes.definition_list_item(
@@ -101,6 +124,8 @@ def print_command_args_and_opts(arg_list, opt_list, sub_list=None):
         items.append(nodes.definition_list_item(
             '', nodes.term(text='Options:'),
             nodes.definition('', opt_list)))
+    if epilog_list:
+        items.extend(epilog_list)
     if sub_list and len(sub_list):
         items.append(nodes.definition_list_item(
             '', nodes.term(text='Sub-commands:'),
@@ -137,7 +162,9 @@ def print_subcommand_list(data, nested_content):
             my_def.append(print_command_args_and_opts(
                 print_arg_list(child, nested_content),
                 print_opt_list(child, nested_content),
-                print_subcommand_list(child, nested_content)
+                text_from_rst(child.get('description', ""), is_rst=True),
+                print_subcommand_list(child, nested_content),
+
             ))
             items.append(
                 nodes.definition_list_item(
@@ -345,6 +372,7 @@ class ArgParseDirective(Directive):
         items.append(print_command_args_and_opts(
             print_arg_list(result, nested_content),
             print_opt_list(result, nested_content),
+            None,
             print_subcommand_list(result, nested_content)
         ))
         if 'epilog' in result:

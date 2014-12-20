@@ -15,6 +15,6 @@ doc: FORCE
 	@echo "xdg-open doc/build/html/index.html"
 
 clean: FORCE
-	$(MAKE) -C docs clean
+	$(MAKE) -C doc clean
 
 FORCE:

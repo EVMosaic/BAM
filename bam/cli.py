@@ -1128,9 +1128,20 @@ def create_argparse_deps(subparsers):
 
 
 def create_argparse_pack(subparsers):
+    import argparse
     subparse = subparsers.add_parser(
             "pack", aliases=("pk",),
             help="Pack a blend file and its dependencies into an archive",
+            description=
+    """
+    This command is used for packing a ``.blend`` file into a ``.zip`` file for redistribution.
+
+    .. code-block:: sh
+
+       # pack a blend with maximum compression for online downloads
+       bam pack /path/to/scene.blend --output scene.zip --compress
+    """,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
             )
     subparse.add_argument(
             dest="paths", nargs="+",
@@ -1155,9 +1166,41 @@ def create_argparse_pack(subparsers):
 
 
 def create_argparse_remap(subparsers):
+    import argparse
+
     subparse = subparsers.add_parser(
             "remap",
             help="Remap blend file paths",
+            description=
+    """
+    This command is a 3 step process:
+
+    - first run ``bam remap start .`` which stores the current state of your project (recursively).
+    - then re-arrange the files on the filesystem (rename, relocate).
+    - finally run ``bam remap finish`` to apply the changes, updating the ``.blend`` files internal paths.
+
+
+    .. code-block:: sh
+
+       cd /my/project
+
+       bam remap start .
+       mv photos textures
+       mv house_v14_library.blend house_libraray.blend
+       bam remap finish
+
+    .. note::
+
+       Remapping creates a file called ``bam_remap.data`` in the current directory.
+       You can relocate the entire project to a new location but on executing ``finish``,
+       this file must be accessible from the current directory.
+
+    .. note::
+
+       This command depends on files unique contents,
+       take care not to modify the files once remap is started.
+    """,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
             )
 
     subparse_remap_commands = subparse.add_subparsers(
@@ -1234,7 +1277,10 @@ def create_argparse():
         __doc__
         )
 
-    parser = argparse.ArgumentParser(description=usage_text)
+    parser = argparse.ArgumentParser(
+            prog="bam",
+            description=usage_text,
+            )
 
     subparsers = parser.add_subparsers(
             title='subcommands',

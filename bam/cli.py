@@ -19,7 +19,7 @@
 # ***** END GPL LICENCE BLOCK *****
 
 """
-Blender asset manager
+This is the entry point for command line access.
 """
 
 import os
@@ -1250,6 +1250,8 @@ def create_argparse():
     create_argparse_revert(subparsers)
     create_argparse_status(subparsers)
     create_argparse_list(subparsers)
+
+    # non-bam project commands
     create_argparse_deps(subparsers)
     create_argparse_pack(subparsers)
     create_argparse_remap(subparsers)

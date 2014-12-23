@@ -24,6 +24,6 @@ In order to use the `bam` command in your terminal, you can add this file in any
 your BIN paths and call it `bam`. Don't forget to give it +x permissions. ::
 
     #!/bin/sh
-    exec python /absolute/path/to/bam/client/cli/bam.py "$@"
+    exec python3 /absolute/path/to/bam/bam_cli.py "$@"
 
 As you can see, the file links to your bam.py file, so make sure that one is right!

@@ -63,6 +63,11 @@ class DirectoryAPI(Resource):
         items_list = []
 
         for f in os.listdir(path_root_abs):
+
+            # ignore svn internal paths
+            if f == ".svn":
+                continue
+
             f_rel = os.path.join(path, f)
             f_abs = os.path.join(path_root_abs, f)
 

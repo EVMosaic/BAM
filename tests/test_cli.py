@@ -711,7 +711,7 @@ class BamListTest(BamSessionTestCase):
 
         ret = bam_run_as_json(["ls", "--json"], proj_path)
 
-        self.assertEqual(1, len(ret))
+        self.assertEqual([], [])
 
 
 class BamCommitTest(BamSessionTestCase):
@@ -1356,6 +1356,54 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         # self.assertEqual(ret[0], ["house_rel.blend", "file"])
 
 
+class BamVariation(BamSessionTestCase):
+    """
+    """
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
+    def test_variation(self):
+        """
+        """
+
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+        variation_path = os.path.join(session_path, "variations")
+
+        if 1:
+            import shutil
+            # path cant already exist, ugh
+            shutil.copytree(
+                    os.path.join(CURRENT_DIR, "blends", "variations"),
+                    variation_path,
+                    )
+            stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+            self.assertEqual("", stderr)
+
+
+        listing = bam_run_as_json(["ls", "variations", "--json"], session_path)
+        self.assertEqual(
+                listing,
+                [["cone.blue.blend", "file"],
+                 ["cone.red.blend", "file"],
+                 ["lib_endpoint.blend", "file"]],
+                 ["lib_user.blend", "file"]],
+                )
+
+        f_variation = os.path.join(variation_path, "lib_user.json")
+
+        # now create variation file & commit it
+        file_quick_write(
+                session_path,
+                f,
+                "",
+                append=True)
+
+
+        # import time; time.sleep(10000000)
+
+
 class BamIgnoreTest(BamSessionTestCase):
     """Checks out a project, creates a .bamignore file with a few rules
     and tries to commit files that violate them.
@@ -1418,6 +1466,7 @@ class BamIgnoreTest(BamSessionTestCase):
 
         # now check for status
         self.assertRaises(RuntimeError, bam_run, ["status", ], session_path)
+
 
 class BamRemapTest(BamSimpleTestCase):
     """ Test remapping existing blend files via the 'bam remap' command.

@@ -425,7 +425,7 @@ def blendfile_template_create_from_files(proj_path, session_path, blendfile, ima
 
     for i, f_proj in enumerate(images):
         f_abs = os.path.join(session_path, f_proj)
-        os.makedirs(os.path.dirname(f_abs))
+        os.makedirs(os.path.dirname(f_abs), exist_ok=True)
         file_quick_image(f_abs, fill_color=bytes([i]))
 
     blendfile_abs = os.path.join(session_path, blendfile)
@@ -861,6 +861,9 @@ class BamCheckoutTest(BamSessionTestCase):
         self.assertRaises(RuntimeError, bam_run, ["checkout", file_name, "--output", session_path], session_path)
 
     def test_checkout_variation(self):
+        """
+        Checks that we can swap out a blend library with a variation.
+        """
         session_name = "mysession"
         proj_path, session_path = self.init_session(session_name)
         variation_path = os.path.join(session_path, "variations")
@@ -886,9 +889,8 @@ class BamCheckoutTest(BamSessionTestCase):
 
         self.assertEqual(listing, listing_expect)
 
-        f_variation = os.path.join(variation_path, "lib_user.json")
-
         # now create variation file & commit it
+        f_variation = os.path.join(variation_path, "lib_user.json")
         file_quick_write(
                 f_variation,
                 data='{"variations": ["cone.blue.blend"]}',
@@ -919,6 +921,50 @@ class BamCheckoutTest(BamSessionTestCase):
         self.assertEqual(ret[0][3], "OK")
         self.assertEqual(ret[1][1], "//cone.blue.blend")
         self.assertEqual(ret[1][3], "OK")
+
+    def test_checkout_variations_image(self):
+        # absolute path: (project relative) -->
+        # checkout path: (relative to blend)
+        blendfile = "image_user.blend"
+        images = ("maps/generic.png",)
+
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+
+        os.makedirs(os.path.join(session_path, "maps"))
+
+        blendfile_template_create_from_files(
+                proj_path, session_path,
+                blendfile, images)
+
+        # add image
+        file_quick_image(
+                session_path,
+                "maps/generic.blue.png",
+                fill_color=b'\x00\x00\xff\xff',
+                )
+
+        # now create variation file & commit it
+        f_variation = os.path.join(session_path, "image_user.json")
+        file_quick_write(
+                f_variation,
+                data='{"variations": ["maps/generic.blue.png"]}',
+                )
+
+        stdout, stderr = bam_run(["commit", "-m", "variation"], session_path)
+        self.assertEqual("", stderr)
+
+        # we could commit and checkout, but instead pack
+        stdout, stderr = bam_run(["pack", blendfile, "--output", "out.zip", "--compress", "store"], session_path)
+        self.assertEqual("", stderr)
+
+        import zipfile
+        with zipfile.ZipFile(os.path.join(session_path, "out.zip"), 'r') as z_handle:
+            ret = z_handle.namelist()
+            ret.sort()
+            self.assertEqual(
+                    z_handle.namelist(),
+                    ["image_user.blend", "maps/generic.blue.png"])
 
 
 class BamUpdateTest(BamSessionTestCase):

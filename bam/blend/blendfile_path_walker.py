@@ -20,7 +20,7 @@
 
 import os
 # gives problems with scripts that use stdout, for testing 'bam deps' for eg.
-# VERBOSE = os.environ.get('BAM_VERBOSE', False)
+VERBOSE = False  # os.environ.get('BAM_VERBOSE', False)
 TIMEIT = False
 
 

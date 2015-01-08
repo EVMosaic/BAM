@@ -818,7 +818,7 @@ class bam_commands:
             print("]")
         else:
             for f_src, f_dst, f_dst_abs, f_status in status_walker():
-                print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))
+                print("  %r -> (%r = %r) %s" % (f_src, f_dst, f_dst_abs, f_status))ia
 
     @staticmethod
     def pack(
@@ -1109,7 +1109,7 @@ def create_argparse_deps(subparsers):
             help="List dependencies for file(s)",
             )
     subparse.add_argument(
-            dest="paths", nargs="*",
+            dest="paths", nargs="+",
             help="Path(s) to operate on",
             )
     subparse.add_argument(
@@ -1122,7 +1122,7 @@ def create_argparse_deps(subparsers):
     subparse.set_defaults(
             func=lambda args:
             bam_commands.deps(
-                    args.paths or ["."], args.recursive,
+                    args.paths, args.recursive,
                     use_json=args.json),
                     )
 

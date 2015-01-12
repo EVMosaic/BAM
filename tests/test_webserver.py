@@ -6,7 +6,7 @@ that all tests pass.
 
 Individual tests can be run with the following syntax:
 
-    python tests.py ServerTestCase.test_job_delete
+    python3 -m unittest test_webserver.ServerUsageTest.test_file_bundle
 
 """
 
@@ -33,6 +33,7 @@ from application import db
 from test_cli import svn_repo_create
 from test_cli import svn_repo_checkout
 from test_cli import file_quick_touch
+from test_cli import file_quick_write
 from test_cli import run_check
 from test_cli import wait_for_input
 
@@ -68,7 +69,9 @@ class ServerTestCase(unittest.TestCase):
 
     def setUp(self):
 
-        if not os.path.isdir(TMP_DIR):
+        if os.path.isdir(TMP_DIR):
+            shutil.rmtree(TMP_DIR)
+        else:
             os.makedirs(TMP_DIR)
 
         # Create remote storage (usually is on the server).
@@ -93,8 +96,9 @@ class ServerTestCase(unittest.TestCase):
         if not svn_repo_checkout(path_svn_repo_url, path_svn_checkout):
             self.fail("svn_repo: checkout %r" % path_svn_repo_url)
 
+        file_data = b"goodbye cruel world!\n"
+        file_quick_write(path_svn_checkout, "file1", file_data)
         dummy_file = os.path.join(path_svn_checkout, "file1")
-        file_quick_touch(dummy_file)
 
         # adds all files recursively
         if not run_check(["svn", "add", dummy_file]):
@@ -107,6 +111,8 @@ class ServerTestCase(unittest.TestCase):
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///'+ TMP_DIR +'/test.sqlite'
         app.config['TESTING'] = True
         db.create_all()
+
+        # os.chmod(TMP_DIR + "/test.sqlite", 0o777)
         # Create a testing project, based on the global configuration (depends on a
         # correct initialization of the SVN repo and on the creation of a checkout)
 
@@ -177,7 +183,7 @@ class ServerUsageTest(ServerTestCase):
 
         assert res.status_code == 200
         d = json.loads(res.data.decode('utf-8'))
-        # print(d)
+
 
 
     def test_file_info(self):
@@ -197,7 +203,21 @@ class ServerUsageTest(ServerTestCase):
 
         assert res.status_code == 200
         f = json.loads(res.data.decode('utf-8'))
-        print(f['filepath'])
+        assert f['status'] == 'building'
+
+        # Not ideal, but we have to wait for the server to build the bundle
+        # and this happens in the background.
+        import time
+        time.sleep(2)
+
+        res = self.open_with_auth('/{0}/file'.format(PROJECT_NAME), 
+            'GET', 
+            data=dict(filepath='file1', command='bundle'))
+        f = json.loads(res.data.decode('utf-8'))
+        assert f['status'] == 'available'
+
+        #input()
+
 
 
 if __name__ == '__main__':

@@ -59,13 +59,11 @@ auth = HTTPBasicAuth()
 
 try:
     import config
-except ImportError:
-    config = None
-
-if config is None:
-    app.config["ALLOWED_EXTENSIONS"] = {'txt', 'mp4', 'png', 'jpg', 'jpeg', 'gif', 'blend', 'zip'}
-else:
     app.config.from_object(config.Development)
+except ImportError:
+    app.config["ALLOWED_EXTENSIONS"] = {'txt', 'mp4', 'png', 'jpg', 'jpeg', 'gif', 'blend', 'zip'}
+    app.config["STORAGE_BUNDLES"] = "/tmp/bam_storage_bundles"
+
 
 db = SQLAlchemy(app)
 log = logging.getLogger("webservice")

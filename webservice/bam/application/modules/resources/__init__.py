@@ -4,6 +4,7 @@ import svn.local
 import werkzeug
 import xml.etree.ElementTree
 import logging
+from multiprocessing import Process
 
 from flask import Flask
 from flask import jsonify
@@ -22,12 +23,14 @@ from flask.ext.restful import marshal
 from application import auth
 from application import app
 from application import log
+from application import db
 
 from application.modules.admin import backend
 from application.modules.admin import settings
 from application.modules.projects import admin
 from application.modules.projects.model import Project
 from application.modules.projects.model import ProjectSetting
+from application.modules.resources.model import Bundle
 
 
 class DirectoryAPI(Resource):
@@ -129,12 +132,22 @@ class FileAPI(Resource):
 
             size = os.path.getsize(os.path.join(r.path, filepath))
 
+            # Check bundle_status: (ready, in_progress)
+            full_filepath = os.path.join(project.repository_path, filepath)
+            b = Bundle.query.filter_by(source_file_path=full_filepath).first()
+            if b:
+                bundle_status = b.status
+            else:
+                bundle_status = None
+
             return jsonify(
                 filepath=filepath,
                 log=svn_log,
-                size=size)
+                size=size,
+                bundle_status=bundle_status)
 
         elif command == 'bundle':
+            #return jsonify(filepath=filepath, status="building")
             filepath = os.path.join(project.repository_path, filepath)
 
             if not os.path.exists(filepath):
@@ -150,7 +163,7 @@ class FileAPI(Resource):
                 import tempfile
 
                 # weak! (ignore original opened file)
-                filepath_zip = tempfile.mkstemp(suffix=".zip")
+                filepath_zip = tempfile.mkstemp(dir=app.config['STORAGE_BUNDLES'], suffix=".zip")
                 os.close(filepath_zip[0])
                 filepath_zip = filepath_zip[1]
 
@@ -162,13 +175,38 @@ class FileAPI(Resource):
                         report,
                         ):
                     pass
-                # once done, send a message to the cloud and mark the download as available
-                # we will send the download form the cloud server
+
+                b = Bundle.query.filter_by(source_file_path=filepath).first()
+                if b:
+                    b.bundle_path = filepath_zip
+                else:
+                    b = Bundle(
+                        source_file_path=filepath,
+                        bundle_path=filepath_zip)
+                    db.session.add(b)
+                b.status = "available"
+                db.session.commit()
+                # once done, we update the queue, as well as the status of the
+                # bundle in the table and serve the bundle_path
                 # return jsonify(filepath=filepath_zip)
 
-            # Check in database if file has been requested already
 
-            # Check if archive is available on the filesystem
+            # Check in database if file has been requested already
+            b = Bundle.query.filter_by(source_file_path=filepath).first()
+            if b:
+                if b.status == "available":
+                    # Check if archive is available on the filesystem
+                    if os.path.isfile(b.bundle_path):
+                        # serve the local path for the zip file
+                        return jsonify(filepath=b.bundle_path, status="available")
+                    else:
+                        b.status = "building"
+                        db.session.commit()
+                        # build the bundle again
+                elif b.status == "building":
+                    # we are waiting for the server to build the archive
+                    filepath=None
+                    return jsonify(filepath=filepath, status="building")
 
             # If file not avaliable, start the bundling and return a None filepath,
             # which the cloud will interpret as, no file is available at the moment
@@ -177,7 +215,6 @@ class FileAPI(Resource):
             p.start()
 
             filepath=None
-
             return jsonify(filepath=filepath, status="building")
 
         elif command == 'checkout':
@@ -349,7 +386,6 @@ class FileAPI(Resource):
         """
         import os
         from bam.blend import blendfile_pack
-
         assert(os.path.exists(filepath) and not os.path.isdir(filepath))
         log.info("  Source path: %r" % filepath)
         log.info("  Zip path: %r" % filepath_zip)

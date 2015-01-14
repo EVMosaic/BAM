@@ -966,6 +966,38 @@ class BamCheckoutTest(BamSessionTestCase):
                     z_handle.namelist(),
                     ["image_user.blend", "maps/generic.blue.png"])
 
+    def test_checkout_missing_image(self):
+        """
+        Check we can checkout a blend that has a missing path.
+        """
+        blendfile = "image_user.blend"
+        images = ("maps/generic.png",)
+
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+
+        os.makedirs(os.path.join(session_path, "maps"))
+
+        blendfile_template_create_from_files(
+                proj_path, session_path,
+                blendfile, images)
+
+        # we are going to remove the maps folder, getting bam to handle a missing path
+        import shutil
+        shutil.rmtree(os.path.join(session_path, "maps"))
+
+        # commit and checkout
+        stdout, stderr = bam_run(["commit", "-m", "blend with missing files"], session_path)
+        self.assertEqual("", stderr)
+
+        shutil.rmtree(session_path)
+
+        session_path = session_path
+        stdout, stderr = bam_run(["checkout", blendfile, "--output", session_path], proj_path)
+        self.assertEqual("", stderr)
+        self.assertIn("source missing", stdout)
+        self.assertIn(images[0], stdout)
+
 
 class BamUpdateTest(BamSessionTestCase):
     """Test for the `bam update` command.

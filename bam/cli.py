@@ -1321,4 +1321,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    raise Exception("This module can't be executed directly, Call '../bam_cli.py'")

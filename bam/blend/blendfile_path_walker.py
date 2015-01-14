@@ -435,7 +435,6 @@ class FilePath:
         if blendfile_level_cb_exit is not None:
             blendfile_level_cb_exit(filepath)
 
-
     # ------------------------------------------------------------------------
     # Direct filepaths from Blocks
     #

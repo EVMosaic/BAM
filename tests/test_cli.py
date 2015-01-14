@@ -125,7 +125,7 @@ import shutil
 import json
 
 TEMP_LOCAL = "/tmp/bam_test"
-# Separate tmp folder for server, since we don't reset the server at every test
+# Separate tmp directory for server, since we don't reset the server at every test
 TEMP_SERVER = "/tmp/bam_test_server"
 PORT = 5555
 PROJECT_NAME = "test_project"
@@ -135,7 +135,8 @@ CURRENT_DIR = os.path.dirname(__file__)
 
 
 def args_as_string(args):
-    """ Print args so we can paste them to run them again.
+    """
+    Print args so we can paste them to run them again.
     """
     import shlex
     return " ".join([shlex.quote(c) for c in args])
@@ -276,7 +277,8 @@ def bam_run_as_json(argv, cwd=None):
 
 
 def file_quick_write(path, filepart=None, data=None, append=False):
-    """Quick file creation utility.
+    """
+    Quick file creation utility.
     """
     if data is None:
         data = b''
@@ -328,7 +330,9 @@ def file_quick_touch_blend(path, filepart=None, times=None):
 
 def file_quick_image(path, filepart=None, fill_color=b'\xff' * 4):
     def write_png(buf, width, height):
-        """ buf: must be bytes or a bytearray in py3, a regular string in py2. formatted RGBARGBA... """
+        """
+        buf: must be bytes or a bytearray in py3, a regular string in py2. formatted RGBARGBA...
+        """
         import zlib
         import struct
 
@@ -472,8 +476,8 @@ def blendfile_template_create_from_file_liblinks(proj_path, session_path, blendf
 
 
 def wait_for_input():
-    """for debugging,
-    so we can inspect the state of the system before the test finished.
+    """
+    For debugging, so we can inspect the state of the system before the test finished.
     """
     input('press any key to continue:')
 
@@ -482,7 +486,8 @@ def wait_for_input():
 
 
 def server(mode='testing', debug=False):
-    """Start development server via Flask app.run() in a separate thread. We need server
+    """
+    Start development server via Flask app.run() in a separate thread. We need server
     to run in order to check most of the client commands.
     """
 
@@ -578,7 +583,8 @@ import unittest
 
 
 class BamSimpleTestCase(unittest.TestCase):
-    """ Basic testcase, only make temp dirs.
+    """
+    Basic testcase, only make temp dirs.
     """
     def setUp(self):
 
@@ -608,7 +614,7 @@ class BamSessionTestCase(unittest.TestCase):
 
         if not os.path.isdir(TEMP_LOCAL):
             os.makedirs(TEMP_LOCAL)
-        # Create local storage folder
+        # Create local storage directory
         if not os.path.isdir(self.path_local_store):
             os.makedirs(self.path_local_store)
 
@@ -617,7 +623,7 @@ class BamSessionTestCase(unittest.TestCase):
         if not os.path.isdir(self.path_remote_store):
             os.makedirs(self.path_remote_store)
 
-        # Check for SVN repo folder
+        # Check for SVN repo directory
         path_svn_repo = os.path.join(self.path_remote_store, "svn_repo")
         if not os.path.isdir(path_svn_repo):
             os.makedirs(path_svn_repo)
@@ -663,7 +669,8 @@ class BamSessionTestCase(unittest.TestCase):
         return proj_path
 
     def init_session(self, session_name):
-        """ Initialize the project and create a new session.
+        """
+        Initialize the project and create a new session.
         """
 
         proj_path = self.init_repo()
@@ -675,8 +682,9 @@ class BamSessionTestCase(unittest.TestCase):
 
 
 class BamInitTest(BamSessionTestCase):
-    """Test the `bam init user@http://bamserver/projectname` command.
-    We verify that a project folder is created, and that it contains a .bam subfolder
+    """
+    Test the `bam init user@http://bamserver/projectname` command.
+    We verify that a project directory is created, and that it contains a .bam subdirectory
     with a config file, with the right url and user values (given in the command)
     """
 
@@ -698,7 +706,8 @@ class BamInitTest(BamSessionTestCase):
 
 
 class BamListTest(BamSessionTestCase):
-    """Test for the `bam ls --json` command. We run it with --json for easier command
+    """
+    Test for the `bam ls --json` command. We run it with --json for easier command
     output parsing.
     """
 
@@ -715,7 +724,8 @@ class BamListTest(BamSessionTestCase):
 
 
 class BamCommitTest(BamSessionTestCase):
-    """Test for the `bam create` command. We run it with --json for easier command
+    """
+    Test for the `bam create` command. We run it with --json for easier command
     output parsing.
     """
 
@@ -741,7 +751,8 @@ class BamCommitTest(BamSessionTestCase):
         self.assertEqual("", stderr)
 
     def test_commit_partial(self):
-        """Checks the commit is only writing the modified files,
+        """
+        Checks the commit is only writing the modified files,
         across multiple commits and changes.
         """
         session_name = "mysession"
@@ -783,7 +794,8 @@ class BamCommitTest(BamSessionTestCase):
                  ], ret)
 
     def test_create_commit_update(self):
-        """After creating a new session, we commit its content. Then, we do some
+        """
+        After creating a new session, we commit its content. Then, we do some
         edits and we commit again.
         """
 
@@ -814,7 +826,8 @@ class BamCommitTest(BamSessionTestCase):
 
 
 class BamCheckoutTest(BamSessionTestCase):
-    """Test for the `bam checkout` command.
+    """
+    Test for the `bam checkout` command.
     """
 
     def __init__(self, *args):
@@ -982,7 +995,7 @@ class BamCheckoutTest(BamSessionTestCase):
                 proj_path, session_path,
                 blendfile, images)
 
-        # we are going to remove the maps folder, getting bam to handle a missing path
+        # we are going to remove the maps directory, getting bam to handle a missing path
         import shutil
         shutil.rmtree(os.path.join(session_path, "maps"))
 
@@ -1000,7 +1013,8 @@ class BamCheckoutTest(BamSessionTestCase):
 
 
 class BamUpdateTest(BamSessionTestCase):
-    """Test for the `bam update` command.
+    """
+    Test for the `bam update` command.
     """
 
     def __init__(self, *args):
@@ -1055,7 +1069,8 @@ class BamUpdateTest(BamSessionTestCase):
 class BamBlendTest(BamSimpleTestCase):
 
     def test_create_all(self):
-        """ This simply tests all the create functions run without error.
+        """
+        This simply tests all the create functions run without error.
         """
         import blendfile_templates
         TEMP_SESSION = os.path.join(TEMP_LOCAL, "blend_file_template")
@@ -1109,7 +1124,8 @@ class BamBlendTest(BamSimpleTestCase):
 
 
 class BamDeleteTest(BamSessionTestCase):
-    """Test for the `bam commit` command when files are being deleted.
+    """
+    Test for the `bam commit` command when files are being deleted.
     """
 
     def __init__(self, *args):
@@ -1422,7 +1438,8 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
         self._test_absolute_relative_from_blendfiles__structure(proj_path, session_path)
 
     def test_absolute_relative_from_blendfiles_partial(self):
-        """Same as test_absolute_relative_from_blendfiles(),
+        """
+        Same as test_absolute_relative_from_blendfiles(),
         but start from a single file commit
         """
         import shutil
@@ -1495,7 +1512,8 @@ class BamRelativeAbsoluteTest(BamSessionTestCase):
 
 
 class BamIgnoreTest(BamSessionTestCase):
-    """Checks out a project, creates a .bamignore file with a few rules
+    """
+    Checks out a project, creates a .bamignore file with a few rules
     and tries to commit files that violate them.
     """
     def __init__(self, *args):
@@ -1510,7 +1528,7 @@ class BamIgnoreTest(BamSessionTestCase):
         # Regular expressions for smart people
         file_data_bamignore = (
             r".*\.txt$",
-            r".*/subfolder/.*",
+            r".*/subdirectory/.*",
             )
 
         proj_path, session_path = self.init_session(session_name)
@@ -1522,7 +1540,7 @@ class BamIgnoreTest(BamSessionTestCase):
         file_quick_write(session_path, file_name, file_data)
 
         import os
-        subdir_path = os.path.join(session_path, "subfolder")
+        subdir_path = os.path.join(session_path, "subdirectory")
         os.makedirs(subdir_path)
         file_quick_write(subdir_path, "testfile.blend1", file_data)
 
@@ -1559,8 +1577,10 @@ class BamIgnoreTest(BamSessionTestCase):
 
 
 class BamRemapTest(BamSimpleTestCase):
-    """ Test remapping existing blend files via the 'bam remap' command.
-        note: this doesn't need any bam-session. simply a directory to work in.
+    """
+    Test remapping existing blend files via the 'bam remap' command.
+
+    note: this doesn't need any bam-session. simply a directory to work in.
     """
 
     @staticmethod

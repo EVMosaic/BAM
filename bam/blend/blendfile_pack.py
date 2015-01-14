@@ -387,7 +387,9 @@ def pack(
         from bam.utils.system import uuid_from_file
 
         for src, dst in path_copy_files:
-            paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = uuid_from_file(src)
+            # reports are handled again, later on.
+            if os.path.exists(src):
+                paths_uuid[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = uuid_from_file(src)
         # XXX, better way to store temp target
         blendfile_dst_tmp = temp_remap_cb(blendfile_src, base_dir_src)
         paths_uuid[os.path.basename(blendfile_src).decode('utf-8')] = uuid_from_file(blendfile_dst_tmp)

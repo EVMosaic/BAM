@@ -106,6 +106,24 @@ class FPElem:
         else:
             return utils.compatpath(filepath)
 
+    def filepath_assign_edits(self, filepath, binary_edits):
+        self._set_cb_edits(filepath, binary_edits)
+
+    @staticmethod
+    def _filepath_assign_edits(block, path, filepath, binary_edits):
+        """
+        Record the write to a separate entry (binary file-like object),
+        this lets us replay the edits later.
+        (so we can replay them onto the clients local cache without a file transfer).
+        """
+        import struct
+        assert(type(filepath) is bytes)
+        assert(type(path) is bytes)
+        ofs, size = block.get_file_offset(path)
+        # ensure we dont write past the field size & allow for \0
+        filepath = filepath[:size - 1]
+        binary_edits.append((ofs, filepath + b'\0'))
+
     @property
     def filepath(self):
         return self._get_cb()
@@ -134,11 +152,15 @@ class FPElem_block_path(FPElem):
         block, path = self.userdata
         block[path] = filepath
 
+    def _set_cb_edits(self, filepath, binary_edits):
+        block, path = self.userdata
+        self._filepath_assign_edits(block, path, filepath, binary_edits)
+
 
 class FPElem_sequence_single(FPElem):
     """
     Movie sequence
-        userdata = (block, path)
+        userdata = (block, path, sub_block, sub_path)
     """
     __slots__ = ()
 
@@ -148,16 +170,23 @@ class FPElem_sequence_single(FPElem):
 
     def _set_cb(self, filepath):
         block, path, sub_block, sub_path = self.userdata
-
         head, sep, tail = utils.splitpath(filepath)
 
         block[path] = head + sep
         sub_block[sub_path] = tail
 
+    def _set_cb_edits(self, filepath, binary_edits):
+        block, path, sub_block, sub_path = self.userdata
+        head, sep, tail = utils.splitpath(filepath)
+
+        self._filepath_assign_edits(block, path, head + sep, binary_edits)
+        self._filepath_assign_edits(sub_block, sub_path, tail, binary_edits)
+
+
 class FPElem_sequence_image_seq(FPElem_sequence_single):
     """
     Image sequence
-        userdata = (block, path)
+        userdata = (block, path, sub_block, sub_path)
     """
     __slots__ = ()
 

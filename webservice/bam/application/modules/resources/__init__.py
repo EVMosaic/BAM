@@ -394,6 +394,8 @@ class FileAPI(Resource):
         paths_remap = {}
         paths_uuid = {}
 
+        binary_edits = {}
+
         if filepath.endswith(".blend"):
 
             # find the path relative to the project's root
@@ -407,6 +409,8 @@ class FileAPI(Resource):
                         all_deps=all_deps,
                         report=report,
                         blendfile_src_dir_fakeroot=blendfile_src_dir_fakeroot.encode('utf-8'),
+                        readonly=True,
+                        binary_edits=binary_edits,
                         )
             except:
                 log.exception("Error packing the blend file")
@@ -453,7 +457,11 @@ class FileAPI(Resource):
             write_dict_as_json(".bam_paths_remap.json", paths_remap)
             write_dict_as_json(".bam_paths_uuid.json", paths_uuid)
 
+            import pickle
+            zip_handle.writestr(".bam_paths_edit.data", pickle.dumps(binary_edits, pickle.HIGHEST_PROTOCOL))
             del write_dict_as_json
+
+        del binary_edits
         # done writing json!
 
     @staticmethod

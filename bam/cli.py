@@ -454,6 +454,62 @@ class bam_commands:
 
         sys.stdout.write("\nwritten: %r\n" % session_rootdir)
 
+        # -------------------
+        # replay binary edits
+        #
+        # We've downloaded the files pristine from their repo.
+        # This means we can use local cache and avoid re-downloading.
+        #
+        # But for files to work locally we have to apply binary edits given to us by the server.
+
+        sys.stdout.write("replaying edits...\n")
+        with open(os.path.join(session_rootdir, ".bam_paths_edit.data"), 'rb') as fh:
+            import pickle
+            binary_edits_all = pickle.load(fh)
+            paths_uuid_update = {}
+            for blendfile, binary_edits in binary_edits_all.items():
+                if binary_edits:
+                    sys.stdout.write("  operating on: %r\n" % blendfile)
+                    sys.stdout.flush()
+                    blendfile_abs = os.path.join(session_rootdir, blendfile.decode('utf-8'))
+                    # we don't want to read, just edit whats there.
+                    with open(blendfile_abs, 'rb+') as fh_blend:
+                        for ofs, data in binary_edits:
+                            # sys.stdout.write("\n%r\n" % data)
+                            sys.stdout.flush()
+                            # ensure we're writing to the correct location.
+                            # fh_blend.seek(ofs)
+                            # sys.stdout.write(repr(b'existing data: ' + fh_blend.read(len(data) + 1)))
+                            fh_blend.seek(ofs)
+                            fh_blend.write(data)
+                    sys.stdout.write("\n")
+                    sys.stdout.flush()
+
+                    # update hash!
+                    # we could do later, but the file is fresh in cache, so do now
+                    from bam.utils.system import uuid_from_file
+                    paths_uuid_update[blendfile.decode('utf-8')] = uuid_from_file(blendfile_abs)
+                    del uuid_from_file
+            del pickle
+            del binary_edits_all
+
+            if paths_uuid_update:
+                # freshen the UUID's based on the replayed binary_edits
+                from bam.utils.system import write_json_to_file
+                paths_uuid = bam_session.load_paths_uuid(session_rootdir)
+                assert(set(paths_uuid_update.keys()).issubset(set(paths_uuid.keys())))
+                paths_uuid.update(paths_uuid_update)
+                write_json_to_file(os.path.join(session_rootdir, ".bam_paths_uuid.json"), paths_uuid)
+                del write_json_to_file
+                del paths_uuid
+            del paths_uuid_update
+
+        # we will need to keep these later
+        os.remove(os.path.join(session_rootdir, ".bam_paths_edit.data"))
+
+        # done with binary edits
+        # ----------------------
+
     @staticmethod
     def update(paths):
         # Load project configuration
@@ -874,6 +930,7 @@ class bam_commands:
         with open(filepath_remap, 'wb') as fh:
             import pickle
             pickle.dump(remap_data, fh, pickle.HIGHEST_PROTOCOL)
+            del pickle
 
     @staticmethod
     def remap_finish(
@@ -896,6 +953,7 @@ class bam_commands:
         with open(filepath_remap, 'rb') as fh:
             import pickle
             remap_data = pickle.load(fh)
+            del pickle
 
         from bam.blend import blendfile_path_remap
         blendfile_path_remap.finish(

@@ -350,12 +350,21 @@ class BlendFileBlock:
         assert(type(dna_type_id) is bytes)
         self.refine_type_from_index(self.file.sdna_index_from_id[dna_type_id])
 
-    def get(self, path,
+    def get_file_offset(self, path,
             default=...,
             sdna_index_refine=None,
-            use_nil=True, use_str=True,
             base_index=0,
             ):
+        """
+        Return (offset, length)
+        """
+        assert(type(path) is bytes)
+
+        ofs = self.file_offset
+        if base_index != 0:
+            assert(base_index < self.count)
+            ofs += (self.size // self.count) * base_index
+        self.file.handle.seek(ofs, os.SEEK_SET)
 
         if sdna_index_refine is None:
             sdna_index_refine = self.sdna_index
@@ -363,13 +372,30 @@ class BlendFileBlock:
             self.file.ensure_subtype_smaller(self.sdna_index, sdna_index_refine)
 
         dna_struct = self.file.structs[sdna_index_refine]
-        ofs = self.file_offset
+        field = dna_struct.field_from_path(
+                self.file.header, self.file.handle, path)
 
+        return (self.file.handle.tell(), field.dna_name.array_size)
+
+    def get(self, path,
+            default=...,
+            sdna_index_refine=None,
+            use_nil=True, use_str=True,
+            base_index=0,
+            ):
+
+        ofs = self.file_offset
         if base_index != 0:
             assert(base_index < self.count)
             ofs += (self.size // self.count) * base_index
-
         self.file.handle.seek(ofs, os.SEEK_SET)
+
+        if sdna_index_refine is None:
+            sdna_index_refine = self.sdna_index
+        else:
+            self.file.ensure_subtype_smaller(self.sdna_index, sdna_index_refine)
+
+        dna_struct = self.file.structs[sdna_index_refine]
         return dna_struct.field_get(
                 self.file.header, self.file.handle, path,
                 default=default,

@@ -122,6 +122,13 @@ def pack(
 
         # Read variations from json files.
         use_variations=True,
+
+        # do _everything_ except to write the paths.
+        # useful if we want to calculate deps to remap but postpone applying them.
+        readonly=False,
+        # dict of binary_edits:
+        # {file: [(ofs, bytes), ...], ...}
+        binary_edits=None,
         ):
     """
     :param deps_remap: Store path deps_remap info as follows.
@@ -135,7 +142,7 @@ def pack(
     #   so we can modify in-place.
     # - temp files are only created once, (if we never touched them before),
     #   this way, for linked libraries - a single blend file may be used
-    #   multiple times, each access will apply new edits ontop of the old ones.
+    #   multiple times, each access will apply new edits on top of the old ones.
     # - we track which libs we have touched (using 'lib_visit' arg),
     #   this means that the same libs wont be touched many times to modify the same data
     #   also prevents cyclic loops from crashing.
@@ -275,7 +282,7 @@ def pack(
 
     for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
             blendfile_src,
-            readonly=False,
+            readonly=readonly,
             temp_remap_cb=temp_remap_cb,
             recursive=True,
             recursive_all=all_deps,
@@ -292,6 +299,14 @@ def pack(
         if fp_blend_basename_last != fp_blend_basename:
             yield report("  %s:       %s\n" % (colorize("blend", color='blue'), fp_blend))
             fp_blend_basename_last = fp_blend_basename
+
+            if binary_edits is not None:
+                # TODO, temp_remap_cb makes paths, this isn't ideal,
+                # in this case we only want to remap!
+                tmp = temp_remap_cb(fp_blend, base_dir_src)
+                tmp = os.path.relpath(tmp[:-1], base_dir_dst_temp)
+                binary_edits_curr = binary_edits.setdefault(tmp, [])
+                del tmp
 
         # assume the path might be relative
         path_src_orig = fp.filepath
@@ -323,7 +338,13 @@ def pack(
         path_dst = os.path.join(base_dir_dst, path_dst)
 
         path_dst_final = b'//' + path_dst_final
-        fp.filepath = path_dst_final
+
+        # Assign direct or add to edit-list (to apply later)
+        if not readonly:
+            fp.filepath = path_dst_final
+        if binary_edits is not None:
+            fp.filepath_assign_edits(path_dst_final, binary_edits_curr)
+
         # add to copy-list
         # never copy libs (handled separately)
         if not isinstance(fp, blendfile_path_walker.FPElem_block_path) or fp.userdata[0].code != b'LI':

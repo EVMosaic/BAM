@@ -927,6 +927,13 @@ class BamCheckoutTest(BamSessionTestCase):
         stdout, stderr = bam_run(["checkout", file_name, "--output", session_path], proj_path)
         self.assertEqual("", stderr)
 
+        if 1:
+            # try to commit (ensure UUID's are correct)
+            # (not mismatch since the variations are applied)
+            stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+            self.assertEqual("", stderr)
+            self.assertEqual("Nothing to commit!\n", stdout)
+
         ret = bam_run_as_json(["deps", "lib_endpoint.blend", "--json", "--recursive"], session_path)
         ret.sort()
 

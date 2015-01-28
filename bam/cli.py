@@ -372,7 +372,7 @@ class bam_commands:
 
         if output_dir is None:
             # fallback to the basename
-            dst_dir = os.path.splitext(os.path.basename(path))[0]
+            session_rootdir = os.path.splitext(os.path.basename(path))[0]
         else:
             output_dir = os.path.realpath(output_dir)
             if os.sep in output_dir.rstrip(os.sep):
@@ -382,10 +382,10 @@ class bam_commands:
                 if ".." in os.path.relpath(output_dir, project_rootdir).split(os.sep):
                     fatal("Output %r is outside the project path %r" % (output_dir, project_rootdir))
                 del project_rootdir
-            dst_dir = output_dir
+            session_rootdir = output_dir
         del output_dir
 
-        if bam_config.find_sessiondir(cwd=dst_dir):
+        if bam_config.find_sessiondir(cwd=session_rootdir):
             fatal("Can't checkout in existing session. Use update.")
 
         payload = {
@@ -447,12 +447,12 @@ class bam_commands:
         import zipfile
         with open(dst_dir_data, 'rb') as zip_file:
             zip_handle = zipfile.ZipFile(zip_file)
-            zip_handle.extractall(dst_dir)
+            zip_handle.extractall(session_rootdir)
         del zipfile, zip_file
 
         os.remove(dst_dir_data)
 
-        sys.stdout.write("\nwritten: %r\n" % dst_dir)
+        sys.stdout.write("\nwritten: %r\n" % session_rootdir)
 
     @staticmethod
     def update(paths):

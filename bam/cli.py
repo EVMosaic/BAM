@@ -201,6 +201,34 @@ class bam_session:
     def __new__(cls, *args, **kwargs):
         raise RuntimeError("%s should not be instantiated" % cls)
 
+    def session_path_to_cache(
+            path,
+            cachedir=None,
+            session_rootdir=None,
+            paths_remap_relbase=None,
+            abort=True):
+        """
+        Given an absolute path, give us the cache-path on disk.
+        """
+
+        if session_rootdir is None:
+            session_rootdir = bam_config.find_sessiondir(path, abort=abort)
+
+        if paths_remap_relbase is None:
+            with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as fp:
+                paths_remap = json.load(fp)
+                paths_remap_relbase = paths_remap.get(".", "")
+                del fp, paths_remap
+
+        cachedir = os.path.join(bam_config.find_rootdir(cwd=session_rootdir, abort=True), ".cache")
+        path_rel = os.path.relpath(path, session_rootdir)
+        if path_rel[0] == "_":
+            path_cache = os.path.join(cachedir, path_rel[1:])
+        else:
+            path_cache = os.path.join(cachedir, paths_remap_relbase, path_rel)
+        path_cache = os.path.normpath(path_cache)
+        return path_cache
+
     @staticmethod
     def request_url(req_path):
         cfg = bam_config.load()
@@ -224,6 +252,7 @@ class bam_session:
             os.path.join(session_rootdir, ".bam_paths_uuid.json"),
             os.path.join(session_rootdir, ".bam_paths_remap.json"),
             os.path.join(session_rootdir, ".bam_deps_remap.json"),
+            os.path.join(session_rootdir, ".bam_paths_edit.data"),
             os.path.join(session_rootdir, ".bam_tmp.zip"),
             }
 
@@ -280,6 +309,100 @@ class bam_session:
     def is_dirty(session_rootdir):
         paths_add, paths_remove, paths_modified = bam_session.status(session_rootdir)
         return any((paths_add, paths_modified, paths_remove))
+
+    @staticmethod
+    def binary_edits_apply_single(
+            blendfile_abs,  # str
+            blendfile,  # bytes
+            binary_edits,
+            paths_uuid_update=None,
+            ):
+
+        sys.stdout.write("  operating on: %r\n" % blendfile)
+        sys.stdout.flush()
+        # we don't want to read, just edit whats there.
+        with open(blendfile_abs, 'rb+') as fh_blend:
+            for ofs, data in binary_edits:
+                # sys.stdout.write("\n%r\n" % data)
+                sys.stdout.flush()
+                # ensure we're writing to the correct location.
+                # fh_blend.seek(ofs)
+                # sys.stdout.write(repr(b'existing data: ' + fh_blend.read(len(data) + 1)))
+                fh_blend.seek(ofs)
+                fh_blend.write(data)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+
+        if paths_uuid_update is not None:
+            # update hash!
+            # we could do later, but the file is fresh in cache, so do now
+            from bam.utils.system import uuid_from_file
+            paths_uuid_update[blendfile.decode('utf-8')] = uuid_from_file(blendfile_abs)
+            del uuid_from_file
+
+    @staticmethod
+    def binary_edits_apply_all(
+            session_rootdir,
+            # collection of local paths or None (to apply all binary edits)
+            paths=None,
+            update_uuid=False,
+            ):
+
+        # sanity check
+        if paths is not None:
+            for path in paths:
+                assert(type(path) is bytes)
+                assert(not os.path.isabs(path))
+                assert(os.path.exists(os.path.join(session_rootdir, path.decode('utf-8'))))
+
+        with open(os.path.join(session_rootdir, ".bam_paths_edit.data"), 'rb') as fh:
+            import pickle
+            binary_edits_all = pickle.load(fh)
+            paths_uuid_update = {} if update_uuid else None
+            for blendfile, binary_edits in binary_edits_all.items():
+                if binary_edits:
+                    if paths is not None and blendfile not in paths:
+                        continue
+
+                    blendfile_abs = os.path.join(session_rootdir, blendfile.decode('utf-8'))
+                    bam_session.binary_edits_apply_single(
+                            blendfile_abs,
+                            blendfile,
+                            binary_edits,
+                            paths_uuid_update,
+                            )
+            del pickle
+            del binary_edits_all
+
+        if update_uuid and paths_uuid_update:
+            # freshen the UUID's based on the replayed binary_edits
+            from bam.utils.system import write_json_to_file
+            paths_uuid = bam_session.load_paths_uuid(session_rootdir)
+            assert(set(paths_uuid_update.keys()).issubset(set(paths_uuid.keys())))
+            paths_uuid.update(paths_uuid_update)
+            write_json_to_file(os.path.join(session_rootdir, ".bam_paths_uuid.json"), paths_uuid)
+            del write_json_to_file
+            del paths_uuid
+
+    @staticmethod
+    def binary_edits_update_single(
+            blendfile_abs,
+            binary_edits,
+            # callback, takes a filepath
+            remap_filepath_cb,
+            ):
+        """
+        After committing a blend file, we need to re-create the binary edits.
+        """
+        from bam.blend import blendfile_path_walker
+        for fp, (rootdir, fp_blend_basename) in blendfile_path_walker.FilePath.visit_from_blend(
+                blendfile_abs,
+                readonly=True,
+                recursive=False,
+                ):
+            f_rel_orig = fp.filepath
+            f_rel = remap_filepath_cb(f_rel_orig)
+            fp.filepath_assign_edits(f_rel, binary_edits)
 
 
 class bam_commands:
@@ -451,8 +574,38 @@ class bam_commands:
         del zipfile, zip_file
 
         os.remove(dst_dir_data)
-
         sys.stdout.write("\nwritten: %r\n" % session_rootdir)
+
+
+        # ------------
+        # Update Cache
+        #
+        # TODO, remove stale cache
+        cachedir = os.path.join(bam_config.find_rootdir(cwd=session_rootdir, abort=True), ".cache")
+        # os.makedirs(cachedir, exist_ok=True)
+
+        # we need this to map to project level paths
+        with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as fp:
+            paths_remap = json.load(fp)
+            for f_src, f_dst in paths_remap.items():
+                if f_src == ".":
+                    continue
+                f_src_abs = os.path.join(session_rootdir, f_src)
+                if not os.path.exists(f_src_abs):
+                    continue
+
+                f_dst_abs = os.path.join(cachedir, f_dst)
+                os.makedirs(os.path.dirname(f_dst_abs), exist_ok=True)
+                import shutil
+                # print("from        ", f_src_abs, os.path.exists(f_src_abs))
+                # print("to          ", f_dst_abs, os.path.exists(f_dst_abs))
+                # print("CREATING:   ", f_dst_abs)
+                shutil.copyfile(f_src_abs, f_dst_abs)
+                del shutil
+
+        del paths_remap, cachedir
+        # ...done updating cache
+        # ----------------------
 
         # -------------------
         # replay binary edits
@@ -463,52 +616,10 @@ class bam_commands:
         # But for files to work locally we have to apply binary edits given to us by the server.
 
         sys.stdout.write("replaying edits...\n")
-        with open(os.path.join(session_rootdir, ".bam_paths_edit.data"), 'rb') as fh:
-            import pickle
-            binary_edits_all = pickle.load(fh)
-            paths_uuid_update = {}
-            for blendfile, binary_edits in binary_edits_all.items():
-                if binary_edits:
-                    sys.stdout.write("  operating on: %r\n" % blendfile)
-                    sys.stdout.flush()
-                    blendfile_abs = os.path.join(session_rootdir, blendfile.decode('utf-8'))
-                    # we don't want to read, just edit whats there.
-                    with open(blendfile_abs, 'rb+') as fh_blend:
-                        for ofs, data in binary_edits:
-                            # sys.stdout.write("\n%r\n" % data)
-                            sys.stdout.flush()
-                            # ensure we're writing to the correct location.
-                            # fh_blend.seek(ofs)
-                            # sys.stdout.write(repr(b'existing data: ' + fh_blend.read(len(data) + 1)))
-                            fh_blend.seek(ofs)
-                            fh_blend.write(data)
-                    sys.stdout.write("\n")
-                    sys.stdout.flush()
+        bam_session.binary_edits_apply_all(session_rootdir, paths=None, update_uuid=True)
 
-                    # update hash!
-                    # we could do later, but the file is fresh in cache, so do now
-                    from bam.utils.system import uuid_from_file
-                    paths_uuid_update[blendfile.decode('utf-8')] = uuid_from_file(blendfile_abs)
-                    del uuid_from_file
-            del pickle
-            del binary_edits_all
-
-            if paths_uuid_update:
-                # freshen the UUID's based on the replayed binary_edits
-                from bam.utils.system import write_json_to_file
-                paths_uuid = bam_session.load_paths_uuid(session_rootdir)
-                assert(set(paths_uuid_update.keys()).issubset(set(paths_uuid.keys())))
-                paths_uuid.update(paths_uuid_update)
-                write_json_to_file(os.path.join(session_rootdir, ".bam_paths_uuid.json"), paths_uuid)
-                del write_json_to_file
-                del paths_uuid
-            del paths_uuid_update
-
-        # we will need to keep these later
-        os.remove(os.path.join(session_rootdir, ".bam_paths_edit.data"))
-
-        # done with binary edits
-        # ----------------------
+        # ...done with binary edits
+        # -------------------------
 
     @staticmethod
     def update(paths):
@@ -561,6 +672,85 @@ class bam_commands:
         shutil.rmtree(session_tmp)
 
     @staticmethod
+    def revert(paths):
+        # Copy files back from the cache
+        # a relatively lightweight operation
+
+        def _get_from_path(session_rootdir, cachedir, paths_remap, path_abs):
+            print("====================")
+            print(path_abs)
+            path_abs = os.path.normpath(path_abs)
+            print(paths_remap)
+            for f_src, f_dst in paths_remap.items():
+                if f_src == ".":
+                    continue
+                print("-----------------")
+                f_src_abs = os.path.join(session_rootdir, f_src)
+                #if os.path.samefile(f_src_abs, path_abs):
+                print(f_src_abs)
+                print(f_src)
+                print(f_dst)
+                if f_src_abs == path_abs:
+                    f_dst_abs = os.path.join(cachedir, f_dst)
+                    return f_src, f_src_abs, f_dst_abs
+            return None, None, None
+
+        # 2 passes, once to check, another to execute
+        for pass_ in range(2):
+            for path in paths:
+                path = os.path.normpath(os.path.abspath(path))
+                if os.path.isdir(path):
+                    fatal("Reverting a directory not yet supported (%r)" % path)
+
+                # possible we try revert different session's files
+                session_rootdir = bam_config.find_sessiondir(path, abort=True)
+                cachedir = os.path.join(bam_config.find_rootdir(cwd=session_rootdir, abort=True), ".cache")
+                if not os.path.exists(cachedir):
+                    fatal("Local cache missing (%r)" %
+                          cachedir)
+
+                path_rel = os.path.relpath(path, session_rootdir)
+
+                with open(os.path.join(session_rootdir, ".bam_paths_uuid.json")) as fp:
+                    paths_uuid = json.load(fp)
+                    if paths_uuid.get(path_rel) is None:
+                        fatal("Given path isn't in the session, skipping (%s)" %
+                              path_abs)
+
+                # first pass is sanity check only
+                if pass_ == 0:
+                    continue
+
+                with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as fp:
+                    paths_remap = json.load(fp)
+                    paths_remap_relbase = paths_remap.get(".", "")
+                    del fp, paths_remap
+
+                path_cache = bam_session.session_path_to_cache(
+                        path,
+                        cachedir=cachedir,
+                        session_rootdir=session_rootdir,
+                        paths_remap_relbase=paths_remap_relbase,
+                        )
+
+                if not os.path.exists(path_cache):
+                    fatal("Given path missing cache disk (%s)" %
+                          path_cache)
+
+                if pass_ == 1:
+                    # for real
+                    print("  Reverting %r" % path)
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    import shutil
+                    shutil.copyfile(path_cache, path)
+
+                    bam_session.binary_edits_apply_all(
+                            session_rootdir,
+                            paths={path_rel.encode('utf-8')},
+                            update_uuid=False,
+                            )
+
+    @staticmethod
     def commit(paths, message):
         from bam.utils.system import write_json_to_file, write_json_to_zip
         import requests
@@ -570,6 +760,7 @@ class bam_commands:
 
         session_rootdir = bam_config.find_sessiondir(paths[0], abort=True)
 
+        cachedir = os.path.join(bam_config.find_rootdir(cwd=session_rootdir, abort=True), ".cache")
         basedir = bam_config.find_basedir(
                 cwd=session_rootdir,
                 descr="bam repository",
@@ -584,6 +775,7 @@ class bam_commands:
         if not os.path.exists(os.path.join(session_rootdir, ".bam_paths_uuid.json")):
             fatal("Path not a project session, (%r)" %
                   session_rootdir)
+
 
         # make a zipfile from session
         paths_uuid = bam_session.load_paths_uuid(session_rootdir)
@@ -606,8 +798,29 @@ class bam_commands:
         with open(os.path.join(session_rootdir, ".bam_paths_remap.json")) as f:
             paths_remap = json.load(f)
             paths_remap_relbase = paths_remap.get(".", "")
+            paths_remap_relbase_bytes = paths_remap_relbase.encode("utf-8")
+
+        def remap_filepath_bytes(f_rel):
+            assert(type(f_rel) is bytes)
+            f_rel_in_proj = paths_remap.get(f_rel.decode("utf-8"))
+            if f_rel_in_proj is None:
+                if paths_remap_relbase_bytes:
+                    if f_rel.startswith(b'_'):
+                        f_rel_in_proj = f_rel[1:]
+                    else:
+                        f_rel_in_proj = os.path.join(paths_remap_relbase_bytes, f_rel)
+                else:
+                    if f_rel.startswith(b'_'):
+                        # we're already project relative
+                        f_rel_in_proj = f_rel[1:]
+                    else:
+                        f_rel_in_proj = f_rel
+            else:
+                f_rel_in_proj = f_rel_in_proj.encode("utf-8")
+            return f_rel_in_proj
 
         def remap_filepath(f_rel):
+            assert(type(f_rel) is str)
             f_rel_in_proj = paths_remap.get(f_rel)
             if f_rel_in_proj is None:
                 if paths_remap_relbase:
@@ -714,10 +927,6 @@ class bam_commands:
             write_json_to_zip(zip_handle, ".bam_paths_ops.json", paths_ops)
             log.debug(paths_ops)
 
-        if os.path.exists(basedir_temp):
-            import shutil
-            shutil.rmtree(basedir_temp)
-            del shutil
 
         # --------------
         # Commit Request
@@ -762,6 +971,73 @@ class bam_commands:
                 del paths_remap[k]
             write_json_to_file(os.path.join(session_rootdir, ".bam_paths_remap.json"), paths_remap)
             del write_json_to_file
+
+            # ------------------
+            # Update Local Cache
+            #
+            # We now have 'pristine' files in basedir_temp, the commit went fine.
+            # So move these into local cache AND we have to remake the binary_edit data.
+            # since files were modified, if we don't do this - we wont be able to revert or avoid
+            # re-downloading the files later.
+            binary_edits_all_update = {}
+            binary_edits_all_remove = set()
+            for paths_dict, op in ((paths_modified, 'M'), (paths_add, 'A')):
+                for f_rel, f_abs in paths_dict.items():
+                    print("  caching (%s): %r" % (op, f_abs))
+                    f_dst_abs = os.path.join(cachedir, f_rel)
+                    os.makedirs(os.path.dirname(f_dst_abs), exist_ok=True)
+                    if f_abs.startswith(basedir_temp):
+                        os.rename(f_abs, f_dst_abs)
+                    else:
+                        import shutil
+                        shutil.copyfile(f_abs, f_dst_abs)
+                        del shutil
+                    binary_edits = binary_edits_all_update[f_rel.encode('utf-8')] = []
+
+                    # update binary_edits
+                    if f_rel.endswith(".blend"):
+                        bam_session.binary_edits_update_single(
+                                f_dst_abs,
+                                binary_edits,
+                                remap_filepath_cb=remap_filepath_bytes,
+                                )
+            for f_rel, f_abs in paths_remove.items():
+                binary_edits_all_remove.add(f_rel)
+
+            paths_edit_abs = os.path.join(session_rootdir, ".bam_paths_edit.data")
+            if binary_edits_all_update or binary_edits_all_remove:
+                if os.path.exists(paths_edit_abs):
+                    with open(paths_edit_abs, 'rb') as fh:
+                        import pickle
+                        binary_edits_all = pickle.load(fh)
+                        del pickle
+                else:
+                    binary_edits_all = {}
+
+                if binary_edits_all_remove and binary_edits_all:
+                    for f_rel in binary_edits_all_remove:
+                        if f_rel in binary_edits_all:
+                            try:
+                                del binary_edits_all[f_rel]
+                            except KeyError:
+                                pass
+                if binary_edits_all_update:
+                    binary_edits_all.update(binary_edits_all_update)
+
+            import pickle
+            with open(paths_edit_abs, 'wb') as fh:
+                print()
+                pickle.dump(binary_edits_all, fh, pickle.HIGHEST_PROTOCOL)
+            del binary_edits_all
+            del paths_edit_abs
+            del pickle
+
+        # ------------------------------
+        # Cleanup temp dir to finish off
+        if os.path.exists(basedir_temp):
+            import shutil
+            shutil.rmtree(basedir_temp)
+            del shutil
 
     @staticmethod
     def status(paths, use_json=False):
@@ -1086,6 +1362,21 @@ def create_argparse_update(subparsers):
             )
 
 
+def create_argparse_revert(subparsers):
+    subparse = subparsers.add_parser(
+            "revert", aliases=("rv",),
+            help="Reset local changes back to the state at time of checkout",
+            )
+    subparse.add_argument(
+            dest="paths", nargs="+",
+            help="Path(s) to operate on",
+            )
+    subparse.set_defaults(
+            func=lambda args:
+            bam_commands.revert(args.paths or ["."]),
+            )
+
+
 def create_argparse_commit(subparsers):
     subparse = subparsers.add_parser(
             "commit", aliases=("ci",),
@@ -1103,22 +1394,6 @@ def create_argparse_commit(subparsers):
     subparse.set_defaults(
             func=lambda args:
             bam_commands.commit(args.paths or ["."], args.message),
-            )
-
-
-def create_argparse_revert(subparsers):
-    subparse = subparsers.add_parser(
-            "revert", aliases=("rv",),
-            help="Reset local changes back to the state at time of checkout",
-            )
-    subparse.add_argument(
-            dest="paths", nargs="+",
-            help="Path(s) to operate on",
-            )
-    subparse.set_defaults(
-            func=lambda args:
-            # TODO
-            print(args)
             )
 
 

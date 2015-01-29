@@ -1073,6 +1073,94 @@ class BamUpdateTest(BamSessionTestCase):
             self.assertEqual(f.read(), file_data + file_data_append)
 
 
+class BamRevertTest(BamSessionTestCase):
+    """
+    Test for the `bam revert` command.
+    """
+
+    def __init__(self, *args):
+        self.init_defaults()
+        super().__init__(*args)
+
+    def test_revert_simple(self):
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+        file_quick_write(session_path, "test.txt", data="test123")
+
+        stdout, stderr = bam_run(["commit", "-m", "commit test"], session_path)
+        self.assertEqual("", stderr)
+
+        stdout, stderr = bam_run(["status", ], session_path)
+        self.assertEqual("", stdout)
+        self.assertEqual("", stderr)
+
+        # remove and revert it
+        os.remove(os.path.join(session_path, "test.txt"))
+
+        ret = bam_run_as_json(["status", "--json"], session_path)
+        ret.sort()
+        self.assertEqual(
+                [["D", "test.txt"],
+                 ], ret)
+        stdout, stderr = bam_run(["revert", "test.txt"], session_path)
+
+        ret = bam_run_as_json(["status", "--json"], session_path)
+        ret.sort()
+        self.assertEqual([
+                 ], ret)
+
+        with open(os.path.join(session_path, "test.txt"), 'rb') as fh:
+            self.assertEqual(b'test123', fh.read())
+
+    def test_revert_blend(self):
+        """
+        This replays binary edits.
+        """
+        session_name = "mysession"
+        proj_path, session_path = self.init_session(session_name)
+
+        os.makedirs(os.path.join(session_path, "dir"))
+        # just a way to quickly get a lot of files.
+        import shutil
+        for d in ("abs", "subdir"):
+            # path cant already exist, ugh
+            shutil.copytree(
+                    os.path.join(CURRENT_DIR, "blends", "multi_level", d),
+                    os.path.join(session_path, "dir", d),
+                    )
+        stdout, stderr = bam_run(["commit", "-m", "test message"], session_path)
+        self.assertEqual("", stderr)
+
+        shutil.rmtree(os.path.join(session_path))
+
+        file_name = os.path.join("dir", "subdir", "house_lib_user.blend")
+        stdout, stderr = bam_run(["checkout", file_name, "--output", session_path], proj_path)
+        self.assertEqual("", stderr)
+
+        for i in range(2):
+            if i == 1:
+                blends = [
+                    os.path.join(session_path, "house_lib_user.blend"),
+                    os.path.join(session_path, "_dir", "abs", "path", "house_abs.blend"),
+                    os.path.join(session_path, "rel", "path", "house_rel.blend"),
+                    ]
+                for f in blends:
+                    os.remove(f)
+                stdout, stderr = bam_run(["revert"] + blends, session_path)
+                self.assertEqual("", stderr)
+
+            ret = bam_run_as_json(["deps", "house_lib_user.blend", "--json", "--recursive"], session_path)
+            ret.sort()
+            self.assertEqual(ret[0][1], "//_dir/abs/path/house_abs.blend")
+            self.assertEqual(ret[0][3], "OK")
+            self.assertEqual(ret[1][1], "//rel/path/house_rel.blend")
+            self.assertEqual(ret[1][3], "OK")
+
+        ret = bam_run_as_json(["status", "--json"], session_path)
+        ret.sort()
+        self.assertEqual([
+                 ], ret)
+
 class BamBlendTest(BamSimpleTestCase):
 
     def test_create_all(self):

@@ -128,6 +128,7 @@ def pack(
         readonly=False,
         # dict of binary_edits:
         # {file: [(ofs, bytes), ...], ...}
+        # ... where the file is the relative 'packed' location.
         binary_edits=None,
         ):
     """

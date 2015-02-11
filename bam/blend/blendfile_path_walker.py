@@ -45,6 +45,9 @@ class C_defs:
     IMA_SRC_SEQUENCE    = 2
     IMA_SRC_MOVIE       = 3
 
+    # DNA_modifier_types.h
+    eModifierType_MeshCache = 46
+
 
 if VERBOSE:
     import logging
@@ -477,6 +480,14 @@ class FilePath:
             yield from fn(block, basedir, extra_info, level)
 
     @staticmethod
+    def _from_block_OB(block, basedir, extra_info, level):
+        # 'ob->modifiers[...].filepath'
+        for block_mod in bf_utils.iter_ListBase(block.get_pointer(b'modifiers.first'), next_item=b'modifier.next'):
+            item_md_type = block_mod[b'modifier.type']
+            if item_md_type == C_defs.eModifierType_MeshCache:
+                yield FPElem_block_path(basedir, level, (block_mod, b'filepath')), extra_info
+
+    @staticmethod
     def _from_block_MC(block, basedir, extra_info, level):
         # TODO, image sequence
         fp = FPElem_block_path(basedir, level, (block, b'name'))
@@ -566,10 +577,10 @@ class FilePath:
 
 class bf_utils:
     @staticmethod
-    def iter_ListBase(block):
+    def iter_ListBase(block, next_item=b'next'):
         while block:
             yield block
-            block = block.file.find_block_from_offset(block[b'next'])
+            block = block.file.find_block_from_offset(block[next_item])
 
     def iter_array(block, length=-1):
         assert(block.code == b'DATA')

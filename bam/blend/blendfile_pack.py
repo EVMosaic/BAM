@@ -165,6 +165,9 @@ def pack(
     path_temp_files = set()
     path_copy_files = set()
 
+    # path_temp_files --> original-location
+    path_temp_files_orig = {}
+
     TEMP_SUFFIX = b'@'
 
     if report is None:
@@ -212,6 +215,7 @@ def pack(
             os.makedirs(os.path.dirname(filepath_tmp), exist_ok=True)
             shutil.copy(filepath, filepath_tmp)
             path_temp_files.add(filepath_tmp)
+            path_temp_files_orig[filepath_tmp] = filepath
         return filepath_tmp
 
     # -----------------
@@ -384,7 +388,7 @@ def pack(
         blendfile_dst_basename = os.path.basename(blendfile_dst).decode('utf-8')
 
         if blendfile_src_basename != blendfile_dst_basename:
-            if mode != 'ZIP':
+            if mode == 'FILE':
                 deps_remap[blendfile_dst_basename] = deps_remap[blendfile_src_basename]
                 del deps_remap[blendfile_src_basename]
         del blendfile_src_basename, blendfile_dst_basename
@@ -402,6 +406,13 @@ def pack(
             paths_remap[os.path.relpath(dst, base_dir_dst).decode('utf-8')] = relbase(src).decode('utf-8')
         # main file XXX, should have better way!
         paths_remap[os.path.basename(blendfile_src).decode('utf-8')] = relbase(blendfile_src).decode('utf-8')
+
+        # blend libs
+        for dst in path_temp_files:
+            src = path_temp_files_orig[dst]
+            k = os.path.relpath(dst[:-len(TEMP_SUFFIX)], base_dir_dst_temp).decode('utf-8')
+            paths_remap[k] = relbase(src).decode('utf-8')
+            del k
 
         del relbase
 
@@ -494,6 +505,8 @@ def pack(
         del _compress_level_orig, _compress_mode
 
         yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
+    elif mode == 'NONE':
+        pass
     else:
         raise Exception("%s not a known mode" % mode)
 

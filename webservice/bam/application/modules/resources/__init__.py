@@ -116,7 +116,6 @@ class FileAPI(Resource):
         super(FileAPI, self).__init__()
 
     def get(self, project_name):
-        filepath = request.args['filepath']
         command = request.args['command']
         command_args = request.args.get('arguments')
         if command_args is not None:
@@ -125,6 +124,7 @@ class FileAPI(Resource):
         project = Project.query.filter_by(name=project_name).first()
 
         if command == 'info':
+            filepath = request.args['filepath']
 
             r = svn.local.LocalClient(project.repository_path)
             svn_log = r.log_default(None, None, 5, filepath)
@@ -147,6 +147,7 @@ class FileAPI(Resource):
                 bundle_status=bundle_status)
 
         elif command == 'bundle':
+            filepath = request.args['filepath']
             #return jsonify(filepath=filepath, status="building")
             filepath = os.path.join(project.repository_path, filepath)
 
@@ -173,6 +174,7 @@ class FileAPI(Resource):
                         project.repository_path,
                         True,
                         report,
+                        'ZIP',
                         ):
                     pass
 
@@ -218,6 +220,7 @@ class FileAPI(Resource):
             return jsonify(filepath=filepath, status="building")
 
         elif command == 'checkout':
+            filepath = request.args['filepath']
             filepath = os.path.join(project.repository_path, filepath)
 
             if not os.path.exists(filepath):
@@ -249,6 +252,10 @@ class FileAPI(Resource):
                         project.repository_path,
                         command_args['all_deps'],
                         report,
+                        # we don't infact pack any files here,
+                        # only return a list of files we _would_ pack.
+                        # see: checkout_download
+                        'NONE',
                         )
 
                 # TODO, handle fail
@@ -269,6 +276,57 @@ class FileAPI(Resource):
                         yield data
 
             # return Response(f, direct_passthrough=True)
+            return Response(response_message_iter(), direct_passthrough=True)
+        elif command == 'checkout_download':
+            files = command_args['files']
+
+            def response_message_iter():
+                ID_MESSAGE = 1
+                ID_PAYLOAD = 2
+                ID_PAYLOAD_EMPTY = 3
+                ID_DONE = 4
+                # ID_PAYLOAD_APPEND = 3
+                import struct
+
+                def report(txt):
+                    txt_bytes = txt.encode('utf-8')
+                    return struct.pack('<II', ID_MESSAGE, len(txt_bytes)) + txt_bytes
+
+                yield b'BAM\0'
+
+                # pack the file!
+                import tempfile
+
+                # weak! (ignore original opened file)
+                '''
+                filepath_zip = tempfile.mkstemp(suffix=".zip")
+                os.close(filepath_zip[0])
+                filepath_zip = filepath_zip[1]
+                '''
+
+                for f_rel in files:
+                    f_abs = os.path.join(project.repository_path, f_rel)
+                    if os.path.exists(f_abs):
+                        yield report("%s: %r\n" % ("downloading", f_rel))
+                        # send over files
+                        with open(f_abs, 'rb') as f:
+                            f.seek(0, os.SEEK_END)
+                            f_size = f.tell()
+                            f.seek(0, os.SEEK_SET)
+
+                            yield struct.pack('<II', ID_PAYLOAD, f_size)
+                            while True:
+                                data = f.read(1024)
+                                if not data:
+                                    break
+                                yield data
+                    else:
+                        yield report("%s: %r\n" % ("source missing", f_rel))
+                        yield struct.pack('<II', ID_PAYLOAD_EMPTY, 0)
+
+
+                yield struct.pack('<II', ID_DONE, 0)
+
             return Response(response_message_iter(), direct_passthrough=True)
 
         else:
@@ -379,7 +437,7 @@ class FileAPI(Resource):
             return jsonify(message='File not allowed')
 
     @staticmethod
-    def pack_fn(filepath, filepath_zip, paths_remap_relbase, all_deps, report):
+    def pack_fn(filepath, filepath_zip, paths_remap_relbase, all_deps, report, mode):
         """
         'paths_remap_relbase' is the project path,
         we want all paths to be relative to this so we don't get server path included.
@@ -403,7 +461,7 @@ class FileAPI(Resource):
 
             try:
                 yield from blendfile_pack.pack(
-                        filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode='ZIP',
+                        filepath.encode('utf-8'), filepath_zip.encode('utf-8'), mode=mode,
                         paths_remap_relbase=paths_remap_relbase.encode('utf-8'),
                         deps_remap=deps_remap, paths_remap=paths_remap, paths_uuid=paths_uuid,
                         all_deps=all_deps,

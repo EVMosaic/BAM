@@ -267,7 +267,8 @@ class FilePath:
         if recursive and (level > 0) and (block_codes is not None) and (recursive_all is False):
             # prevent from expanding the
             # same datablock more then once
-            expand_codes = set()
+            # note: we could *almost* id_name, however this isn't unique for libraries.
+            expand_addr_visit = set()
             # {lib_id: {block_ids... }}
             expand_codes_idlib = {}
 
@@ -286,7 +287,7 @@ class FilePath:
                         expand_codes_idlib.setdefault(block[b'lib'], set()).add(block[b'name'])
                     return False
                 else:
-                    id_name = block[b'id.name']
+                    # id_name = block[b'id.name']
 
                     # if we touched this already, don't touch again
                     # FIXME, works in some cases but not others
@@ -295,9 +296,9 @@ class FilePath:
                         return False
                     '''
 
-                    len_prev = len(expand_codes)
-                    expand_codes.add(id_name)
-                    return (len_prev != len(expand_codes))
+                    len_prev = len(expand_addr_visit)
+                    expand_addr_visit.add(block.addr_old)
+                    return (len_prev != len(expand_addr_visit))
 
             def block_expand(block, code):
                 assert(block.code == code)
@@ -314,7 +315,7 @@ class FilePath:
                     if code == b'ID':
                         yield block
         else:
-            expand_codes = None
+            expand_addr_visit = None
 
             # set below
             expand_codes_idlib = None
@@ -384,10 +385,10 @@ class FilePath:
             for block in iter_blocks_id(code):
                 yield from FilePath.from_block(block, basedir, extra_info, level)
 
-        # print("A:", expand_codes)
+        # print("A:", expand_addr_visit)
         # print("B:", block_codes)
         if VERBOSE:
-            log_deps.info("%s%s" % (indent_str, set_as_str(expand_codes)))
+            log_deps.info("%s%s" % (indent_str, set_as_str(expand_addr_visit)))
 
         if recursive:
 

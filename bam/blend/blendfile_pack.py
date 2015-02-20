@@ -149,7 +149,6 @@ def pack(
     #   also prevents cyclic loops from crashing.
 
     import os
-    import shutil
 
     from bam.utils.system import colorize
 
@@ -212,11 +211,16 @@ def pack(
 
         # only overwrite once (so we can write into a path already containing files)
         if filepath_tmp not in path_temp_files:
-            os.makedirs(os.path.dirname(filepath_tmp), exist_ok=True)
-            shutil.copy(filepath, filepath_tmp)
+            if mode != 'NONE':
+                import shutil
+                os.makedirs(os.path.dirname(filepath_tmp), exist_ok=True)
+                shutil.copy(filepath, filepath_tmp)
             path_temp_files.add(filepath_tmp)
             path_temp_files_orig[filepath_tmp] = filepath
-        return filepath_tmp
+        if mode != 'NONE':
+            return filepath_tmp
+        else:
+            return filepath
 
     # -----------------
     # Variation Support
@@ -308,8 +312,12 @@ def pack(
             if binary_edits is not None:
                 # TODO, temp_remap_cb makes paths, this isn't ideal,
                 # in this case we only want to remap!
-                tmp = temp_remap_cb(fp_blend, base_dir_src)
-                tmp = os.path.relpath(tmp[:-1], base_dir_dst_temp)
+                if mode == 'NONE':
+                    tmp = temp_remap_cb(fp_blend, base_dir_src)
+                    tmp = os.path.relpath(tmp, base_dir_src)
+                else:
+                    tmp = temp_remap_cb(fp_blend, base_dir_src)
+                    tmp = os.path.relpath(tmp[:-len(TEMP_SUFFIX)], base_dir_dst_temp)
                 binary_edits_curr = binary_edits.setdefault(tmp, [])
                 del tmp
 
@@ -431,6 +439,8 @@ def pack(
         for dst in path_temp_files:
             k = os.path.relpath(dst[:-len(TEMP_SUFFIX)], base_dir_dst_temp).decode('utf-8')
             if k not in paths_uuid:
+                if mode == 'NONE':
+                    dst = path_temp_files_orig[dst]
                 paths_uuid[k] = uuid_from_file(dst)
             del k
 
@@ -441,6 +451,7 @@ def pack(
     # Handle File Copy/Zip
 
     if mode == 'FILE':
+        import shutil
         blendfile_dst_tmp = temp_remap_cb(blendfile_src, base_dir_src)
 
         shutil.move(blendfile_dst_tmp, blendfile_dst)
@@ -448,7 +459,7 @@ def pack(
 
         # strip TEMP_SUFFIX
         for fn in path_temp_files:
-            shutil.move(fn, fn[:-1])
+            shutil.move(fn, fn[:-len(TEMP_SUFFIX)])
 
         for src, dst in path_copy_files:
             assert(b'.blend' not in dst)
@@ -463,6 +474,7 @@ def pack(
         yield report("  %s: %r\n" % (colorize("written", color='green'), blendfile_dst))
 
     elif mode == 'ZIP':
+        import shutil
         import zipfile
 
         # not awesome!

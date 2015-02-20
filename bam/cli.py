@@ -653,15 +653,21 @@ class bam_commands:
             import struct
             ID_MESSAGE = 1
             ID_PAYLOAD = 2
-            ID_PAYLOAD_EMPTY = 3
-            ID_DONE = 4
+            ID_PAYLOAD_APPEND = 3
+            ID_PAYLOAD_EMPTY = 4
+            ID_DONE = 5
             head = r.raw.read(4)
             if head != b'BAM\0':
                 fatal("bad header from server")
 
             file_index = 0
+            is_header_read = True
             while True:
-                msg_type, msg_size = struct.unpack("<II", r.raw.read(8))
+                if is_header_read:
+                    msg_type, msg_size = struct.unpack("<II", r.raw.read(8))
+                else:
+                    is_header_read = True
+
                 if msg_type == ID_MESSAGE:
                     sys.stdout.write(r.raw.read(msg_size).decode('utf-8'))
                     sys.stdout.flush()
@@ -679,20 +685,45 @@ class bam_commands:
                     os.makedirs(os.path.dirname(f_abs), exist_ok=True)
 
                     with open(f_abs, "wb") as f:
-                        tot_size = 0
-                        # for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
-                        for chunk in iter_content_size(r, msg_size, chunk_size=CHUNK_SIZE):
-                            if chunk:  # filter out keep-alive new chunks
-                                tot_size += len(chunk)
-                                f.write(chunk)
-                                f.flush()
+                        while True:
+                            tot_size = 0
+                            # No need to worry about filling memory,
+                            # total chunk size is capped by the server
+                            chunks = []
+                            # for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                            for chunk in iter_content_size(r, msg_size, chunk_size=CHUNK_SIZE):
+                                if chunk:  # filter out keep-alive new chunks
+                                    tot_size += len(chunk)
+                                    # f.write(chunk)
+                                    # f.flush()
+                                    chunks.append(chunk)
 
-                                sys.stdout.write("\rdownload: [%03d%%]" % ((100 * tot_size) // msg_size))
-                                sys.stdout.flush()
-                        assert(tot_size == msg_size)
+                                    sys.stdout.write("\rdownload: [%03d%%]" % ((100 * tot_size) // msg_size))
+                                    sys.stdout.flush()
+                            assert(tot_size == msg_size)
+
+                            # decompress all chunks
+                            import lzma
+                            f.write(lzma.decompress(b''.join(chunks)))
+                            f.flush()
+                            del chunks
+
+                            # take care! - re-reading the next header to see if
+                            # we're appending to this file or not
+                            msg_type, msg_size = struct.unpack("<II", r.raw.read(8))
+                            if msg_type == ID_PAYLOAD_APPEND:
+                                continue
+                            # otherwise continue the outer loop, without re-reading the header
+
+                            # don't re-read the header next iteration
+                            is_header_read = False
+                            break
 
                 elif msg_type == ID_DONE:
                     break
+                elif msg_type == ID_PAYLOAD_APPEND:
+                    # Should only handle in a read-loop above
+                    raise Exception("Invalid state for message-type %d" % msg_type)
                 else:
                     raise Exception("Unknown message-type %d" % msg_type)
             del struct

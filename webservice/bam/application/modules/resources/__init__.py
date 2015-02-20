@@ -278,14 +278,17 @@ class FileAPI(Resource):
             # return Response(f, direct_passthrough=True)
             return Response(response_message_iter(), direct_passthrough=True)
         elif command == 'checkout_download':
+            # 4mb chunks
+            CHUNK_COMPRESS = 4194304
+            # CHUNK_COMPRESS = 512  # for testing, we can ensure many chunks are supported
             files = command_args['files']
 
             def response_message_iter():
                 ID_MESSAGE = 1
                 ID_PAYLOAD = 2
-                ID_PAYLOAD_EMPTY = 3
-                ID_DONE = 4
-                # ID_PAYLOAD_APPEND = 3
+                ID_PAYLOAD_APPEND = 3
+                ID_PAYLOAD_EMPTY = 4
+                ID_DONE = 5
                 import struct
 
                 def report(txt):
@@ -295,15 +298,6 @@ class FileAPI(Resource):
                 yield b'BAM\0'
 
                 # pack the file!
-                import tempfile
-
-                # weak! (ignore original opened file)
-                '''
-                filepath_zip = tempfile.mkstemp(suffix=".zip")
-                os.close(filepath_zip[0])
-                filepath_zip = filepath_zip[1]
-                '''
-
                 for f_rel in files:
                     f_abs = os.path.join(project.repository_path, f_rel)
                     if os.path.exists(f_abs):
@@ -314,12 +308,20 @@ class FileAPI(Resource):
                             f_size = f.tell()
                             f.seek(0, os.SEEK_SET)
 
-                            yield struct.pack('<II', ID_PAYLOAD, f_size)
-                            while True:
-                                data = f.read(1024)
-                                if not data:
-                                    break
-                                yield data
+                            id_payload = ID_PAYLOAD
+
+                            f_size_left = f_size
+                            import lzma
+                            while f_size_left:
+                                data_raw = f.read(CHUNK_COMPRESS)
+                                f_size_left -= len(data_raw)
+                                data_lzma = lzma.compress(data_raw)
+                                del data_raw
+                                assert(f_size_left >= 0)
+
+                                yield struct.pack('<II', id_payload, len(data_lzma))
+                                yield data_lzma
+                                id_payload = ID_PAYLOAD_APPEND
                     else:
                         yield report("%s: %r\n" % ("source missing", f_rel))
                         yield struct.pack('<II', ID_PAYLOAD_EMPTY, 0)

@@ -660,6 +660,7 @@ class ExpandID:
     @staticmethod
     def expand_OB(block):  # 'Object'
         yield from ExpandID._expand_generic_animdata(block)
+        yield from ExpandID._expand_generic_material(block)
         yield block.get_pointer(b'data')
         yield block.get_pointer(b'dup_group')
 

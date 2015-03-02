@@ -1625,12 +1625,20 @@ def create_argparse_pack(subparsers):
             help="Pack a blend file and its dependencies into an archive",
             description=
     """
+    You can simply pack a blend file like this to create a zip-file of the same name.
+
+    .. code-block:: sh
+
+       bam pack /path/to/scene.blend
+
+    You may also want to give an explicit output directory.
+
     This command is used for packing a ``.blend`` file into a ``.zip`` file for redistribution.
 
     .. code-block:: sh
 
        # pack a blend with maximum compression for online downloads
-       bam pack /path/to/scene.blend --output scene.zip --compress
+       bam pack /path/to/scene.blend --output my_scene.zip --compress=best
     """,
             formatter_class=argparse.RawDescriptionHelpFormatter,
             )
@@ -1639,7 +1647,7 @@ def create_argparse_pack(subparsers):
             help="Path(s) to operate on",
             )
     subparse.add_argument(
-            "-o", "--output", dest="output", metavar='ZIP', required=True,
+            "-o", "--output", dest="output", metavar='ZIP', required=False,
             help="Output file or a directory when multiple inputs are passed",
             )
 
@@ -1649,7 +1657,7 @@ def create_argparse_pack(subparsers):
             func=lambda args:
             bam_commands.pack(
                     args.paths,
-                    args.output,
+                    args.output or (os.path.splitext(args.paths[0])[0] + ".zip"),
                     all_deps=args.all_deps,
                     use_quiet=args.use_quiet,
                     compress_level=args.compress_level),

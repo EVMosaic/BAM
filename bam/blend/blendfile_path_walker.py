@@ -48,6 +48,10 @@ class C_defs:
     # DNA_modifier_types.h
     eModifierType_MeshCache = 46
 
+    # DNA_particle_types.h
+    PART_DRAW_OB = 7
+    PART_DRAW_GR = 8
+
 
 if VERBOSE:
     import logging
@@ -676,6 +680,14 @@ class ExpandID:
                 item_custom = item.get_pointer(b'custom', sdna_index_refine=sdna_index_bPoseChannel)
                 if item_custom is not None:
                     yield item_custom
+        # Expand the objects 'ParticleSettings' via:
+        # 'ob->particlesystem[...].part'
+        sdna_index_ParticleSystem = block.file.sdna_index_from_id.get(b'ParticleSystem')
+        if sdna_index_ParticleSystem is not None:
+            for item in bf_utils.iter_ListBase(block.get_pointer(b'particlesystem.first')):
+                item_part = item.get_pointer(b'part', sdna_index_refine=sdna_index_ParticleSystem)
+                if item_part is not None:
+                    yield item_part
 
     @staticmethod
     def expand_ME(block):  # 'Mesh'
@@ -739,6 +751,15 @@ class ExpandID:
     def expand_NT(block):  # 'bNodeTree'
         yield from ExpandID._expand_generic_animdata(block)
         yield from ExpandID._expand_generic_nodetree(block)
+
+    @staticmethod
+    def expand_PA(block):  # 'ParticleSettings'
+        yield from ExpandID._expand_generic_animdata(block)
+        block_ren_as = block[b'ren_as']
+        if block_ren_as == C_defs.PART_DRAW_GR:
+            yield block.get_pointer(b'dup_group')
+        elif block_ren_as == C_defs.PART_DRAW_OB:
+            yield block.get_pointer(b'dup_ob')
 
     @staticmethod
     def expand_SC(block):  # 'Scene'

@@ -212,7 +212,7 @@ class BlendFile:
 
         log.debug("building #%d names" % names_len)
         for i in range(names_len):
-            tName = DNA_IO.read_data0(data, offset)
+            tName = DNA_IO.read_data0_offset(data, offset)
             offset = offset + len(tName) + 1
             names.append(DNAName(tName))
         del names_len
@@ -223,7 +223,7 @@ class BlendFile:
         offset += 4
         log.debug("building #%d types" % types_len)
         for i in range(types_len):
-            dna_type_id = DNA_IO.read_data0(data, offset)
+            dna_type_id = DNA_IO.read_data0_offset(data, offset)
             # None will be replaced by the DNAStruct, below
             types.append(DNAStruct(dna_type_id))
             offset += len(dna_type_id) + 1
@@ -329,7 +329,7 @@ class BlendFileBlock:
         else:
             blockheader = OLDBLOCK.unpack(data)
             self.code = blockheader[0].partition(b'\0')[0]
-            self.code = DNA_IO.read_data0(blockheader[0], 0)
+            self.code = DNA_IO.read_data0(blockheader[0])
             self.size = 0
             self.addr_old = 0
             self.sdna_index = 0
@@ -721,13 +721,12 @@ class DNA_IO:
 
     __slots__ = ()
 
-    # Methods for read/write,
-    # these are only here to avoid clogging global-namespace
+    def __new__(cls, *args, **kwargs):
+        raise RuntimeError("%s should not be instantiated" % cls)
 
     @staticmethod
     def write_string(handle, astring, fieldlen):
         assert(isinstance(astring, str))
-        stringw = ""
         if len(astring) >= fieldlen:
             stringw = astring[0:fieldlen]
         else:
@@ -737,7 +736,6 @@ class DNA_IO:
     @staticmethod
     def write_bytes(handle, astring, fieldlen):
         assert(isinstance(astring, (bytes, bytearray)))
-        stringw = b''
         if len(astring) >= fieldlen:
             stringw = astring[0:fieldlen]
         else:
@@ -745,27 +743,15 @@ class DNA_IO:
 
         handle.write(stringw)
 
-    _STRING = [struct.Struct("%ds" % i) for i in range(0, 2048)]
-
-    @staticmethod
-    def _string_struct(length):
-        if length < len(DNA_IO._STRING):
-            st = DNA_IO._STRING[length]
-        else:
-            st = struct.Struct("%ds" % length)
-        return st
-
     @staticmethod
     def read_bytes(handle, length):
-        st = DNA_IO._string_struct(length)
-        data = st.unpack(handle.read(st.size))[0]
+        data = handle.read(length)
         return data
 
     @staticmethod
     def read_bytes0(handle, length):
-        st = DNA_IO._string_struct(length)
-        data = st.unpack(handle.read(st.size))[0]
-        return DNA_IO.read_data0(data, 0)
+        data = handle.read(length)
+        return DNA_IO.read_data0(data)
 
     @staticmethod
     def read_string(handle, length):
@@ -776,13 +762,14 @@ class DNA_IO:
         return DNA_IO.read_bytes0(handle, length).decode('utf-8')
 
     @staticmethod
-    def read_data0(data, offset):
-        """
-        Reads a zero terminating String from a file handle
-        """
+    def read_data0_offset(data, offset):
         add = data.find(b'\0', offset) - offset
-        st = DNA_IO._string_struct(add)
-        return st.unpack_from(data, offset)[0]
+        return data[offset:offset + add]
+
+    @staticmethod
+    def read_data0(data):
+        add = data.find(b'\0')
+        return data[:add]
 
     USHORT = struct.Struct(b'<H'), struct.Struct(b'>H')
 

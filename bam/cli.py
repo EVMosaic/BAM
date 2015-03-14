@@ -1225,7 +1225,7 @@ class bam_commands:
             print(json.dumps(ret))
 
     @staticmethod
-    def list_dir(paths, use_json=False):
+    def list_dir(paths, use_full=False, use_json=False):
         import requests
 
         # Load project configuration
@@ -1259,12 +1259,15 @@ class bam_commands:
 
             print(json.dumps(ret))
         else:
+            def strip_dot_slash(f):
+                return f[2:] if f.startswith("./") else f
+
             for (name_short, name_full, file_type) in items:
                 if file_type == "dir":
-                    print("  %s/" % name_short)
+                    print("  %s/" % (strip_dot_slash(name_full) if use_full else name_short))
             for (name_short, name_full, file_type) in items:
                 if file_type != "dir":
-                    print("  %s" % name_short)
+                    print("  %s" % (strip_dot_slash(name_full) if use_full else name_short))
 
     @staticmethod
     def deps(paths, recursive=False, use_json=False):
@@ -1582,6 +1585,10 @@ def create_argparse_list(subparsers):
             dest="paths", nargs="*",
             help="Path(s) to operate on",
             )
+    subparse.add_argument(
+            "-f", "--full", dest="full", action='store_true',
+            help="Show the full paths",
+            )
 
     init_argparse_common(subparse, use_json=True)
 
@@ -1589,6 +1596,7 @@ def create_argparse_list(subparsers):
             func=lambda args:
             bam_commands.list_dir(
                     args.paths or ["."],
+                    use_full=args.full,
                     use_json=args.json,
                     ),
                     )

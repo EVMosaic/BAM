@@ -1,4 +1,4 @@
-# bam-bash-completion.sh.sh parameter-completion
+# bam-bash-completion.sh parameter-completion
 
 _bam_complete_find_root()
 {
@@ -48,14 +48,15 @@ _bam_complete()
 		case "$cur" in
 			-*)
 				COMPREPLY=($(compgen -W "$(bam $cur_cmd --help | grep "optional arguments" -A1000 | \
-				           tail -n+2 | sed s/\,//g | sed s/\\s/\\n/g | grep -e '^\-')" -- $cur));;
+				           tail -n+2 | sed s/\,//g | sed s/\\s/\\n/g | grep -e '^\-')" -- $cur))
+				;;
 			*)
 				_bam_complete_find_root
 				if [[ ! -z "$BAM_ROOT" ]] ; then
 					cur_path=`dirname $cur"_"`"/"
 					COMPREPLY=($(compgen -W "$(bam list $cur_path --full)" -- $cur))
 				fi
-			;;
+				;;
 		esac
 	fi
 
